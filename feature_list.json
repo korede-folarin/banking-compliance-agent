@@ -1,0 +1,154 @@
+{
+  "features": [
+    {
+      "id": "P0-01",
+      "phase": "Phase 0: Foundations",
+      "description": "Repo scaffolding, dependencies installed, init.sh runs cleanly",
+      "passes": true
+    },
+    {
+      "id": "P1-01",
+      "phase": "Phase 1: RAG core",
+      "description": "Regulatory PDFs loaded, chunked, embedded, indexed in Chroma",
+      "passes": false
+    },
+    {
+      "id": "P1-02",
+      "phase": "Phase 1: RAG core",
+      "description": "Query engine returns grounded answers with cited sources for test questions",
+      "passes": false
+    },
+    {
+      "id": "P2-01",
+      "phase": "Phase 2: Structured extraction",
+      "description": "Intake Agent extracts structured fields from uploaded document using Pydantic schema",
+      "passes": false
+    },
+    {
+      "id": "P3-01",
+      "phase": "Phase 3: Single agent loop",
+      "description": "Single agent: receives document, extracts fields, retrieves relevant regulation, returns first-pass answer",
+      "passes": false
+    },
+    {
+      "id": "P4-01",
+      "phase": "Phase 4: Orchestrating agent + validation layer",
+      "description": "Orchestrating Compliance Agent calls retrieval, reasons over evidence, produces flagged issues list",
+      "passes": false
+    },
+    {
+      "id": "P4-02",
+      "phase": "Phase 4: Orchestrating agent + validation layer",
+      "description": "Deterministic validation layer checks agent output against rules (not another LLM call)",
+      "passes": false
+    },
+    {
+      "id": "P5-01",
+      "phase": "Phase 5: MCP tools layer",
+      "description": "Custom MCP server exposes regulation lookup tool",
+      "passes": false
+    },
+    {
+      "id": "P5-02",
+      "phase": "Phase 5: MCP tools layer",
+      "description": "Custom MCP server exposes mock account/transaction lookup tool",
+      "passes": false
+    },
+    {
+      "id": "P5-03",
+      "phase": "Phase 5: MCP tools layer",
+      "description": "Custom MCP server exposes internal policy rulebook query tool",
+      "passes": false
+    },
+    {
+      "id": "P5-04",
+      "phase": "Phase 5: MCP tools layer",
+      "description": "Agent calls all three MCP tools correctly during a real run (not hardcoded function calls)",
+      "passes": false
+    },
+    {
+      "id": "P6-01",
+      "phase": "Phase 6: Uncertainty handling",
+      "description": "Every extraction/compliance check returns a confidence score grounded in retrieval quality",
+      "passes": false
+    },
+    {
+      "id": "P6-02",
+      "phase": "Phase 6: Uncertainty handling",
+      "description": "Agent abstains and routes to human review when confidence is below threshold",
+      "passes": false
+    },
+    {
+      "id": "P7-01",
+      "phase": "Phase 7: Human-in-the-loop",
+      "description": "Flagged issues require explicit human approval before marked resolved",
+      "passes": false
+    },
+    {
+      "id": "P8-01",
+      "phase": "Phase 8: Evaluation",
+      "description": "Labelled test set created (queries + expected outcomes)",
+      "passes": false
+    },
+    {
+      "id": "P8-02",
+      "phase": "Phase 8: Evaluation",
+      "description": "Retrieval recall@k measured against test set",
+      "passes": false
+    },
+    {
+      "id": "P8-03",
+      "phase": "Phase 8: Evaluation",
+      "description": "Faithfulness / hallucination rate measured",
+      "passes": false
+    },
+    {
+      "id": "P8-04",
+      "phase": "Phase 8: Evaluation",
+      "description": "Prompt variant comparison table (at least 2 variants scored)",
+      "passes": false
+    },
+    {
+      "id": "P9-01",
+      "phase": "Phase 9: Monitoring",
+      "description": "Every agent run logged: query, tools called, output, confidence, flag status",
+      "passes": false
+    },
+    {
+      "id": "P9-02",
+      "phase": "Phase 9: Monitoring",
+      "description": "Dashboard tab shows failure rate, flagged-rate, latency over time",
+      "passes": false
+    },
+    {
+      "id": "P10-01",
+      "phase": "Phase 10: Deployment",
+      "description": "App Dockerized",
+      "passes": false
+    },
+    {
+      "id": "P10-02",
+      "phase": "Phase 10: Deployment",
+      "description": "Deployed to Render (or equivalent), live demo link working end to end",
+      "passes": false
+    },
+    {
+      "id": "P11-01",
+      "phase": "Phase 11: Business & judgement layer",
+      "description": "Decision trade-off section written in README (RAG vs fine-tune, MCP vs function calling, single vs multi-agent)",
+      "passes": false
+    },
+    {
+      "id": "P11-02",
+      "phase": "Phase 11: Business & judgement layer",
+      "description": "Business impact model: time saved, false escalation cost, adoption scenarios",
+      "passes": false
+    },
+    {
+      "id": "P11-03",
+      "phase": "Phase 11: Business & judgement layer",
+      "description": "README + architecture diagram finalized, pushed, presentable",
+      "passes": false
+    }
+  ]
+}
