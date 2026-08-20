@@ -10,7 +10,7 @@
       "id": "P1-01",
       "phase": "Phase 1: RAG core",
       "description": "Regulatory PDFs loaded, chunked, embedded, indexed in Chroma",
-      "passes": false
+      "passes": true
     },
     {
       "id": "P1-02",
