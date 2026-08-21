@@ -47,7 +47,10 @@ def test_each_outcome_context_is_grounded_and_relevant(result, field_name):
     assert len(ctx.answer) > 0
     assert len(ctx.sources) > 0
     assert all(s.similarity_score > 0.4 for s in ctx.sources)
-    assert "[1]" in ctx.answer  # inline citation marker
+    # Any retrieved source being cited is evidence of grounding — the model
+    # isn't required to cite index [1] specifically (see test_query_engine.py
+    # for the same pattern).
+    assert any(f"[{s.index}]" in ctx.answer for s in ctx.sources)
 
 
 def test_the_four_regulatory_queries_are_genuinely_distinct(result):

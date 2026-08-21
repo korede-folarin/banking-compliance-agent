@@ -71,19 +71,59 @@ onto the Consumer Duty's four outcomes — `vulnerable_customer_provision`
 (Consumer Support), `fair_value_justification` (Price and Value),
 `target_market_suitability_statement` (Products and Services), and
 `key_terms_summary_provision` (Consumer Understanding). These were not
-chosen from general knowledge of what a loan agreement "should" contain.
-Each was derived by querying the actual indexed regulatory corpus (via
-`src/retrieval/query_engine.py`) for what each outcome specifically
-requires, and keeping only the categories that came back with detailed,
-well-grounded obligations (similarity scores ~0.65-0.74, specific and
-citable). Two categories from an earlier candidate list — cooling-off/
-cancellation rights, and detailed complaints-handling procedure — were
-deliberately dropped after the same querying process showed the corpus
-doesn't substantively cover them: cancellation is only ever mentioned in
-passing as a complaints metric, and complaints/arrears content only
-cross-references DISP/CONC rulebook rules that aren't part of this
-corpus. The schema reflects what this corpus can actually ground an
-answer in, not an assumed general checklist.
+chosen from general knowledge of what a loan agreement "should" contain,
+and arriving at them was a two-step process, not a single pass.
+
+**Step 1 — validation of a candidate list.** Starting from a plausible
+example list, each candidate was checked against the actual indexed
+corpus (via `src/retrieval/query_engine.py`): does querying for it return
+a detailed, specific, citable answer, or a thin/refused one? Four
+categories came back detailed and well-grounded (similarity scores
+~0.65-0.74). Two — cooling-off/cancellation rights, and detailed
+complaints-handling procedure — were dropped: cancellation is only ever
+mentioned in passing as a complaints metric, and complaints/arrears
+content only cross-references DISP/CONC rulebook rules that aren't part
+of this corpus.
+
+**Step 2 — open-ended discovery, run separately** to check for
+categories that were never on the candidate list in the first place (a
+validation pass can only confirm or reject what it's told to look for).
+Five broad, open-ended queries were run — "what does this corpus cover
+beyond X, Y, Z", "what's the overall topic breakdown", "what credit-
+specific obligations exist beyond what's already covered" — followed by
+2 targeted confirmation queries on the most promising lead the discovery
+pass surfaced. The most concrete-looking candidate was a duty-wide
+"avoid foreseeable harm" principle, illustrated in the corpus with a
+credit-specific example (escalating balances / token payments in the
+second-charge lending market). It didn't survive a direct, precisely-
+worded confirmation query — the query engine returned "does not contain
+enough information" rather than a confident, cited answer, despite
+retrieving topically adjacent chunks (0.63-0.65 similarity). That's the
+same refusal behavior the query engine uses elsewhere when it isn't
+grounded (see README's "how I know it actually works"), and here it's
+the evidence that this candidate was a narrow illustrative aside within
+the Price and Value discussion, not a standalone, well-established
+obligation. Separately, "foreseeable harm" as a general principle *is*
+well-grounded (a direct query about it, not tied to arrears
+specifically, returned a long, confident, well-cited answer) — but it's
+a cross-cutting lens that touches product design, withdrawal, ongoing
+support, and behavioural bias all at once, not something with a single
+bounded clause type a document would have or lack. Assessing it means
+judging the whole document holistically against a principle, which is
+compliance *reasoning* — explicitly Phase 4's job, not something an
+extraction field can check. The remaining discovery candidates
+(distribution-chain information sharing, communication timing/testing,
+"acting in good faith") were either firm-internal processes that
+wouldn't appear in a customer-facing contract, or restatements of the
+four fields already covered from a different angle.
+
+**Result: no new field was added.** That's a genuine finding, not a
+shortcut — the four categories represent this corpus's substantive,
+loan-agreement-relevant, checkable coverage, and that claim is now
+backed by both validating a candidate list *and* an open-ended search
+for what wasn't on it, not validation alone. "Foreseeable harm" is worth
+carrying forward as a reasoning lens for Phase 4's orchestrating
+Compliance Agent, even though it isn't a Phase 2/3 extraction field.
 
 Each of these fields is required (not optional) and typed `str | None`
 specifically so the model cannot silently drop a field it has nothing to

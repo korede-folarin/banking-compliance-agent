@@ -5,6 +5,80 @@ Newest entry at the top.
 
 ---
 
+## Session 7 — 2026-08-20
+**Status:** Open-ended discovery pass done. Confirmed — via actually
+searching, not assuming — that the 4 Consumer-Duty-outcome fields from
+Session 6 represent this corpus's substantive, checkable coverage. No
+schema/code changes; `feature_list.json` unchanged (same reasoning as
+Session 6 — this refines already-`passes: true` work).
+
+**Done:**
+- Session 6 had only *validated* a pre-given 6-category candidate list
+  against the corpus — that can confirm or reject what it's told to
+  look for, but can't surface a category nobody thought to ask about.
+  This session ran genuinely open-ended discovery instead: 5 broad
+  queries ("what does this cover beyond X/Y/Z", "what's the overall
+  topic breakdown", "what credit-specific obligations exist beyond
+  what's covered") via the existing `QueryEngine`, no candidate list
+  assumed.
+- Most of what surfaced was either firm-internal process (distribution-
+  chain information sharing, communication testing — not something a
+  customer-facing loan agreement would ever state) or a restatement of
+  the 4 existing fields from a different angle (layered disclosure,
+  communication timing — both Consumer Understanding).
+- One genuinely interesting lead: a duty-wide "avoid foreseeable harm"
+  principle, illustrated in the corpus with a credit-specific example
+  (escalating balances / token payments in second-charge lending). Ran
+  2 targeted confirmation queries on it specifically rather than taking
+  the first promising-looking result at face value. Result: a direct,
+  precisely-worded query about forbearance/arrears/escalating balances
+  came back *refused* ("does not contain enough information") despite
+  retrieving topically-adjacent chunks (0.63-0.65 similarity) — the
+  same groundedness behavior the query engine already uses elsewhere,
+  here telling me the earlier finding was a narrow illustrative aside
+  within the Price and Value discussion, not a standalone obligation.
+  "Foreseeable harm" as a general principle *is* well-grounded on its
+  own (a direct query about it returned a long, confident, cited
+  answer) — but it's a cross-cutting lens across product design,
+  withdrawal, ongoing support, and behavioural bias simultaneously, not
+  something with one bounded clause type a document would have or
+  lack. Checking it means judging the whole document holistically
+  against a principle — compliance *reasoning*, which is explicitly
+  Phase 4's job, not a Phase 2/3 extraction field's.
+- **Result: no new field added.** Documented as a genuine finding, not
+  a shortcut — updated ARCHITECTURE.md's "Compliance-check field
+  provenance" section to describe this as the two-step process it
+  actually was (Session 6 validation + Session 7 open-ended discovery),
+  including why the most promising discovery lead didn't clear the bar,
+  and noted "foreseeable harm" as worth carrying forward as a Phase 4
+  reasoning lens even though it isn't an extraction field.
+- Ran the full suite to confirm no regressions per the task instructions
+  and caught a real (if minor) issue unrelated to this session's actual
+  changes: `tests/test_first_pass.py` hardcoded `assert "[1]" in
+  ctx.answer`, assuming the model would always cite the single most-
+  similar chunk specifically. It doesn't have to — a legitimate run
+  cited `[2][4][5]` without needing `[1]`, and the test failed on
+  correct behavior. `tests/test_query_engine.py` already used the
+  robust pattern (`any(f"[{s.index}]" in answer for s in sources)`) for
+  the same kind of check; `test_first_pass.py` just hadn't matched it
+  when written last session. Fixed to match.
+- Full suite: `python -m pytest tests/` → 26 passed.
+
+**Next:**
+- Phase 4 (P4-01/P4-02): the orchestrating Compliance Agent. The schema
+  is now settled (grounded via validation + discovery, not just
+  validation) — Phase 4 is reasoning/comparison logic over the 4
+  extracted fields and their already-retrieved regulatory context, plus
+  a deterministic validation layer, not new plumbing.
+
+**Known issues:**
+- None blocking.
+
+**Notes:**
+- None.
+
+---
+
 ## Session 6 — 2026-08-20
 **Status:** Schema redesign done and tested end-to-end. Replaced the
 vague `key_clauses: list[str]` field with four fields grounded directly
