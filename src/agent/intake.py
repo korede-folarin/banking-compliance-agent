@@ -1,0 +1,49 @@
+import logging
+
+import instructor
+from anthropic import Anthropic
+
+from src.agent.schemas import LoanAgreementFields
+from src.config import ANTHROPIC_MODEL
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
+
+SYSTEM_PROMPT = (
+    "You are an intake agent extracting structured fields from a UK consumer "
+    "loan agreement. Extract only what is actually stated in the document. Do "
+    "not infer, guess, or fill in values that are not present in the text — if "
+    "a fee amount is not clearly stated, describe how the document refers to it "
+    "instead of inventing a number."
+)
+
+
+class IntakeAgent:
+    def __init__(self):
+        self._client = instructor.from_anthropic(Anthropic())
+
+    def extract(self, document_text: str) -> LoanAgreementFields:
+        return self._client.messages.create(
+            model=ANTHROPIC_MODEL,
+            max_tokens=1024,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": document_text}],
+            response_model=LoanAgreementFields,
+        )
+
+
+def extract_fields(document_text: str) -> LoanAgreementFields:
+    return IntakeAgent().extract(document_text)
+
+
+if __name__ == "__main__":
+    import sys
+    from pathlib import Path
+
+    if len(sys.argv) < 2:
+        print("Usage: python -m src.agent.intake <path-to-document>")
+        raise SystemExit(1)
+
+    text = Path(sys.argv[1]).read_text(encoding="utf-8")
+    result = extract_fields(text)
+    print(result.model_dump_json(indent=2))

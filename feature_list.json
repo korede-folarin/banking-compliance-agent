@@ -22,7 +22,7 @@
       "id": "P2-01",
       "phase": "Phase 2: Structured extraction",
       "description": "Intake Agent extracts structured fields from uploaded document using Pydantic schema",
-      "passes": false
+      "passes": true
     },
     {
       "id": "P3-01",

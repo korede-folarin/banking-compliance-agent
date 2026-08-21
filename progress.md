@@ -5,6 +5,87 @@ Newest entry at the top.
 
 ---
 
+## Session 4 — 2026-08-20
+**Status:** P2-01 done and tested end-to-end. Intake Agent extracts
+structured loan-agreement fields via a Pydantic schema.
+
+**Done:**
+- Created 3 synthetic UK consumer loan agreements in
+  `data/synthetic_docs/` (clearly labeled fictional at the top of each
+  file, fictional company numbers/addresses/names throughout), each
+  isolating exactly one deliberate issue so later phases can test
+  precisely:
+  - `loan_agreement_1.txt` (Northfield Consumer Finance / Daniel Osei):
+    fee disclosure buried in a "General Provisions" clause, referenced
+    only as "administration and arrangement charges... as set out in the
+    Lender's standard tariff of charges" — no amount ever stated in the
+    agreement. Has a proper vulnerable-customer clause, so this document
+    tests *only* the fee-disclosure issue.
+  - `loan_agreement_2.txt` (Bridgeport Lending Group / Rebecca Ashworth):
+    clear, prominent fee disclosure (£150 arrangement fee, dedicated
+    clause), but no vulnerable-customer identification/support process
+    at all — just a generic customer-service contact clause. Tests
+    *only* the vulnerable-customer gap.
+  - `loan_agreement_3.txt` (Thornebury Finance / Marcus Chen): the
+    control — clear fee disclosure (£200, dedicated clause) and an
+    explicit vulnerable-customer clause (identification, tailored
+    support options, staff training, debt-advice signposting). Written
+    to the same length/style as the other two, not conspicuously
+    "extra good".
+  All three otherwise read as normal, professionally-drafted agreements
+  (parties, loan details, repayment, interest, early repayment, default,
+  data protection, governing law) — the planted issues require reading
+  the document, not keyword spotting.
+- Built `src/agent/schemas.py` (`LoanAgreementFields`: lender_name,
+  borrower_name, loan_amount, apr, term_months, repayment_schedule,
+  fees, key_clauses — `fees` and `repayment_schedule` are free text, not
+  forced into a numeric field, specifically so the model can faithfully
+  report "no amount stated, only referenced via X" instead of being
+  forced to invent a number) and `src/agent/intake.py`
+  (`IntakeAgent`/`extract_fields`), using the `instructor` library
+  (`instructor.from_anthropic`) for schema-validated structured output
+  from Claude via tool calling, rather than hand-rolling JSON-schema
+  tool-use glue. `instructor` was already present as a transitive dep of
+  ragas but is now pinned directly in requirements.txt since we depend
+  on it ourselves.
+- Tested extraction end-to-end against the real Claude API on all 3
+  documents, checked field-by-field against the source text — not just
+  "it ran": lender/borrower names, loan amount, APR, term, and repayment
+  instalment figures all matched exactly for all 3 docs. Critically,
+  extraction correctly preserved the deliberate distinctions rather than
+  smoothing them over: doc1's `fees` field describes the vague tariff
+  reference with no invented number, doc2/doc3's `fees` fields contain
+  their exact stated amounts (£150 / £200), doc2's `key_clauses` contain
+  no vulnerable-customer mention (correctly, since none exists in the
+  source), and doc1/doc3's do.
+- Wrote this up as `tests/test_intake.py` (7 tests, all passing, real API
+  calls, auto-skips without ANTHROPIC_API_KEY): per-document core-field
+  checks plus two cross-document checks that specifically verify the
+  fee-vagueness and vulnerable-customer distinctions survived extraction
+  intact.
+- Full suite: `python -m pytest tests/` → 16 passed (5 ingestion + 4
+  query engine + 7 intake).
+- Marked P2-01 `passes: true` in feature_list.json.
+
+**Next:**
+- P3-01: single agent loop — receive a document, extract fields (P2-01,
+  done), retrieve relevant regulation (P1-02, done), return a first-pass
+  answer. This is the first point where intake + retrieval get wired
+  together, but still no compliance-check/flagging logic yet — that's
+  explicitly P4-01/P4-02, later.
+
+**Known issues:**
+- None blocking. Compliance-check comparison (does the extracted fee
+  disclosure / vulnerable-customer clause actually violate the Consumer
+  Duty) is deliberately NOT built yet — that's Phase 4. The 3 synthetic
+  docs are designed for that phase but nothing in P2-01 evaluates them
+  against the regulatory corpus.
+
+**Notes:**
+- None.
+
+---
+
 ## Session 3 — 2026-08-20
 **Status:** P1-02 done and tested end-to-end. Query engine returns grounded,
 cited answers over the indexed Consumer Duty corpus.

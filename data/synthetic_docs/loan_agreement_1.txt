@@ -1,0 +1,95 @@
+[SYNTHETIC DOCUMENT — FOR TESTING / DEMONSTRATION PURPOSES ONLY. THIS IS NOT A REAL
+LOAN AGREEMENT. ALL NAMES, ADDRESSES, AND FINANCIAL DETAILS ARE FICTIONAL. ANY
+RESEMBLANCE TO AN ACTUAL PERSON, COMPANY, OR AGREEMENT IS COINCIDENTAL.]
+
+CONSUMER LOAN AGREEMENT
+Reference: NCF-2026-01827
+
+This Agreement is made on 14 March 2026 between:
+
+(1) Northfield Consumer Finance Ltd, a company registered in England and Wales
+(company number 09876543), whose registered office is at 22 Melbourne Court,
+Leeds, LS1 4AB ("the Lender"); and
+
+(2) Daniel Osei, of 47 Ashgrove Road, Manchester, M14 6TP ("the Borrower").
+
+1. LOAN DETAILS
+1.1 The Lender agrees to advance to the Borrower a loan of £8,500.00 ("the Loan").
+1.2 The Annual Percentage Rate of Charge (APR) applicable to this Agreement is 24.9%.
+1.3 The term of this Agreement is 36 months, commencing on the date of first
+    drawdown.
+
+2. REPAYMENT
+2.1 The Borrower shall repay the Loan by 36 equal monthly instalments of
+    £337.70, payable by direct debit on the 1st day of each calendar month,
+    the first such payment falling due one calendar month after drawdown.
+2.2 The total amount payable over the term of this Agreement, inclusive of
+    interest, is £12,157.20.
+
+3. INTEREST
+3.1 Interest is charged on the outstanding balance at the rate set out in
+    clause 1.2, calculated daily and applied monthly.
+
+4. EARLY REPAYMENT
+4.1 The Borrower may repay the Loan in full or in part at any time before the
+    end of the term. Where the Borrower does so, the Lender will provide a
+    statement setting out the amount required to settle the Agreement,
+    calculated in accordance with the Consumer Credit (Early Settlement)
+    Regulations 2004.
+
+5. DEFAULT
+5.1 If the Borrower fails to make a payment by its due date, the Lender may,
+    subject to serving the notices required by the Consumer Credit Act 1974,
+    treat the Borrower as being in default and take steps to recover the
+    sums owed.
+5.2 Interest continues to accrue on overdue sums at the rate set out in
+    clause 1.2.
+
+6. GENERAL PROVISIONS
+6.1 This Agreement, together with the Lender's standard terms of business and
+    tariff of charges (copies of which are available on request), constitutes
+    the entire agreement between the parties.
+6.2 Administration and arrangement charges may apply in connection with this
+    Agreement, as set out from time to time in the Lender's standard tariff
+    of charges. The Borrower acknowledges having had the opportunity to
+    request a copy of the current tariff before signing.
+6.3 The Lender may vary its tariff of charges from time to time by giving the
+    Borrower reasonable notice.
+6.4 Nothing in this Agreement affects the Borrower's statutory rights.
+
+7. CUSTOMER SERVICE
+7.1 If the Borrower has any queries about this Agreement or their account,
+    they may contact the Lender's customer service team on 0800 456 7890 or
+    by email at accounts@northfieldconsumerfinance.example, Monday to Friday,
+    9am to 5pm.
+
+8. VULNERABLE CUSTOMERS
+8.1 The Lender recognises that some customers may, either permanently or
+    temporarily, be in circumstances that make them vulnerable — for example
+    due to ill health, bereavement, changes in personal circumstances, low
+    resilience to financial or emotional shocks, or low capability in
+    managing financial matters.
+8.2 If the Borrower considers that they are, or may become, in such
+    circumstances, they are encouraged to let the Lender know, in
+    confidence, by contacting the customer service team using the details in
+    clause 7. The Lender will work with the Borrower to identify appropriate
+    support, which may include adjusted communication methods, additional
+    time to consider options, or referral to independent debt advice.
+8.3 Contacting the Lender under this clause will not affect the Borrower's
+    obligations under this Agreement, but may affect the options available
+    to the Borrower if they experience payment difficulties.
+
+9. DATA PROTECTION
+9.1 The Lender will process the Borrower's personal data in accordance with
+    its privacy notice, a copy of which has been provided separately.
+
+10. GOVERNING LAW
+10.1 This Agreement is governed by the law of England and Wales, and the
+     parties submit to the exclusive jurisdiction of the courts of England
+     and Wales.
+
+SIGNED for and on behalf of the Lender: ______________________
+SIGNED by the Borrower: ______________________
+Date: 14 March 2026
+
+[END OF SYNTHETIC DOCUMENT]
