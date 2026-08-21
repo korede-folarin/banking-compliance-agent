@@ -1,82 +1,129 @@
 # Banking Compliance & Customer Intelligence Agent
 
-A RAG + MCP + agentic system that reviews banking documents and customer
-queries against regulatory guidance (FCA/PRA), flags compliance issues
-with a confidence score, and routes uncertain or high-risk cases to human
-review.
+Reads a loan agreement, checks it against real UK financial regulation, and
+tells you where it falls short — citing exactly which regulatory text it's
+relying on, and refusing to guess when it isn't sure.
 
-**Status:** Phase 1 (RAG core — ingestion + query engine) and P2-01
-(Intake Agent structured extraction) are built and tested end-to-end. See
-`progress.md` for full session-by-session detail and `feature_list.json`
-for the complete phase checklist.
+## Why this needs to exist
 
-## What this demonstrates
-- **RAG**: retrieval over a real regulatory corpus (FCA Handbook, PRA
-  rulebook), with retrieval quality evaluated (recall@k), not assumed.
-- **MCP**: a custom MCP server exposing regulation lookup, mock
-  account/transaction lookup, and policy rulebook tools — used because
-  these are genuinely separate data domains, not because MCP is trendy.
-- **Agentic design**: one orchestrating agent + a deterministic validation
-  layer + a human approval gate, not an unjustified multi-agent swarm.
-- **Uncertainty handling**: every output carries a confidence score
-  grounded in retrieval quality; low-confidence cases are abstained on
-  and routed to a human, not guessed at.
-- **Evaluation**: labelled test set, faithfulness/hallucination scoring,
-  prompt variant comparison.
-- **Deployment & monitoring**: Dockerized, deployed, every run logged with
-  a dashboard showing failure/flag rates over time.
-- **Judgement**: see `ARCHITECTURE.md` for documented trade-offs (why RAG
-  over fine-tuning, why MCP over plain function calls, why one agent over
-  five) and a business impact model (time saved, false escalation cost).
+Compliance review of consumer credit documents is still mostly manual:
+someone reads the agreement, reads the relevant FCA guidance, and judges
+whether the two line up. That's slow, and it's inconsistent — two
+reviewers can reasonably disagree, and the same reviewer can miss the same
+kind of issue twice.
 
-## What's actually built so far
-- **RAG pipeline** over 3 real FCA Consumer Duty documents (344 pages
-  total: FCA Handbook PRIN 2A, FG22/5 guidance, PS22/9 policy statement),
-  chunked and embedded locally (`BAAI/bge-small-en-v1.5`, no external API
-  needed for retrieval) and indexed into Chroma.
-- **Grounded, cited query engine** (`src/retrieval/query_engine.py`):
-  answers natural-language questions using only the retrieved context,
-  cites source chunks inline, and correctly *refuses* to answer
-  off-topic questions instead of hallucinating — verified with a
-  deliberately off-topic control question, which triggered the fixed
-  refusal message and showed visibly lower retrieval similarity scores
-  than genuine Consumer Duty questions.
-- **Intake Agent** (`src/agent/intake.py`): extracts structured fields
-  from loan agreements into a Pydantic schema (`LoanAgreementFields`),
-  validated via the `instructor` library's Claude tool-calling
-  integration rather than free-form JSON parsing.
-- **3 purpose-built synthetic test documents** (`data/synthetic_docs/`):
-  one with a buried/vague fee disclosure, one missing a vulnerable-
-  customer identification/support process, and one fully compliant
-  control — written so that catching the planted issues requires
-  actually reading the document against the regulatory corpus, not
-  keyword spotting.
-- **16 passing automated tests** (`tests/`) covering ingestion, retrieval
-  relevance, query engine groundedness, and extraction correctness
-  against known source text — including a real bug caught and fixed
-  along the way: `SimpleDirectoryReader` was silently reading raw PDF
-  bytes as text (not parsing them) because a required dependency wasn't
-  installed, producing thousands of "successfully indexed" chunks that
-  were actually binary garbage. Caught by inspecting actual chunk
-  content, not by trusting a clean exit code.
+The obvious shortcut — point an LLM at the document and ask "is this
+compliant?" — creates a worse problem than it solves. A model that isn't
+grounded in the actual regulatory text will confidently answer regardless
+of whether it actually knows, and a *confident wrong answer about
+regulatory compliance* is a genuinely dangerous failure mode in a
+regulated industry, not a quirky bug. The core design problem this project
+is about is making the "I don't know" case work as reliably as the "yes,
+compliant" case.
+
+## What it does right now
+
+Right now the system does two of the three steps a compliance review
+needs, end to end:
+
+1. **It reads the regulation.** The FCA's Consumer Duty corpus (the
+   Handbook's PRIN 2A, the FG22/5 guidance, and the PS22/9 policy
+   statement — 344 pages) is chunked, embedded, and indexed, and a query
+   engine can answer natural-language questions about it with inline
+   citations back to the source text.
+2. **It reads the loan agreement.** An Intake Agent pulls structured
+   fields out of a loan document — lender, borrower, amount, APR, term,
+   repayment schedule, fees, and other notable clauses — into a validated
+   schema, rather than leaving them as unstructured prose.
+3. **It will compare the two.** Actually checking whether what the
+   document says is compliant with what the regulation requires — the
+   step that turns this from two separate tools into a compliance
+   agent — is the next phase, not yet built. See "What's still to come."
+
+## How I know it actually works
+
+Four things happened during development that are better told as what
+happened than summarized as a feature list:
+
+**It said "I don't know" instead of making something up.** I asked the
+query engine an off-topic control question — "What is the capital of
+France?" — against an index that only contains Consumer Duty regulation.
+It didn't answer. It returned the fixed refusal message, and the
+underlying retrieval similarity scores for that question (0.36–0.39) were
+visibly lower than for genuine Consumer Duty questions (0.65–0.70) — a
+real, measurable signal, not just a prompt instruction the model happened
+to follow that one time.
+
+**It reported a vague fee as vague, not as a number.** One of the three
+synthetic test loan agreements deliberately buries its fee disclosure —
+it only references "the Lender's standard tariff of charges" in a general
+provisions clause, with no amount ever stated anywhere in the document.
+Fed to the Intake Agent, it didn't invent a figure to fill the field. It
+reported that the fee is referenced but never quantified. The other two
+test documents state exact fees (£150, £200) in dedicated clauses, and
+those were extracted as exact figures — so the difference in the output
+reflects a real difference in the source text, not extraction noise.
+
+**It reported a missing clause as missing, not filled it in.** A second
+synthetic test document has no vulnerable-customer identification or
+support process at all — just a generic customer-service phone number.
+The Intake Agent's extracted clause list for that document contains no
+mention of vulnerability, correctly, because there's nothing there to
+find. The other two test documents do have explicit vulnerable-customer
+provisions, and those were extracted correctly too.
+
+**A "successful" run was actually silently broken.** The first ingestion
+run reported success — 5,540 chunks indexed, no errors — but a missing
+dependency (`llama-index-readers-file`) meant the PDF reader had silently
+fallen back to treating raw PDF bytes as plain text. Every chunk was
+binary garbage (`'%PDF-1.4\n...'`), and nothing about the exit code or
+the logs said so. It was only caught by opening a few chunks and actually
+reading them. Installing the missing dependency and re-running produced
+558 real, readable chunks. Nothing after that point trusts a clean exit
+code as proof of correctness — checking actual content became a habit for
+the rest of the build.
+
+## What this does and doesn't prove
+
+The 16 automated tests behind these results are real — they hit the
+actual Claude API and the actual indexed corpus, not mocks — but they
+prove correctness on a small set of known, controlled cases: 3 real
+regulatory documents and 3 hand-written synthetic loan agreements with
+known ground truth. That's enough to catch real bugs (see the PDF-bytes
+story above) and to demonstrate the intended behavior clearly. It is
+**not** the same as evidence about how well this generalizes to a wider
+regulatory corpus or to arbitrary real-world documents. That's a
+separate, deliberately deferred piece of work — a labelled test set,
+retrieval recall@k, and a measured faithfulness/hallucination rate — and
+it's Phase 8, not done yet.
 
 ## What's still to come
-- **Phase 3** — single agent loop wiring intake (P2-01) and retrieval
-  (P1-02) together into a first-pass answer.
-- **Phase 4** — orchestrating Compliance Agent + deterministic validation
-  layer: the actual compliance-check logic (comparing extracted document
-  fields against retrieved regulation and producing flagged issues).
-- **Phase 5** — MCP tools layer: regulation lookup, mock account/
-  transaction lookup, and policy rulebook query as separate tools.
+- **Phase 3** — wire the Intake Agent and the query engine together into
+  a single first-pass loop.
+- **Phase 4** — the actual compliance-check logic: an orchestrating agent
+  that reasons over extracted terms against retrieved regulation and
+  produces a flagged-issues list, plus a deterministic (non-LLM)
+  validation layer on top of it.
+- **Phase 5** — an MCP tools layer (regulation lookup, mock account/
+  transaction lookup, policy rulebook query) as separate tools.
 - **Phase 6** — confidence scoring grounded in retrieval quality, with
   abstention/human-review routing below a threshold.
-- **Phase 7** — human-in-the-loop approval gate for flagged issues.
-- **Phase 8** — evaluation harness: labelled test set, recall@k,
-  faithfulness/hallucination rate, prompt variant comparison.
-- **Phase 9** — monitoring: every run logged, dashboard of failure/flag
+- **Phase 7** — a human-in-the-loop approval gate for flagged issues.
+- **Phase 8** — the evaluation harness described above.
+- **Phase 9** — monitoring: every run logged, a dashboard of failure/flag
   rates and latency.
 - **Phase 10** — Dockerization and deployment.
-- **Phase 11** — business impact model and final documentation polish.
+- **Phase 11** — a business impact model and final documentation polish.
+
+## On the architecture doc
+`ARCHITECTURE.md` isn't a diagram kept for its own sake — it's where each
+non-obvious build decision gets written down at the time it's made,
+including what was rejected and why: RAG over fine-tuning, MCP over plain
+function calls, one orchestrating agent over a five-agent swarm, a static
+API key over cloud identity federation (and specifically why that's the
+right call for local development but wouldn't be for a production
+deployment). Read it for the reasoning behind the shape of the system,
+not just the shape itself.
 
 ## Stack
 Claude API (Anthropic SDK) · LlamaIndex · ChromaDB · `BAAI/bge-small-en-v1.5`
@@ -93,9 +140,6 @@ python -m pytest tests/          # runs the full test suite (16 tests)
 ```
 The Streamlit UI (`streamlit run src/app.py`) isn't built yet — that
 lands in a later phase (see "What's still to come" above).
-
-## Project structure
-See `ARCHITECTURE.md` for the full design and data flow diagram.
 
 ## Honest scope note
 This is a portfolio project, not a production banking system. Data is
