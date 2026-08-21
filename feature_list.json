@@ -28,7 +28,7 @@
       "id": "P3-01",
       "phase": "Phase 3: Single agent loop",
       "description": "Single agent: receives document, extracts fields, retrieves relevant regulation, returns first-pass answer",
-      "passes": false
+      "passes": true
     },
     {
       "id": "P4-01",

@@ -40,6 +40,8 @@ if __name__ == "__main__":
     import sys
     from pathlib import Path
 
+    sys.stdout.reconfigure(encoding="utf-8")
+
     if len(sys.argv) < 2:
         print("Usage: python -m src.agent.intake <path-to-document>")
         raise SystemExit(1)

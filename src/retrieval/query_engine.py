@@ -112,6 +112,8 @@ class QueryEngine:
 if __name__ == "__main__":
     import sys
 
+    sys.stdout.reconfigure(encoding="utf-8")
+
     question = " ".join(sys.argv[1:]) or "What outcomes must firms deliver under the Consumer Duty?"
     engine = QueryEngine()
     result = engine.query(question)

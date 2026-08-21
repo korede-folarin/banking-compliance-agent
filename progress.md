@@ -5,6 +5,88 @@ Newest entry at the top.
 
 ---
 
+## Session 5 — 2026-08-20
+**Status:** P3-01 done and tested end-to-end. A single agent now wires
+the Intake Agent and the query engine together into a combined
+first-pass response — extraction and retrieval, no compliance judgment
+yet.
+
+**Done:**
+- Built `src/agent/first_pass.py` (`FirstPassAgent`/`run_first_pass`):
+  takes a document, calls `extract_fields()` (P2-01) to get structured
+  `LoanAgreementFields`, then builds two targeted natural-language
+  questions from the extracted content — one derived from the `fees`
+  field, one derived from the joined `key_clauses` — and runs each
+  through the existing `QueryEngine` (P1-02). Result is a
+  `FirstPassResult` (Pydantic): extracted fields + two `QueryResult`
+  objects (grounded, cited regulatory context). Deliberately named
+  "first pass," not "compliance agent" — it does not compare the
+  extracted terms against the retrieved regulation or produce a
+  verdict; that reasoning is explicitly Phase 4, not built here.
+  Named this way on purpose so the module's own name doesn't overstate
+  what it does.
+- The two queries are built from extracted field content (not fixed
+  canned strings), so they're genuinely "based on what was extracted"
+  per the task, while staying generic to any loan document — `fees` and
+  `key_clauses` are always-present schema fields, not something
+  hardcoded to this project's synthetic test docs.
+- Along the way, hit and fixed a real (if minor) bug: the CLI entry
+  points (`python -m src.agent.first_pass`, and the same pattern in
+  `intake.py`/`query_engine.py`) crashed with `UnicodeEncodeError` on
+  Windows console (cp1252) the first time an LLM response contained a
+  character outside that codepage (a non-breaking hyphen, in this
+  case — `£` had silently degraded to `�` before without crashing,
+  which is why this hadn't surfaced yet). Fixed by reconfiguring stdout
+  to UTF-8 in all three `__main__` blocks.
+- Tested end-to-end against the real Claude API and the real indexed
+  corpus on `loan_agreement_1.txt` (the buried-fee document): extracted
+  fields matched the source exactly (as in P2-01), and both regulatory
+  context calls came back genuinely grounded and on-topic — the fee
+  query's answer independently reasoned that an "administration and
+  arrangement charge" referenced but never quantified in the agreement
+  "would be difficult to reconcile" with the Consumer Duty's fair-value
+  requirement, citing fg22-5.pdf with similarity scores 0.63-0.65; the
+  vulnerable-customer query separately retrieved and cited the FCA's
+  vulnerability guidance (fg22-5.pdf, ps22-9.pdf, scores 0.66-0.69).
+  Confirmed the two calls are wired to genuinely different questions
+  and produced genuinely different answers, not a duplicated call.
+- Wrote this up as `tests/test_first_pass.py` (5 tests, all passing,
+  real API calls, auto-skips without ANTHROPIC_API_KEY): combined-result
+  shape, extracted-field correctness, groundedness (non-empty cited
+  sources with similarity > 0.4, inline `[1]`-style citation present) for
+  both the fee and vulnerable-customer contexts, and a distinctness
+  check guarding against the two queries silently collapsing into one.
+- Full suite: `python -m pytest tests/` → 21 passed (5 ingestion + 4
+  query engine + 7 intake + 5 first-pass).
+- Marked P3-01 `passes: true` in feature_list.json.
+
+**Next:**
+- Phase 4 (P4-01/P4-02): the actual compliance-check logic — an
+  orchestrating Compliance Agent that reasons over the extracted fields
+  against the retrieved regulatory context from this session and
+  produces a flagged-issues list, plus a deterministic (non-LLM)
+  validation layer on top. This is where the 3 synthetic docs' planted
+  issues (and the control's absence of issues) finally get evaluated
+  against the corpus, not just extracted/retrieved separately.
+
+**Known issues:**
+- None blocking. `FirstPassAgent.__init__` constructs a `QueryEngine`
+  (which loads the embedding model and opens the persistent Chroma
+  client), so it's meant to be instantiated once and reused across
+  documents in a real run, not recreated per-document — worth keeping in
+  mind when Phase 4's orchestrating agent wraps this.
+- The two retrieval queries are still fixed at exactly "fees" and
+  "key clauses" dimensions. That happens to line up with what this
+  project's Consumer-Duty-only corpus can usefully answer about right
+  now, but it's a deliberately simple, hardcoded pair of angles, not a
+  general "figure out what's compliance-relevant" mechanism — that kind
+  of judgment is Phase 4's job, not this integration step's.
+
+**Notes:**
+- None.
+
+---
+
 ## Session 4 — 2026-08-20
 **Status:** P2-01 done and tested end-to-end. Intake Agent extracts
 structured loan-agreement fields via a Pydantic schema.
