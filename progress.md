@@ -5,6 +5,70 @@ Newest entry at the top.
 
 ---
 
+## Session 3 — 2026-08-20
+**Status:** P1-02 done and tested end-to-end. Query engine returns grounded,
+cited answers over the indexed Consumer Duty corpus.
+
+**Done:**
+- Built `src/retrieval/query_engine.py`: `QueryEngine.query(question)` runs
+  retrieval via the same LlamaIndex/Chroma setup as ingestion (top-5,
+  matching embed model), builds a numbered context block from the
+  retrieved chunks, and calls the Anthropic SDK directly (not a
+  llama-index LLM integration package — after hitting two llama-index
+  integration bugs in P1-01, going straight to the Anthropic SDK for the
+  reasoning half keeps one fewer layer that can silently misbehave, and
+  maps cleanly onto CLAUDE.md's stack description: LlamaIndex for
+  RAG/indexing, Anthropic SDK for reasoning). System prompt requires the
+  model to answer only from the numbered context, cite chunk numbers
+  inline (`[1]`, `[2]`...), and return a fixed refusal string when the
+  context doesn't support an answer — no outside knowledge, no guessing.
+  Result is a Pydantic `QueryResult` (answer + structured `SourceCitation`
+  list: file name, similarity score, excerpt) rather than a bare string,
+  so P2+ has a stable shape to build on.
+- Model is Claude Sonnet 5 (`ANTHROPIC_MODEL`, configurable via `.env`,
+  defaults to `claude-sonnet-5`).
+- Tested with real questions end-to-end against the real Claude API
+  (not mocked): "What are the four outcomes firms must deliver under the
+  Consumer Duty?" → correct 4-outcome answer, cited fg22-5.pdf. "How
+  should firms treat vulnerable customers?" → detailed grounded answer
+  citing all 3 source docs with proper per-claim inline markers. Off-topic
+  control question ("What is the capital of France?") → correctly refused
+  with the fixed no-answer message instead of hallucinating, and its
+  retrieval similarity scores were visibly lower (0.36-0.39) than the
+  on-topic questions (0.65-0.70) — useful signal for P6's confidence work.
+- Wrote this up as `tests/test_query_engine.py` (4 tests, all passing,
+  real API calls — skipped automatically if ANTHROPIC_API_KEY isn't set,
+  so the suite doesn't hard-fail on a machine without a key).
+- Full suite: `python -m pytest tests/` → 9 passed (5 ingestion + 4 query
+  engine).
+- Marked P1-02 `passes: true` in feature_list.json.
+
+**Next:**
+- Phase 2 (P2-01): Intake Agent — extract structured fields from an
+  uploaded document using a Pydantic schema. This is a different job from
+  the query engine (structured extraction from a target document, not
+  Q&A over the regulatory corpus) — the query engine built here will
+  likely be a tool the later orchestrating agent calls, not something
+  P2-01 needs to change.
+
+**Known issues:**
+- None blocking. Retrieval `similarity_top_k` is fixed at 5
+  (`QUERY_SIMILARITY_TOP_K` in src/config.py) — no evaluation yet of
+  whether that's the right k (that's P8-02, recall@k against a labelled
+  test set).
+- Corpus is still Consumer-Duty-only (see P1-01 note) — query engine
+  will just say "not enough information" for anything outside that scope,
+  which is correct behavior, not a bug, but worth remembering when
+  demoing.
+
+**Notes:**
+- User pasted a real ANTHROPIC_API_KEY directly into the chat during this
+  session (I'd asked them to add it to .env directly to avoid this).
+  Wrote it straight to .env, never echoed it in any command output. Worth
+  a gentle reminder next time this comes up, not a big deal.
+
+---
+
 ## Session 2 — 2026-08-20
 **Status:** P1-01 done and tested end-to-end. Regulatory corpus loaded,
 chunked, embedded, and indexed in Chroma.

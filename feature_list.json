@@ -16,7 +16,7 @@
       "id": "P1-02",
       "phase": "Phase 1: RAG core",
       "description": "Query engine returns grounded answers with cited sources for test questions",
-      "passes": false
+      "passes": true
     },
     {
       "id": "P2-01",

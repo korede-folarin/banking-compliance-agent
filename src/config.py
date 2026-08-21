@@ -14,3 +14,6 @@ CHROMA_COLLECTION_NAME = "regulatory_corpus"
 EMBED_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 CHUNK_SIZE = 512
 CHUNK_OVERLAP = 50
+
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5")
+QUERY_SIMILARITY_TOP_K = 5
