@@ -12,6 +12,13 @@ pytestmark = pytest.mark.skipif(
     reason="ANTHROPIC_API_KEY not set — skipping live first-pass agent tests",
 )
 
+CONTEXT_FIELDS = [
+    "price_and_value_context",
+    "consumer_support_context",
+    "products_and_services_context",
+    "consumer_understanding_context",
+]
+
 
 @pytest.fixture(scope="module")
 def result() -> FirstPassResult:
@@ -21,8 +28,8 @@ def result() -> FirstPassResult:
 def test_result_is_combined_fields_plus_context(result):
     assert isinstance(result, FirstPassResult)
     assert result.document_fields is not None
-    assert result.fee_disclosure_context is not None
-    assert result.vulnerable_customer_context is not None
+    for field_name in CONTEXT_FIELDS:
+        assert getattr(result, field_name) is not None
 
 
 def test_extracted_fields_match_source_document(result):
@@ -34,25 +41,20 @@ def test_extracted_fields_match_source_document(result):
     assert f.term_months == 36
 
 
-def test_fee_context_is_grounded_and_relevant(result):
-    ctx = result.fee_disclosure_context
+@pytest.mark.parametrize("field_name", CONTEXT_FIELDS)
+def test_each_outcome_context_is_grounded_and_relevant(result, field_name):
+    ctx = getattr(result, field_name)
     assert len(ctx.answer) > 0
     assert len(ctx.sources) > 0
     assert all(s.similarity_score > 0.4 for s in ctx.sources)
     assert "[1]" in ctx.answer  # inline citation marker
 
 
-def test_vulnerable_customer_context_is_grounded_and_relevant(result):
-    ctx = result.vulnerable_customer_context
-    assert len(ctx.answer) > 0
-    assert len(ctx.sources) > 0
-    assert all(s.similarity_score > 0.4 for s in ctx.sources)
-    assert "[1]" in ctx.answer
-
-
-def test_the_two_regulatory_queries_are_genuinely_distinct(result):
-    # Guards against a wiring bug where both calls accidentally get the
-    # same question/answer instead of being derived from different parts
-    # of the extracted fields.
-    assert result.fee_disclosure_context.question != result.vulnerable_customer_context.question
-    assert result.fee_disclosure_context.answer != result.vulnerable_customer_context.answer
+def test_the_four_regulatory_queries_are_genuinely_distinct(result):
+    # Guards against a wiring bug where calls accidentally collapse onto
+    # the same question/answer instead of being derived from the four
+    # different Consumer-Duty-outcome fields.
+    questions = [getattr(result, f).question for f in CONTEXT_FIELDS]
+    answers = [getattr(result, f).answer for f in CONTEXT_FIELDS]
+    assert len(set(questions)) == len(CONTEXT_FIELDS)
+    assert len(set(answers)) == len(CONTEXT_FIELDS)

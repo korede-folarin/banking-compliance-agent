@@ -5,6 +5,106 @@ Newest entry at the top.
 
 ---
 
+## Session 6 — 2026-08-20
+**Status:** Schema redesign done and tested end-to-end. Replaced the
+vague `key_clauses: list[str]` field with four fields grounded directly
+in the regulatory corpus, one per Consumer Duty outcome. No new
+`feature_list.json` phase completed this session — this refines P2-01/
+P3-01's implementation, both already `passes: true`, so nothing to flip
+there.
+
+**Done:**
+- Before touching the schema, queried the actual indexed corpus (not
+  general knowledge) for the distinct obligations under each of the
+  Consumer Duty's four outcomes — 6 targeted questions via the existing
+  `QueryEngine`. Findings: Consumer Support (vulnerable-customer
+  support), Price and Value (fair value must be demonstrable, not just
+  priced), Products and Services (target market fit), and Consumer
+  Understanding (tested/tailored communication, "good practice" example
+  is an upfront summary vs. jargon-heavy prose) all came back detailed
+  and well-grounded (similarity 0.65-0.74). A separate query on
+  cooling-off/cancellation rights and complaints handling came back
+  thin — cancellation is only ever mentioned as a complaints metric, and
+  complaints/arrears content only cross-references DISP/CONC rules not
+  actually in this corpus. Dropped those from the user's example
+  candidate list rather than force them in ungrounded.
+- Redesigned `LoanAgreementFields` (`src/agent/schemas.py`): removed
+  `key_clauses`, added `vulnerable_customer_provision`,
+  `fair_value_justification`, `target_market_suitability_statement`,
+  `key_terms_summary_provision` — one per outcome. All four typed
+  `str | None`, required (no default), with descriptions instructing
+  Claude to write the literal string "Not addressed in this document."
+  rather than return null or omit the field when a document doesn't
+  address that category. Reinforced the same instruction in
+  `src/agent/intake.py`'s system prompt as defense-in-depth.
+  `fees`/`repayment_schedule`/etc. untouched.
+- Updated `src/agent/first_pass.py`: replaced the old 2-query pattern
+  (fees, joined key_clauses) with 4 queries, one per outcome, each built
+  directly from its corresponding new field's extracted content —
+  `FirstPassResult` now has `price_and_value_context`,
+  `consumer_support_context`, `products_and_services_context`,
+  `consumer_understanding_context` instead of the old 2 generically
+  named fields. This wasn't optional busywork: 2 of the 4 new schema
+  fields would otherwise be extracted but never used anywhere, which
+  seemed like an oversight rather than a deliberate scope decision.
+  Still pure retrieval per field, no comparison/judgment — Phase 4 is
+  untouched.
+- Tested end-to-end against the real API and real corpus: all 3
+  synthetic docs re-extracted correctly under the new schema. Confirmed
+  the exact behavior this redesign was for — doc2's
+  `vulnerable_customer_provision` comes back as exactly "Not addressed
+  in this document." (not null, not omitted), doc1/doc3's come back
+  with their actual clause text. Also confirmed, honestly: none of the
+  3 synthetic docs address fair value justification, target market
+  suitability, or a standalone key-terms summary — all three correctly
+  report "Not addressed in this document." for all three fields on all
+  three docs. That's a true finding about the test documents (they
+  weren't written with those features), not a bug — and it's exactly
+  the "never silently omit" behavior actually being exercised end to
+  end, not just asserted.
+- Updated `tests/test_intake.py` (10 tests) and `tests/test_first_pass.py`
+  (9 tests) for the new schema/result shape, including a parametrized
+  check that all 3 docs explicitly report "Not addressed in this
+  document." for the 3 fields none of them cover, and that the 4
+  outcome-context queries in first_pass stay genuinely distinct.
+- Updated `ARCHITECTURE.md` with a new "Compliance-check field
+  provenance" section: documents that the 4 fields came from querying
+  the corpus (not invented), which candidates were dropped and why, and
+  an explicit residual-risk note — this checklist reduces but doesn't
+  eliminate the risk of missing a genuinely novel clause type outside
+  these 4 categories or outside what this Consumer-Duty-only corpus
+  covers; closing that gap over time is what Phase 8's evaluation set
+  is for.
+- Full suite: `python -m pytest tests/` → 26 passed (5 ingestion + 4
+  query engine + 10 intake + 9 first-pass — was 21 before this session's
+  test rewrites).
+
+**Next:**
+- Phase 4 (P4-01/P4-02): the orchestrating Compliance Agent that
+  actually reasons over these 4 grounded fields against their retrieved
+  regulatory context and produces a flagged-issues list, plus the
+  deterministic validation layer on top. The schema and retrieval are
+  now precisely shaped for this — each field has its own regulatory
+  context already retrieved by `FirstPassAgent`, so Phase 4 is
+  comparison logic on top of Session 5/6's wiring, not new plumbing.
+
+**Known issues:**
+- None blocking. `first_pass.py` now makes 4 LLM+retrieval calls per
+  document instead of 2 (one per outcome) — noticeably slower
+  (~80-100s per document in testing) and higher API cost per run. Worth
+  a look if this needs to scale to many documents, but fine for a
+  portfolio-scale demo.
+- The 4-outcome field list is deliberately narrow and tied to what this
+  specific corpus grounds well. If the corpus is broadened later (e.g.
+  full FCA Handbook, PRA rulebook), this field list should be
+  revisited — it was never meant to be a permanent, closed set, see the
+  new ARCHITECTURE.md residual-risk note.
+
+**Notes:**
+- None.
+
+---
+
 ## Session 5 — 2026-08-20
 **Status:** P3-01 done and tested end-to-end. A single agent now wires
 the Intake Agent and the query engine together into a combined

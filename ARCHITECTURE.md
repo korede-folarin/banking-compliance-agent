@@ -65,6 +65,45 @@ here, in this file, at the time it happens.
   match", "conflicting clauses found").
 - UI must show: confidence %, evidence used, auto-resolved vs escalated tag.
 
+## Compliance-check field provenance
+`LoanAgreementFields` (src/agent/schemas.py) has four fields that map 1:1
+onto the Consumer Duty's four outcomes — `vulnerable_customer_provision`
+(Consumer Support), `fair_value_justification` (Price and Value),
+`target_market_suitability_statement` (Products and Services), and
+`key_terms_summary_provision` (Consumer Understanding). These were not
+chosen from general knowledge of what a loan agreement "should" contain.
+Each was derived by querying the actual indexed regulatory corpus (via
+`src/retrieval/query_engine.py`) for what each outcome specifically
+requires, and keeping only the categories that came back with detailed,
+well-grounded obligations (similarity scores ~0.65-0.74, specific and
+citable). Two categories from an earlier candidate list — cooling-off/
+cancellation rights, and detailed complaints-handling procedure — were
+deliberately dropped after the same querying process showed the corpus
+doesn't substantively cover them: cancellation is only ever mentioned in
+passing as a complaints metric, and complaints/arrears content only
+cross-references DISP/CONC rulebook rules that aren't part of this
+corpus. The schema reflects what this corpus can actually ground an
+answer in, not an assumed general checklist.
+
+Each of these fields is required (not optional) and typed `str | None`
+specifically so the model cannot silently drop a field it has nothing to
+report for — the Intake Agent is instructed to write the literal string
+"Not addressed in this document." rather than omit the key or return
+null, so absence is always an explicit, visible statement rather than a
+gap that looks like a bug.
+
+**Residual risk:** this is a checklist grounded in one particular
+regulatory corpus, not a general-purpose compliance detector. It reduces
+but does not eliminate the risk of missing a genuinely novel clause type
+that falls outside these four categories, or outside what this
+Consumer-Duty-only corpus happens to cover (e.g. it would currently say
+nothing useful about a PRA prudential requirement, or about a consumer
+credit issue the Consumer Duty corpus doesn't substantively address, the
+same way it doesn't for cancellation rights). Closing that gap over time
+is what the Phase 8 evaluation set is for — a labelled test set is the
+right tool for surfacing categories the schema is currently blind to,
+not something a fixed field list can guarantee on its own.
+
 ## Decision trade-offs (fill in as built — this is the judgement section)
 | Decision | Chosen | Rejected | Why |
 |---|---|---|---|

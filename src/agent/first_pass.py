@@ -12,15 +12,18 @@ logger = logging.getLogger(__name__)
 
 class FirstPassResult(BaseModel):
     document_fields: LoanAgreementFields
-    fee_disclosure_context: QueryResult
-    vulnerable_customer_context: QueryResult
+    price_and_value_context: QueryResult
+    consumer_support_context: QueryResult
+    products_and_services_context: QueryResult
+    consumer_understanding_context: QueryResult
 
 
 class FirstPassAgent:
     """
     Wires the Intake Agent (structured extraction) and the query engine
     (grounded regulatory retrieval) together into a single first-pass
-    response: extracted fields + relevant regulatory context for them.
+    response: extracted fields + relevant regulatory context for them,
+    one retrieval call per Consumer Duty outcome the schema tracks.
 
     Does NOT compare the two or produce a compliance verdict — that
     reasoning is Phase 4 (the orchestrating Compliance Agent +
@@ -33,26 +36,45 @@ class FirstPassAgent:
     def run(self, document_text: str) -> FirstPassResult:
         fields = extract_fields(document_text)
 
-        fee_question = (
-            "What does the Consumer Duty require regarding how a firm "
-            "discloses fees and charges to consumers, and what would count "
-            "as inadequate disclosure? The loan agreement under review "
-            f'states its fees as: "{fields.fees}"'
+        price_and_value_question = (
+            "What does the Consumer Duty's Price and Value outcome require "
+            "regarding fee/charge disclosure and demonstrating that a price "
+            "represents fair value? The loan agreement under review states "
+            f'its fees as: "{fields.fees}" and its fair value justification '
+            f'as: "{fields.fair_value_justification}"'
         )
-        fee_context = self._query_engine.query(fee_question)
+        price_and_value_context = self._query_engine.query(price_and_value_question)
 
-        clauses_text = "; ".join(fields.key_clauses) if fields.key_clauses else "none stated"
-        vulnerable_question = (
-            "What does the Consumer Duty require regarding identifying and "
-            "supporting customers in vulnerable circumstances? The loan "
-            f"agreement under review includes the following clauses: {clauses_text}"
+        consumer_support_question = (
+            "What does the Consumer Duty's Consumer Support outcome require "
+            "regarding identifying and supporting customers in vulnerable "
+            "circumstances? The loan agreement under review addresses this "
+            f'as follows: "{fields.vulnerable_customer_provision}"'
         )
-        vulnerable_context = self._query_engine.query(vulnerable_question)
+        consumer_support_context = self._query_engine.query(consumer_support_question)
+
+        products_and_services_question = (
+            "What does the Consumer Duty's Products and Services outcome "
+            "require regarding a product being designed for and suitable "
+            "for its target market? The loan agreement under review "
+            f'addresses this as follows: "{fields.target_market_suitability_statement}"'
+        )
+        products_and_services_context = self._query_engine.query(products_and_services_question)
+
+        consumer_understanding_question = (
+            "What does the Consumer Duty's Consumer Understanding outcome "
+            "require regarding presenting key terms clearly so customers can "
+            "make informed decisions? The loan agreement under review "
+            f'addresses this as follows: "{fields.key_terms_summary_provision}"'
+        )
+        consumer_understanding_context = self._query_engine.query(consumer_understanding_question)
 
         return FirstPassResult(
             document_fields=fields,
-            fee_disclosure_context=fee_context,
-            vulnerable_customer_context=vulnerable_context,
+            price_and_value_context=price_and_value_context,
+            consumer_support_context=consumer_support_context,
+            products_and_services_context=products_and_services_context,
+            consumer_understanding_context=consumer_understanding_context,
         )
 
 

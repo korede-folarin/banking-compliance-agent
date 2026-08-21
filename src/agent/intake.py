@@ -14,7 +14,13 @@ SYSTEM_PROMPT = (
     "loan agreement. Extract only what is actually stated in the document. Do "
     "not infer, guess, or fill in values that are not present in the text — if "
     "a fee amount is not clearly stated, describe how the document refers to it "
-    "instead of inventing a number."
+    "instead of inventing a number. For the compliance-relevant clause fields "
+    '(vulnerable_customer_provision, fair_value_justification, '
+    "target_market_suitability_statement, key_terms_summary_provision): if the "
+    'document does not contain that type of clause, you must still return the '
+    'field with the literal string "Not addressed in this document." — never '
+    "omit the field and never return null. Reporting an absence explicitly is "
+    "just as important as reporting a clause that is present."
 )
 
 
