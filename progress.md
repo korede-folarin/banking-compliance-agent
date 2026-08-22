@@ -5,6 +5,60 @@ Newest entry at the top.
 
 ---
 
+## Session 9 — 2026-08-20
+**Status:** Verification pass. Confirmed Phase 4 (P4-01, P4-02) is fully
+built, tested, committed, and pushed. Nothing new to build this session,
+just confirming state and tightening documentation. Session 8's entry
+below already fully captures what P4-01/P4-02 do, the test results, and
+the two honest findings (threshold boundary, false-accusation rate), so
+it isn't duplicated here.
+
+**Done:**
+- Ran the full suite fresh: `python -m pytest tests/` → 32 passed, 0
+  failed. Confirmed `git status` clean and both Phase 4 commits
+  (`6a47280` P4-01+P4-02, `178072d` README/ARCHITECTURE readability)
+  present in `git log`. `main` was already even with `origin/main`;
+  nothing to push.
+- Wrote up a diagnostic finding from an earlier read-only investigation
+  (never logged until now) into ARCHITECTURE.md's "Confidence threshold
+  vs. LLM judgment" section: comparing `price_and_value`'s raw retrieved
+  chunks against `consumer_support`'s for the same control document,
+  `consumer_support`'s top-5 were uniformly on-topic (all from the
+  dedicated chapter), while `price_and_value`'s top-5 mixed 2 genuinely
+  relevant chunks with 3 that pull in worked examples for other product
+  types (BNPL default fees, SME business-account opacity, a mortgage
+  escalating-balance scenario, distributor-chain guidance), none
+  resembling the plain personal loan under review. This gives Phase 8 a
+  concrete, testable lead (separate example text from general-principle
+  text at chunk boundaries, rerank, or reword the question) rather than
+  an unexplained false-accusation rate.
+- Updated README.md: "What it does right now" step 3 now correctly
+  describes the Compliance Agent as built. It previously said "the next
+  phase, not yet built", which went stale the moment P4-01/P4-02
+  shipped and was never corrected. Added a 4th "how I know it actually
+  works" story about the false-accusation finding and the safety net
+  that held anyway. "What's still to come" no longer lists Phase 3/4
+  (both done); now lists Phase 5, 7, 8, 9, 10, 11 only. Also fixed two
+  stale "16 tests" references to the current 32.
+- No `feature_list.json` changes: P3-01/P4-01/P4-02 were already
+  `passes: true`; this session didn't build anything new to flip.
+
+**Next:**
+- Phase 5 (P5-01 through P5-04): MCP tools layer, as already noted in
+  Session 8.
+
+**Known issues:**
+- Same as Session 8: the false-accusation rate on `price_and_value` /
+  `consumer_understanding`, now with a concrete root-cause lead
+  (retrieval noise from worked examples for other product types) rather
+  than just "weak retrieval." `CONFIDENCE_THRESHOLD` still unvalidated.
+  Both remain Phase 8 work, not fixed today.
+
+**Notes:**
+- None.
+
+---
+
 ## Session 8 — 2026-08-20
 **Status:** P4-01 + P4-02 done and tested end-to-end. The orchestrating
 Compliance Agent (LLM reasoning per outcome) and deterministic

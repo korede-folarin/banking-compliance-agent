@@ -255,6 +255,29 @@ loosening tests further. Properly tuning `CONFIDENCE_THRESHOLD` against
 real evaluation data (recall@k, a labelled test set) is Phase 8's job,
 not something to adjust ad hoc now just to make a test pass.
 
+A follow-up diagnostic looked directly at what `price_and_value`
+retrieves for the control document, and compared it against
+`consumer_support`'s retrieval for the same document, to understand why
+the two behave so differently. `consumer_support`'s top-5 chunks were
+uniformly on-topic: all from the dedicated Consumer Support chapter, all
+speaking directly to the thing being judged. `price_and_value`'s top-5
+mixed two genuinely relevant general-principle chunks with three that
+pull in specific worked examples for other product types: buy-now-pay-
+later default-fee stacking, an SME business-current-account opacity
+example, a mortgage escalating-balance harm scenario, and
+distributor-chain guidance for multi-party lending. None of those
+resemble the plain fixed-rate personal loan under review. The corpus
+clearly has real Price and Value content (the two relevant chunks prove
+that); the retrieval mechanism just surfaces more topical noise for this
+outcome, because that chapter interleaves general rules with detailed,
+scenario-specific illustrations more heavily than the Consumer Support
+chapter does. That gives Phase 8 a concrete, testable lead rather than
+an unexplained false-accusation rate: separating example/illustration
+text from general-principle text at chunk boundaries, increasing
+`top_k` with reranking to filter out scenario-mismatched examples, or
+rewording the question to reduce keyword overlap with the example
+paragraphs.
+
 ## Decision trade-offs (fill in as built; this is the judgement section)
 | Decision | Chosen | Rejected | Why |
 |---|---|---|---|

@@ -23,8 +23,7 @@ compliant" case.
 
 ## What it does right now
 
-Right now the system does two of the three steps a compliance review
-needs, end to end:
+The system does all three steps a compliance review needs, end to end:
 
 1. **It reads the regulation.** The FCA's Consumer Duty corpus (the
    Handbook's PRIN 2A, the FG22/5 guidance, and the PS22/9 policy
@@ -35,10 +34,14 @@ needs, end to end:
    fields out of a loan document (lender, borrower, amount, APR, term,
    repayment schedule, fees, and other notable clauses) into a validated
    schema, rather than leaving them as unstructured prose.
-3. **It will compare the two.** Actually checking whether what the
-   document says is compliant with what the regulation requires (the
-   step that turns this from two separate tools into a compliance agent)
-   is the next phase, not yet built. See "What's still to come."
+3. **It compares the two.** A Compliance Agent reasons over each
+   extracted field against the regulation retrieved for it and produces
+   a judgment per outcome (compliant, potentially non-compliant, or
+   insufficient evidence). A separate, deterministic layer then computes
+   a confidence score from retrieval quality alone, never the model's
+   self-report, and can override that judgment to "insufficient
+   evidence" when confidence is too low. Either way, an uncertain or
+   flagged case gets routed to human review, never silently approved.
 
 ## How I know it actually works
 
@@ -83,9 +86,22 @@ reading them. Installing the missing dependency and re-running produced
 code as proof of correctness; checking actual content became a habit for
 the rest of the build.
 
+**It caught its own occasional mistake before it could matter.** Testing
+the Compliance Agent's reasoning against a document written to be fully
+compliant, one outcome's own judgment came back "potentially
+non-compliant" once in five live runs: a real, if infrequent, false read
+from the model itself, not just cautious hedging. It traced to weak
+retrieval grounding for that one outcome, borderline-relevant regulatory
+text, not enough to reliably judge either way. But the deterministic
+layer sitting on top of that reasoning never once let an uncertain case
+through unreviewed: every flagged or low-confidence outcome, on every
+document, in every run, got routed to human review. The reasoning layer
+isn't perfectly reliable yet on two specific outcomes. The safety net
+around it has been, so far.
+
 ## What this does and doesn't prove
 
-The 16 automated tests behind these results are real (they hit the
+The 32 automated tests behind these results are real (they hit the
 actual Claude API and the actual indexed corpus, not mocks), but they
 prove correctness on a small set of known, controlled cases: 3 real
 regulatory documents and 3 hand-written synthetic loan agreements with
@@ -98,18 +114,14 @@ retrieval recall@k, and a measured faithfulness/hallucination rate), and
 it's Phase 8, not done yet.
 
 ## What's still to come
-- **Phase 3**: wire the Intake Agent and the query engine together into
-  a single first-pass loop.
-- **Phase 4**: the actual compliance-check logic: an orchestrating agent
-  that reasons over extracted terms against retrieved regulation and
-  produces a flagged-issues list, plus a deterministic (non-LLM)
-  validation layer on top of it.
 - **Phase 5**: an MCP tools layer (regulation lookup, mock account/
   transaction lookup, policy rulebook query) as separate tools.
-- **Phase 6**: confidence scoring grounded in retrieval quality, with
-  abstention/human-review routing below a threshold.
-- **Phase 7**: a human-in-the-loop approval gate for flagged issues.
-- **Phase 8**: the evaluation harness described above.
+- **Phase 7**: a human-in-the-loop UI: an actual approval gate for
+  flagged issues, not just the `needs_human_review` flag the pipeline
+  already produces.
+- **Phase 8**: the evaluation harness described above, including tuning
+  `CONFIDENCE_THRESHOLD` against real data and improving retrieval for
+  the two outcomes documented as weaker in `ARCHITECTURE.md`.
 - **Phase 9**: monitoring: every run logged, a dashboard of failure/flag
   rates and latency.
 - **Phase 10**: Dockerization and deployment.
@@ -136,7 +148,7 @@ bash init.sh
 # then add your ANTHROPIC_API_KEY to .env (copied from .env.example)
 
 python -m src.ingestion.ingest   # builds the Chroma index from data/regulatory_corpus/
-python -m pytest tests/          # runs the full test suite (16 tests)
+python -m pytest tests/          # runs the full test suite (32 tests)
 ```
 The Streamlit UI (`streamlit run src/app.py`) isn't built yet; that
 lands in a later phase (see "What's still to come" above).
