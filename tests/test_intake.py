@@ -94,14 +94,27 @@ def test_doc1_and_doc3_capture_their_vulnerable_customer_provisions(doc1_fields,
 
 
 @pytest.mark.parametrize("doc_fixture", ["doc1_fields", "doc2_fields", "doc3_fields"])
-def test_fields_none_of_the_docs_address_report_not_addressed_explicitly(doc_fixture, request):
-    # None of the 3 synthetic documents contain a fair-value justification,
-    # a target-market suitability statement, or a standalone key-terms
-    # summary — they weren't written with those features. Extraction must
-    # say so explicitly for all three, for all three fields: this is the
-    # "never silently omit" behaviour actually being exercised, not just
-    # asserted in a docstring.
+def test_target_market_and_key_terms_summary_present_in_all_three_docs(doc_fixture, request):
+    # All 3 documents now include a target-market-suitability clause and
+    # an upfront "Key Facts" summary — these aren't part of what varies
+    # between the docs (only fee clarity and vulnerable-customer support
+    # do), so extraction should report both as present, never
+    # "Not addressed", for all three.
     fields: LoanAgreementFields = request.getfixturevalue(doc_fixture)
-    assert fields.fair_value_justification == NOT_ADDRESSED
-    assert fields.target_market_suitability_statement == NOT_ADDRESSED
-    assert fields.key_terms_summary_provision == NOT_ADDRESSED
+    assert fields.target_market_suitability_statement != NOT_ADDRESSED
+    statement = fields.target_market_suitability_statement.lower()
+    assert "target market" in statement or "designed for" in statement or "suitab" in statement
+    assert fields.key_terms_summary_provision != NOT_ADDRESSED
+    assert "key facts" in fields.key_terms_summary_provision.lower()
+
+
+def test_doc1_has_no_fair_value_justification_but_doc2_and_doc3_do(doc1_fields, doc2_fields, doc3_fields):
+    # doc1's only deliberate issue is the vague fee — it was left without a
+    # fair value justification on purpose (you can't coherently justify
+    # fair value for a fee that's never stated). doc2 and doc3 both have a
+    # clearly stated fee AND an explicit fair value assessment.
+    assert doc1_fields.fair_value_justification == NOT_ADDRESSED
+    assert doc2_fields.fair_value_justification != NOT_ADDRESSED
+    assert "fair value" in doc2_fields.fair_value_justification.lower()
+    assert doc3_fields.fair_value_justification != NOT_ADDRESSED
+    assert "fair value" in doc3_fields.fair_value_justification.lower()

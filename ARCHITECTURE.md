@@ -132,6 +132,103 @@ report for — the Intake Agent is instructed to write the literal string
 null, so absence is always an explicit, visible statement rather than a
 gap that looks like a bug.
 
+## Confidence threshold vs. LLM judgment
+P4-01 (the Compliance Agent, `src/agent/compliance.py`) produces a
+per-outcome `status` — `compliant` / `potentially_non_compliant` /
+`insufficient_evidence` — from LLM reasoning alone, with no numeric
+confidence attached. P4-02 (the deterministic validation layer, same
+file) computes confidence separately: the **minimum** retrieval
+similarity score among the sources that judgment actually cited, not an
+average, and not anything the LLM reports. Minimum was chosen because a
+judgment resting on one weakly-matched citation shouldn't count as
+well-supported just because its other citations are strong — averaging
+would let a weak link hide behind stronger ones. If confidence falls
+below `CONFIDENCE_THRESHOLD` (0.65, from `.env`/`src/config.py`), the
+outcome's status is overridden to `insufficient_evidence` regardless of
+what the LLM concluded, and the original LLM verdict is preserved
+alongside it as `llm_status` for auditability.
+
+Testing this against the 3 synthetic documents (`tests/test_compliance.py`)
+surfaced a real, honest finding, not a bug: **the 0.65 threshold has
+never actually been validated against evaluation data — it's just the
+number that shipped in `.env.example` from the start.** For the control
+document (`loan_agreement_3.txt`, written to be compliant on all 4
+outcomes), the LLM's own judgment (`llm_status`) is correctly
+`compliant` across all 4 — proving P4-01's reasoning works, which is the
+actual point of having a control. But 2 of those 4 outcomes retrieve
+sources with similarity just under 0.65 for this document
+(price_and_value: 0.634; consumer_understanding: 0.614), so P4-02
+downgrades them to `insufficient_evidence`, and `needs_human_review`
+stays `True` even for a document with zero non-compliance findings.
+Switching the aggregation from minimum to average doesn't change this —
+both come out below 0.65 either way (0.636 and 0.623 respectively) — so
+this isn't an artifact of which aggregation was chosen; retrieval
+similarity for these two outcome/question framings against this corpus
+is genuinely below 0.65 for this document, independent of how the
+citations are combined.
+
+The same boundary effect shows up on docs 1 and 2 too, not just the
+control — and there it's a second, distinct source of variance on top of
+retrieval scores being close to 0.65: **which of the 5 retrieved
+candidate sources the LLM actually cites in `cited_sources` isn't
+perfectly stable between calls**, even though retrieval itself is
+deterministic (same query, same embeddings, same corpus). Confidence is
+computed from whichever subset gets cited, so a judgment sitting right
+at the boundary can flip status between runs purely from that citation
+selection, not from any change in retrieval quality. Observed directly:
+doc2's `consumer_support` outcome — its one deliberately planted issue —
+measured at confidence 0.651 in one run and 0.629 in another, straddling
+0.65 both times. `tests/test_compliance.py` reflects this honestly: it
+asserts the stable, semantic signal (`llm_status`, and `needs_human_review`,
+which is `True` under either post-threshold outcome) for docs 1 and 2's
+primary findings, rather than hard-asserting the exact post-threshold
+`status` string for an outcome known to sit on the boundary.
+
+The same borderline retrieval quality also shows up one layer up, in the
+LLM's own `llm_status` judgment (P4-01) itself, not just in P4-02's
+threshold — and here the finding is more serious than "occasionally
+cautious." Five live samples of the control document's `price_and_value`
+judgment, same document, same code, same corpus, produced: `compliant`,
+`compliant`, `insufficient_evidence`, **`potentially_non_compliant`**,
+`compliant`. That fourth sample isn't cautious hedging — it's a real,
+if infrequent (~1 in 5 in this sample), false accusation against a
+document written to be genuinely compliant. It traces to the same root
+cause as the threshold-boundary effect above (retrieval for this
+outcome/corpus combination sits in a genuinely ambiguous 0.61-0.68
+range), but manifests one layer earlier: with only borderline-relevant
+excerpts to reason from, the model's own verdict becomes unstable, not
+just its confidence.
+
+Critically, this instability is not uniform across outcomes.
+`consumer_support` and `products_and_services` retrieve consistently
+strongly (~0.68-0.71 similarity) across every document tested, and have
+never — across every sample collected building this feature — produced
+a false `potentially_non_compliant` verdict. `price_and_value` and
+`consumer_understanding` consistently retrieve weaker (~0.61-0.68) and
+are the only two outcomes where this has been observed.
+`tests/test_compliance.py` reflects this precisely rather than asserting
+a blanket claim the evidence doesn't support: "never falsely flags the
+control" is only asserted for the two consistently strongly-grounded
+outcomes, not all four.
+
+What *has* held reliably across every single run, for every document,
+regardless of which outcome or how it was judged: `needs_human_review`
+is `True` whenever retrieval grounding is weak. The system never
+silently auto-approves — it always routes the uncertain case to a human.
+That's the safety property CLAUDE.md actually requires ("if confidence
+is low, route to human review — do not guess"), and it holds. What
+doesn't hold, currently, is the stronger claim that P4-01's reasoning
+itself is free of occasional false accusations on weakly-grounded
+outcomes — that's a real, open limitation, not a documentation nicety,
+and it's a priority candidate for Phase 8: better retrieval (more
+candidates, a stronger embedding model, or corpus additions covering
+Price and Value / Consumer Understanding more deeply) or evaluation-
+driven prompt refinement, not something to paper over by loosening tests
+further. Properly tuning `CONFIDENCE_THRESHOLD` against real evaluation
+data (recall@k, a
+labelled test set) is Phase 8's job, not something to adjust ad hoc now
+just to make a test pass.
+
 **Residual risk:** this is a checklist grounded in one particular
 regulatory corpus, not a general-purpose compliance detector. It reduces
 but does not eliminate the risk of missing a genuinely novel clause type

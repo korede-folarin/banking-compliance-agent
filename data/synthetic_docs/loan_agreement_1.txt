@@ -13,6 +13,16 @@ Leeds, LS1 4AB ("the Lender"); and
 
 (2) Daniel Osei, of 47 Ashgrove Road, Manchester, M14 6TP ("the Borrower").
 
+KEY FACTS AT A GLANCE
+Loan amount: £8,500.00
+APR: 24.9%
+Term: 36 months
+Monthly repayment: £337.70
+Total amount repayable: £12,157.20
+This summary is provided upfront to help the Borrower understand the key
+terms of this Agreement before reading the full terms and conditions set
+out below.
+
 1. LOAN DETAILS
 1.1 The Lender agrees to advance to the Borrower a loan of £8,500.00 ("the Loan").
 1.2 The Annual Percentage Rate of Charge (APR) applicable to this Agreement is 24.9%.
@@ -57,34 +67,46 @@ Leeds, LS1 4AB ("the Lender"); and
     Borrower reasonable notice.
 6.4 Nothing in this Agreement affects the Borrower's statutory rights.
 
-7. CUSTOMER SERVICE
-7.1 If the Borrower has any queries about this Agreement or their account,
+7. TARGET MARKET AND SUITABILITY
+7.1 This Loan has been designed for consumers seeking a fixed-rate,
+    fixed-term personal loan for a known borrowing amount, who are able to
+    evidence affordability of the fixed monthly instalments set out in
+    clause 2 and who do not require flexible or revolving credit.
+7.2 The Lender has assessed that a Borrower with these characteristics is
+    likely to achieve good outcomes from this product, having regard to its
+    fixed cost structure, defined term, and early repayment rights set out
+    in clause 4. The Lender reviews this target market assessment
+    periodically and considers the impact of its distribution channels on
+    ensuring the product reaches the intended market.
+
+8. CUSTOMER SERVICE
+8.1 If the Borrower has any queries about this Agreement or their account,
     they may contact the Lender's customer service team on 0800 456 7890 or
     by email at accounts@northfieldconsumerfinance.example, Monday to Friday,
     9am to 5pm.
 
-8. VULNERABLE CUSTOMERS
-8.1 The Lender recognises that some customers may, either permanently or
+9. VULNERABLE CUSTOMERS
+9.1 The Lender recognises that some customers may, either permanently or
     temporarily, be in circumstances that make them vulnerable — for example
     due to ill health, bereavement, changes in personal circumstances, low
     resilience to financial or emotional shocks, or low capability in
     managing financial matters.
-8.2 If the Borrower considers that they are, or may become, in such
+9.2 If the Borrower considers that they are, or may become, in such
     circumstances, they are encouraged to let the Lender know, in
     confidence, by contacting the customer service team using the details in
-    clause 7. The Lender will work with the Borrower to identify appropriate
+    clause 8. The Lender will work with the Borrower to identify appropriate
     support, which may include adjusted communication methods, additional
     time to consider options, or referral to independent debt advice.
-8.3 Contacting the Lender under this clause will not affect the Borrower's
+9.3 Contacting the Lender under this clause will not affect the Borrower's
     obligations under this Agreement, but may affect the options available
     to the Borrower if they experience payment difficulties.
 
-9. DATA PROTECTION
-9.1 The Lender will process the Borrower's personal data in accordance with
-    its privacy notice, a copy of which has been provided separately.
+10. DATA PROTECTION
+10.1 The Lender will process the Borrower's personal data in accordance with
+     its privacy notice, a copy of which has been provided separately.
 
-10. GOVERNING LAW
-10.1 This Agreement is governed by the law of England and Wales, and the
+11. GOVERNING LAW
+11.1 This Agreement is governed by the law of England and Wales, and the
      parties submit to the exclusive jurisdiction of the courts of England
      and Wales.
 

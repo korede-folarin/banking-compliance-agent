@@ -14,6 +14,18 @@ Bristol, BS1 6TH ("the Lender"); and
 (2) Rebecca Ashworth, of 15 Fenwick Close, Newcastle upon Tyne, NE4 8QR
 ("the Borrower").
 
+KEY FACTS AT A GLANCE
+Loan amount: £12,000.00
+APR: 19.9%
+Term: 48 months
+Monthly repayment: £390.60
+Total amount repayable: £18,748.80
+Arrangement Fee: £150.00 (deducted from the Loan amount on drawdown — see
+clause 4)
+This summary is provided upfront to help the Borrower understand the key
+terms of this Agreement before reading the full terms and conditions set
+out below.
+
 1. LOAN DETAILS
 1.1 The Lender agrees to advance to the Borrower a loan of £12,000.00
     ("the Loan").
@@ -39,6 +51,13 @@ Bristol, BS1 6TH ("the Lender"); and
 4.2 No other fees or charges apply under this Agreement, save for interest as
     set out in clause 3 and any charges arising from default as set out in
     clause 6.
+4.3 The Lender has assessed that the total cost of credit under this
+    Agreement — comprising the Arrangement Fee referred to in clause 4.1 and
+    the interest charged under clause 3 — represents fair value to the
+    Borrower, having regard to the costs of providing the Loan, the benefits
+    and flexibility offered (including the early repayment right in
+    clause 5), and the pricing of comparable products available in the
+    market. This assessment is reviewed periodically.
 
 5. EARLY REPAYMENT
 5.1 The Borrower may repay the Loan in full or in part at any time before the
@@ -55,20 +74,32 @@ Bristol, BS1 6TH ("the Lender"); and
 6.2 Interest continues to accrue on overdue sums at the rate set out in
     clause 1.2.
 
-7. CUSTOMER SERVICE
-7.1 If the Borrower has any queries about this Agreement or their account,
+7. TARGET MARKET AND SUITABILITY
+7.1 This Loan has been designed for consumers seeking a fixed-rate,
+    fixed-term personal loan for a known borrowing amount, who are able to
+    evidence affordability of the fixed monthly instalments set out in
+    clause 2 and who do not require flexible or revolving credit.
+7.2 The Lender has assessed that a Borrower with these characteristics is
+    likely to achieve good outcomes from this product, having regard to its
+    fixed cost structure, defined term, and early repayment rights set out
+    in clause 5. The Lender reviews this target market assessment
+    periodically and monitors its distribution channels to help ensure the
+    product reaches the intended market.
+
+8. CUSTOMER SERVICE
+8.1 If the Borrower has any queries about this Agreement or their account,
     they may contact the Lender's customer service team on 0800 321 6540 or
     by email at support@bridgeportlending.example, Monday to Friday, 9am to
     5pm.
 
-8. DATA PROTECTION
-8.1 The Lender will process the Borrower's personal data in accordance with
+9. DATA PROTECTION
+9.1 The Lender will process the Borrower's personal data in accordance with
     its privacy notice, a copy of which has been provided separately.
 
-9. GOVERNING LAW
-9.1 This Agreement is governed by the law of England and Wales, and the
-    parties submit to the exclusive jurisdiction of the courts of England
-    and Wales.
+10. GOVERNING LAW
+10.1 This Agreement is governed by the law of England and Wales, and the
+     parties submit to the exclusive jurisdiction of the courts of England
+     and Wales.
 
 SIGNED for and on behalf of the Lender: ______________________
 SIGNED by the Borrower: ______________________
