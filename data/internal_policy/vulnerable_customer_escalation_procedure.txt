@@ -1,0 +1,39 @@
+[SYNTHETIC INTERNAL DOCUMENT — FOR TESTING / DEMONSTRATION PURPOSES ONLY.
+THIS IS NOT A REAL INTERNAL BANK POLICY. THE COMPANY, TEAM NAMES, AND ALL
+DETAILS BELOW ARE FICTIONAL.]
+
+VULNERABLE CUSTOMER ESCALATION PROCEDURE
+Northbridge Consumer Lending — Internal Procedure
+Version 2.1 — Internal use only (Customer Service, Underwriting, and Risk
+teams)
+
+1. PURPOSE
+1.1 This procedure sets out when staff must proactively escalate a case
+    for vulnerability review, in addition to (not instead of) responding
+    to any vulnerability a customer discloses directly.
+
+2. PROACTIVE ESCALATION TRIGGERS
+2.1 Staff must escalate a case to the Specialist Support Team, even
+    where the customer has not self-disclosed a vulnerability, where any
+    of the following is present on the account:
+    (a) two or more missed payment flags in the trailing 12 months;
+    (b) an open financial hardship marker of any kind;
+    (c) account notes indicating a recent bereavement, relationship
+        breakdown, or significant health event.
+2.2 Escalation must happen before, not after, any new lending decision
+    is finalised for that customer.
+
+3. ESCALATION PROCESS
+3.1 Complete the Specialist Support referral form, referencing the
+    specific trigger(s) from section 2.1.
+3.2 The Specialist Support Team will respond within 2 working days with
+    a recommended support plan.
+3.3 Underwriting must not proceed to final approval until the
+    Specialist Support Team has either confirmed no further action is
+    needed, or the recommended support plan has been actioned.
+
+4. RECORD-KEEPING
+4.1 All escalations and outcomes must be logged on the customer's
+    account record for audit purposes.
+
+[END OF SYNTHETIC DOCUMENT]

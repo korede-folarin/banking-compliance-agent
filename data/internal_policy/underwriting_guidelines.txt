@@ -1,0 +1,45 @@
+[SYNTHETIC INTERNAL DOCUMENT — FOR TESTING / DEMONSTRATION PURPOSES ONLY.
+THIS IS NOT A REAL INTERNAL BANK POLICY. THE COMPANY, TEAM NAMES, AND ALL
+DETAILS BELOW ARE FICTIONAL.]
+
+INTERNAL UNDERWRITING GUIDELINES
+Northbridge Consumer Lending — Retail Credit Underwriting Standards
+Version 4.2 — Internal use only (Underwriting, Risk, and Compliance teams)
+
+1. PURPOSE AND SCOPE
+1.1 These guidelines set the minimum internal standard for approving
+    retail consumer loan agreements before they are issued to a
+    customer. They are stricter, in places, than the minimum required
+    by external FCA regulation, and underwriters must apply whichever
+    standard is more protective of the customer.
+
+2. FEE AND CHARGE DISCLOSURE (INTERNAL STANDARD)
+2.1 Every fee or charge that may be payable under a loan agreement must
+    be stated as a specific monetary amount directly within the
+    agreement itself, before the agreement is presented to the customer
+    for signature.
+2.2 A clause that refers the customer to a separate "tariff of
+    charges," "schedule of fees," or similar document available "on
+    request" does not satisfy this standard, even where external
+    guidance might arguably tolerate it as one factor among several.
+    Internal policy treats an unquantified fee reference as a
+    disclosure defect requiring remediation before approval.
+2.3 Where clause 2.2 is breached, the agreement must be referred to an
+    Underwriting Manager for review and may not proceed to signature
+    until either (a) the fee is quantified in the agreement, or (b) the
+    Underwriting Manager records a documented exception with reasoning.
+
+3. TARGET MARKET AND AFFORDABILITY
+3.1 Underwriters must confirm the product's stated target market
+    assessment is present and that the applicant's circumstances, as
+    known, are consistent with it.
+3.2 Affordability must be assessed using the applicant's most recent 3
+    months of account activity where available (see Retail Systems for
+    account lookup access).
+
+4. ESCALATION
+4.1 Any case meeting one or more criteria in the Vulnerable Customer
+    Escalation Procedure must be escalated in accordance with that
+    procedure before underwriting sign-off.
+
+[END OF SYNTHETIC DOCUMENT]

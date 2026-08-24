@@ -278,6 +278,76 @@ text from general-principle text at chunk boundaries, increasing
 rewording the question to reduce keyword overlap with the example
 paragraphs.
 
+## MCP tools layer (Phase 5)
+Before building this, the justification in the Data flow section above
+("three genuinely separate data domains... owned by different teams/
+systems with different access controls") was re-checked, not assumed.
+It still holds, and building the internal policy tool made it concrete
+rather than asserted:
+
+- **Regulation lookup** wraps the existing `src/retrieval/query_engine.py`
+  against the public FCA corpus. In a real bank this is external,
+  published data, likely sourced from a GRC (governance/risk/compliance)
+  system.
+- **Account lookup** is mock customer/transaction data. In a real bank
+  this sits in the core banking system, is actual customer PII, and is
+  access-controlled per customer, nothing like the other two domains.
+- **Policy query** is Northbridge Consumer Lending's internal
+  underwriting and escalation policy (`data/internal_policy/`,
+  synthetic, distinct from the public FCA corpus). In a real bank this
+  is an internal, employee-only knowledge base, owned by Risk/
+  Underwriting, not Compliance and not Core Banking.
+
+The concrete proof this isn't just an asserted three-way split: asked
+the *identical* fee-disclosure question of both the regulation tool and
+the policy tool (`tests/test_mcp_tools.py::
+test_policy_and_regulation_tools_give_genuinely_different_answers`).
+The public regulation answer stays at the level of a general "fair
+value" principle. The internal policy answer is concrete and stricter:
+a fee referenced only via a separate "tariff of charges" is a
+disclosure defect requiring an Underwriting Manager referral before
+approval, full stop, a specific internal rule with no equivalent in the
+public FCA text. Two tools returning genuinely different, non-
+overlapping information for the same question is what makes "separate
+domains" a real design fact, not a diagram label.
+
+**Implementation.** `src/mcp_server/server.py` is a `FastMCP` server
+(the `mcp` SDK, pinned to `1.29.0`; its `2.0.0` release restructured the
+server/client API in a way not yet documented well enough to build
+against reliably) exposing three tools: `lookup_regulation`,
+`lookup_account`, `query_policy`. The internal policy tool reuses the
+same ingestion (`src/ingestion/ingest.py`) and retrieval
+(`src/retrieval/query_engine.py`) code as the regulation tool, both
+generalized to take a `corpus_dir`/`collection_name` parameter instead
+of being hardcoded to the regulatory corpus, rather than duplicating a
+second RAG pipeline for two short internal documents. The mock account
+tool (`src/mcp_server/mock_accounts.py`) is a small JSON file
+(`data/mock_accounts/accounts.json`), no database, exactly as scoped.
+`src/mcp_server/client.py` spawns the server as a subprocess and talks
+to it over stdio (the standard MCP transport), so tool calls genuinely
+cross a process boundary rather than being direct Python calls dressed
+up as MCP.
+
+**Where MCP is actually wired in.** `ComplianceAgent.evaluate()` (P4-01,
+already tested end-to-end against all 3 synthetic documents) is
+untouched: rewriting its whole four-outcome pipeline to route through
+MCP would have meant touching already-passing, already-audited code for
+no functional gain. Instead,
+`ComplianceAgent.judge_price_and_value_with_mcp_context()` is a new,
+additive method demonstrating genuine multi-tool MCP use for one real
+scenario: judging the Price and Value outcome enriched with the
+borrower's mock account payment history and Northbridge's internal fee-
+disclosure standard, alongside the same public-regulation question the
+baseline pipeline already asks. Tested (`tests/test_compliance_mcp.py`)
+against `loan_agreement_1.txt` (the vague-fee document) and confirmed,
+not assumed, that the output differs meaningfully from the baseline:
+the enriched judgment cites both a public regulation source and an
+internal policy source, and its reasoning references the borrower's
+missed-payment history, content the baseline pipeline has no access to
+and never mentions. This is deliberately scoped as one real
+demonstration of the wiring working, not a claim that every outcome
+now routes through MCP.
+
 ## Decision trade-offs (fill in as built; this is the judgement section)
 | Decision | Chosen | Rejected | Why |
 |---|---|---|---|

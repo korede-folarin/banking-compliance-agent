@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Literal
 
@@ -8,6 +9,7 @@ from pydantic import BaseModel, Field
 from src.agent.first_pass import FirstPassAgent, FirstPassResult
 from src.agent.schemas import LoanAgreementFields
 from src.config import ANTHROPIC_MODEL, CONFIDENCE_THRESHOLD
+from src.mcp_server.client import call_tools
 from src.retrieval.query_engine import QueryResult, SourceCitation
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -49,6 +51,32 @@ COMPLIANCE_SYSTEM_PROMPT = (
     "percentage anywhere in your reasoning — confidence is computed "
     "separately, deterministically, from retrieval quality, not from "
     "your judgment."
+)
+
+
+MCP_ENRICHED_SYSTEM_PROMPT = (
+    "You are a compliance analyst judging the Price and Value outcome for "
+    "a UK consumer loan agreement, using THREE sources of evidence "
+    "retrieved live via MCP tools: (1) the public FCA Consumer Duty "
+    "regulation, (2) Northbridge Consumer Lending's internal underwriting "
+    "policy, which may be stricter than the public regulation and "
+    "controls where it is, and (3) the borrower's mock account history. "
+    "Judge only from the excerpts and account data provided — do not use "
+    "outside knowledge.\n\n"
+    "Return status as one of:\n"
+    '- "compliant": the document\'s stated approach satisfies BOTH the '
+    "public regulation and internal policy, and nothing in the account "
+    "history requires action the document's approach fails to address.\n"
+    '- "potentially_non_compliant": the document\'s stated approach falls '
+    "short of either the public regulation OR internal policy (internal "
+    "policy can be stricter and still controls), or the account history "
+    "shows a proactive-escalation trigger under internal policy that "
+    "the document's approach does not address.\n"
+    '- "insufficient_evidence": the retrieved excerpts themselves do not '
+    "contain enough specific detail to judge either way.\n\n"
+    "cited_sources must list the excerpt number(s) (regulation and/or "
+    "policy) your reasoning actually relies on. Do not invent a "
+    "confidence score."
 )
 
 
@@ -148,6 +176,97 @@ class ComplianceAgent:
                 first_pass.consumer_understanding_context,
             ),
         }
+
+    def judge_price_and_value_with_mcp_context(
+        self, fields: LoanAgreementFields, borrower_name: str
+    ) -> tuple[OutcomeJudgment, list[SourceCitation]]:
+        """
+        P5-04: judges the Price and Value outcome using all three MCP
+        tools (regulation lookup, account lookup, internal policy query),
+        called through the MCP interface (a subprocess speaking the MCP
+        protocol over stdio), not direct Python calls. This is additive to
+        `evaluate()` above, not a replacement for it — the existing P4-01/
+        P4-02 pipeline is untouched.
+
+        Enriches the same public-regulation question `evaluate()` already
+        asks with two things it doesn't have access to: the borrower's
+        mock account payment history (a Consumer Support/vulnerability
+        angle) and Northbridge's internal fee-disclosure standard, which
+        is concrete and stricter than the public regulation. Demonstrates
+        genuine multi-tool use, not just three tools that happen to be
+        callable: the internal policy tool draws on entirely different
+        source documents than the regulation tool, and the account tool
+        can surface an escalation trigger neither text corpus would show.
+
+        Returns the judgment plus the combined regulation+policy source
+        list (continuously renumbered), so a caller can compute confidence
+        the same way P4-02 does for the baseline pipeline.
+        """
+        regulation_question = (
+            "What does the Consumer Duty's Price and Value outcome require "
+            "regarding fee/charge disclosure and demonstrating that a price "
+            "represents fair value? The loan agreement under review states "
+            f'its fees as: "{fields.fees}" and its fair value justification '
+            f'as: "{fields.fair_value_justification}"'
+        )
+        policy_question = (
+            "What does internal policy require for disclosing fees in a "
+            "loan agreement, and what must happen if a fee is only "
+            "referenced via a separate tariff of charges rather than "
+            "stated as a specific amount?"
+        )
+
+        raw_account, raw_regulation, raw_policy = call_tools(
+            [
+                ("lookup_account", {"name_or_id": borrower_name}),
+                ("lookup_regulation", {"question": regulation_question}),
+                ("query_policy", {"question": policy_question}),
+            ]
+        )
+
+        account = json.loads(raw_account)
+        regulation_result = QueryResult.model_validate_json(raw_regulation)
+        policy_result = QueryResult.model_validate_json(raw_policy)
+
+        combined_sources: list[SourceCitation] = list(regulation_result.sources)
+        offset = len(combined_sources)
+        for s in policy_result.sources:
+            combined_sources.append(
+                SourceCitation(
+                    index=s.index + offset,
+                    file_name=s.file_name,
+                    similarity_score=s.similarity_score,
+                    text_excerpt=s.text_excerpt,
+                )
+            )
+        evidence = _build_evidence_context(combined_sources)
+
+        if account.get("found"):
+            account_summary = (
+                f"Account holder: {account['account_holder_name']} "
+                f"(status: {account['account_status']}). Payment history "
+                f"flags: {account.get('payment_history_flags') or 'none'}. "
+                f"Notes: {account.get('notes', '')}"
+            )
+        else:
+            account_summary = f"No account found for \"{borrower_name}\"."
+
+        user_message = (
+            "Consumer Duty outcome under review: Price and Value\n\n"
+            f'What the loan agreement states:\nStated fees: "{fields.fees}"\n'
+            f'Fair value justification: "{fields.fair_value_justification}"\n\n'
+            f"Borrower account context (from mock account lookup):\n{account_summary}\n\n"
+            f"Retrieved regulatory and internal policy excerpts:\n{evidence}"
+        )
+
+        judgment = self._client.messages.create(
+            model=ANTHROPIC_MODEL,
+            max_tokens=1024,
+            system=MCP_ENRICHED_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_message}],
+            response_model=OutcomeJudgment,
+        )
+        return judgment, combined_sources
 
 
 # --- P4-02: deterministic validation layer. Plain Python, no LLM call. ---

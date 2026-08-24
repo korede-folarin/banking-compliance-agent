@@ -16,3 +16,4 @@ langchain-community<0.4.0
 pytest>=8.3.0
 pandas>=2.2.0
 instructor>=1.0.0  # structured extraction (Pydantic-validated) from Claude via tool calling
+mcp==1.29.0  # pinned below the 2.0.0 line, which restructured the server/client API we depend on

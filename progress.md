@@ -5,6 +5,109 @@ Newest entry at the top.
 
 ---
 
+## Session 10 — 2026-08-21
+**Status:** Phase 5 (P5-01 through P5-04) done and tested end-to-end. A
+custom MCP server exposes three tools across three genuinely separate
+data domains, and the Compliance Agent calls all three through the MCP
+protocol (subprocess over stdio, not direct Python calls) for one real
+demonstration scenario.
+
+**Done:**
+- Before writing code, re-checked the "three genuinely separate data
+  domains" justification from ARCHITECTURE.md rather than assuming it
+  still held. It did, and building the internal policy tool made it
+  concrete instead of asserted: asking the identical fee-disclosure
+  question of both the regulation tool and the policy tool produced a
+  general public "fair value" principle from one and a specific,
+  stricter internal rule (unquantified fee references require an
+  Underwriting Manager referral) from the other. Two tools giving
+  genuinely non-overlapping answers to the same question is real
+  evidence for separate domains, not just a diagram label.
+- **P5-01 (regulation lookup):** thin `FastMCP` wrapper
+  (`src/mcp_server/server.py`) around the existing
+  `src/retrieval/query_engine.py`, as expected.
+- **P5-02 (mock account/transaction lookup):** `data/mock_accounts/accounts.json`
+  (synthetic, disclaimer field, 4 accounts including the 3 synthetic
+  borrowers), looked up by name or account ID via
+  `src/mcp_server/mock_accounts.py`. No database, exactly as scoped.
+- **P5-03 (internal policy query):** two new synthetic internal policy
+  documents (`data/internal_policy/`): underwriting guidelines
+  (including the fee-disclosure standard above) and a vulnerable-
+  customer escalation procedure (proactive escalation triggers,
+  including "two or more missed payments in the trailing 12 months" —
+  written to connect meaningfully to the mock account data). Rather
+  than build a second bespoke retrieval mechanism for two short
+  documents, generalized `src/ingestion/ingest.py` and
+  `src/retrieval/query_engine.py` to take a `corpus_dir`/
+  `collection_name` parameter (defaults preserve existing behavior
+  exactly, confirmed by the full suite staying green), and reused the
+  same, already-tested RAG pipeline for a second Chroma collection.
+- **P5-04 (agent calls all three via MCP):** `src/mcp_server/client.py`
+  spawns the server as a subprocess over stdio and calls tools through
+  one shared session. Added
+  `ComplianceAgent.judge_price_and_value_with_mcp_context()`
+  (`src/agent/compliance.py`) as a new, additive method, deliberately
+  not a rewrite of the already-tested P4-01 `evaluate()` pipeline. It
+  judges the Price and Value outcome for `loan_agreement_1.txt`
+  enriched with Daniel Osei's mock account payment history and
+  Northbridge's internal fee-disclosure standard, alongside the same
+  public-regulation question the baseline already asks.
+- **Verified the difference is real, not just plumbing**
+  (`tests/test_compliance_mcp.py`): the enriched judgment cites both a
+  public regulation source and an internal policy source (not just
+  one), and its reasoning references the borrower's missed-payment
+  history, content the baseline pipeline has zero access to and never
+  mentions (confirmed absent from the baseline's own reasoning, so the
+  difference traces to the new tool calls, not coincidence). Enriched
+  reasoning also came out over 20% longer than the baseline's,
+  reflecting genuinely incorporated evidence rather than a cosmetic
+  reword.
+- **Found and fixed two real bugs, not just "ran without error":**
+  1. `mcp` 2.0.0 (the version `pip install mcp` resolves to by default)
+     restructured the server/client API; `mcp.server.fastmcp.FastMCP`
+     doesn't exist at that version. Rather than guess at an undocumented
+     brand-new major version, pinned to the last stable `1.29.0`, which
+     has the well-established `FastMCP` + `stdio_client` pattern.
+  2. `tests/test_mcp_tools.py` (the first test file whose imports don't
+     transitively import `src.config`) had its `ANTHROPIC_API_KEY`
+     skipif silently evaluate true and skip every test, because `.env`
+     loading happens as an import-order side effect of `src.config`'s
+     module-level `load_dotenv()` call, and this was the first file to
+     never trigger that chain. Every other test file "works" by
+     accident of import order. Fixed by loading `.env` explicitly in
+     this file rather than relying on that hidden coupling; did not
+     touch the other test files since they aren't actually broken.
+  3. (Test-design, not code) One assertion in `test_mcp_tools.py`
+     wrongly expected every internal-policy source to come from
+     `underwriting_guidelines.txt` specifically. The internal corpus is
+     intentionally tiny (3 chunks across 2 files), so a top-5 retrieval
+     naturally returns chunks from both files regardless of question.
+     Loosened to the assertion that actually matters: no source ever
+     comes from the public FCA corpus.
+- Full suite: `python -m pytest tests/` → 43 passed (32 prior + 6
+  `test_mcp_tools.py` + 5 `test_compliance_mcp.py`).
+- Marked P5-01 through P5-04 `passes: true` in feature_list.json.
+
+**Next:**
+- Phase 6 (P6-01, P6-02): formalize confidence scoring / abstention as
+  its own explicit feature. Much of this is already delivered by P4-02's
+  deterministic validation layer (confidence from retrieval similarity,
+  `insufficient_evidence` override, `needs_human_review`); Phase 6 is
+  about closing the gap to the feature_list.json description exactly
+  ("every extraction/compliance check") rather than building from
+  scratch. Alternatively, Phase 7 (human-in-the-loop UI) is unblocked
+  now that `needs_human_review` exists end-to-end.
+
+**Known issues:**
+- None new. Same open items as Session 8/9: `CONFIDENCE_THRESHOLD`
+  unvalidated against real data, and the `price_and_value`/
+  `consumer_understanding` retrieval-noise finding, both Phase 8 work.
+
+**Notes:**
+- None.
+
+---
+
 ## Session 9 — 2026-08-20
 **Status:** Verification pass. Confirmed Phase 4 (P4-01, P4-02) is fully
 built, tested, committed, and pushed. Nothing new to build this session,

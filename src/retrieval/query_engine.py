@@ -23,14 +23,20 @@ NO_ANSWER_MESSAGE = (
     "answer this question."
 )
 
-SYSTEM_PROMPT = (
-    "You are a compliance research assistant answering questions about UK "
-    "financial regulation using ONLY the numbered context excerpts provided "
-    "below. Cite the excerpt number(s) supporting each claim inline, like "
-    "[1] or [1][3]. Do not use knowledge from outside the provided context, "
-    "and do not guess. If the context does not contain enough information "
-    f'to answer, respond with exactly: "{NO_ANSWER_MESSAGE}"'
-)
+
+def _build_system_prompt(corpus_description: str, no_answer_message: str) -> str:
+    return (
+        f"You are a compliance research assistant answering questions about "
+        f"{corpus_description} using ONLY the numbered context excerpts "
+        "provided below. Cite the excerpt number(s) supporting each claim "
+        "inline, like [1] or [1][3]. Do not use knowledge from outside the "
+        "provided context, and do not guess. If the context does not "
+        f'contain enough information to answer, respond with exactly: '
+        f'"{no_answer_message}"'
+    )
+
+
+SYSTEM_PROMPT = _build_system_prompt("UK financial regulation", NO_ANSWER_MESSAGE)
 
 
 class SourceCitation(BaseModel):
@@ -46,19 +52,20 @@ class QueryResult(BaseModel):
     sources: list[SourceCitation]
 
 
-def load_index() -> VectorStoreIndex:
+def load_index(collection_name: str = CHROMA_COLLECTION_NAME) -> VectorStoreIndex:
     Settings.embed_model = HuggingFaceEmbedding(model_name=EMBED_MODEL_NAME)
     client = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
     try:
-        collection = client.get_collection(CHROMA_COLLECTION_NAME)
+        collection = client.get_collection(collection_name)
     except Exception as e:
         raise RuntimeError(
-            f"Chroma collection '{CHROMA_COLLECTION_NAME}' not found at "
+            f"Chroma collection '{collection_name}' not found at "
             f"{CHROMA_PERSIST_DIR}. Run `python -m src.ingestion.ingest` first."
         ) from e
     if collection.count() == 0:
         raise RuntimeError(
-            "Chroma collection is empty. Run `python -m src.ingestion.ingest` first."
+            f"Chroma collection '{collection_name}' is empty. Run "
+            "`python -m src.ingestion.ingest` first."
         )
     vector_store = ChromaVectorStore(chroma_collection=collection)
     return VectorStoreIndex.from_vector_store(vector_store)
@@ -73,15 +80,23 @@ def _build_context(nodes) -> str:
 
 
 class QueryEngine:
-    def __init__(self, similarity_top_k: int = QUERY_SIMILARITY_TOP_K):
-        self._index = load_index()
+    def __init__(
+        self,
+        similarity_top_k: int = QUERY_SIMILARITY_TOP_K,
+        collection_name: str = CHROMA_COLLECTION_NAME,
+        corpus_description: str = "UK financial regulation",
+        no_answer_message: str = NO_ANSWER_MESSAGE,
+    ):
+        self._index = load_index(collection_name=collection_name)
         self._retriever = self._index.as_retriever(similarity_top_k=similarity_top_k)
         self._client = anthropic.Anthropic()
+        self._no_answer_message = no_answer_message
+        self._system_prompt = _build_system_prompt(corpus_description, no_answer_message)
 
     def query(self, question: str) -> QueryResult:
         nodes = self._retriever.retrieve(question)
         if not nodes:
-            return QueryResult(question=question, answer=NO_ANSWER_MESSAGE, sources=[])
+            return QueryResult(question=question, answer=self._no_answer_message, sources=[])
 
         context = _build_context(nodes)
         user_message = f"Context:\n{context}\n\nQuestion: {question}"
@@ -89,7 +104,7 @@ class QueryEngine:
         response = self._client.messages.create(
             model=ANTHROPIC_MODEL,
             max_tokens=1024,
-            system=SYSTEM_PROMPT,
+            system=self._system_prompt,
             messages=[{"role": "user", "content": user_message}],
         )
         answer_text = "".join(

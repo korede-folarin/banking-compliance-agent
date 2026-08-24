@@ -1,0 +1,37 @@
+{
+  "_disclaimer": "SYNTHETIC MOCK DATA FOR TESTING/DEMONSTRATION PURPOSES ONLY. Not real customer data. All names, account numbers, and details are fictional.",
+  "accounts": [
+    {
+      "account_id": "ACC-10293",
+      "account_holder_name": "Daniel Osei",
+      "account_status": "active",
+      "payment_history_flags": ["two_missed_payments_last_12_months"],
+      "existing_products": ["current_account"],
+      "notes": "No hardship marker currently open."
+    },
+    {
+      "account_id": "ACC-20481",
+      "account_holder_name": "Rebecca Ashworth",
+      "account_status": "active",
+      "payment_history_flags": [],
+      "existing_products": ["current_account", "savings_account"],
+      "notes": "No missed payments on record."
+    },
+    {
+      "account_id": "ACC-30957",
+      "account_holder_name": "Marcus Chen",
+      "account_status": "active",
+      "payment_history_flags": [],
+      "existing_products": ["current_account"],
+      "notes": "No missed payments on record."
+    },
+    {
+      "account_id": "ACC-40112",
+      "account_holder_name": "Priya Patel",
+      "account_status": "active",
+      "payment_history_flags": ["open_financial_hardship_marker"],
+      "existing_products": ["current_account", "credit_card"],
+      "notes": "Hardship marker opened after customer contact. Not connected to any loan agreement reviewed in this project."
+    }
+  ]
+}

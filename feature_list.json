@@ -46,25 +46,25 @@
       "id": "P5-01",
       "phase": "Phase 5: MCP tools layer",
       "description": "Custom MCP server exposes regulation lookup tool",
-      "passes": false
+      "passes": true
     },
     {
       "id": "P5-02",
       "phase": "Phase 5: MCP tools layer",
       "description": "Custom MCP server exposes mock account/transaction lookup tool",
-      "passes": false
+      "passes": true
     },
     {
       "id": "P5-03",
       "phase": "Phase 5: MCP tools layer",
       "description": "Custom MCP server exposes internal policy rulebook query tool",
-      "passes": false
+      "passes": true
     },
     {
       "id": "P5-04",
       "phase": "Phase 5: MCP tools layer",
       "description": "Agent calls all three MCP tools correctly during a real run (not hardcoded function calls)",
-      "passes": false
+      "passes": true
     },
     {
       "id": "P6-01",
