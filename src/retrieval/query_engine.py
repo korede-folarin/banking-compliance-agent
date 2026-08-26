@@ -1,4 +1,5 @@
 import logging
+import re
 
 import anthropic
 import chromadb
@@ -11,6 +12,7 @@ from src.config import (
     ANTHROPIC_MODEL,
     CHROMA_COLLECTION_NAME,
     CHROMA_PERSIST_DIR,
+    CONFIDENCE_THRESHOLD,
     EMBED_MODEL_NAME,
     QUERY_SIMILARITY_TOP_K,
 )
@@ -50,6 +52,28 @@ class QueryResult(BaseModel):
     question: str
     answer: str
     sources: list[SourceCitation]
+    confidence: float
+    needs_human_review: bool
+
+
+def _extract_cited_indices(answer_text: str) -> set[int]:
+    return {int(n) for n in re.findall(r"\[(\d+)\]", answer_text)}
+
+
+def compute_confidence(sources: list[SourceCitation], cited_indices: set[int]) -> float:
+    """
+    Deterministic confidence: the MINIMUM similarity score among the
+    sources actually cited inline (via [n] markers) in the answer, not
+    all retrieved candidates and not anything the LLM self-reports. Same
+    "minimum, not average" reasoning as the compliance layer
+    (src/agent/compliance.py): a claim resting on one weakly-matched
+    citation shouldn't count as well-supported just because the answer
+    also cites stronger ones elsewhere.
+    """
+    cited = [s for s in sources if s.index in cited_indices]
+    if not cited:
+        return 0.0
+    return min(s.similarity_score for s in cited)
 
 
 def load_index(collection_name: str = CHROMA_COLLECTION_NAME) -> VectorStoreIndex:
@@ -96,7 +120,13 @@ class QueryEngine:
     def query(self, question: str) -> QueryResult:
         nodes = self._retriever.retrieve(question)
         if not nodes:
-            return QueryResult(question=question, answer=self._no_answer_message, sources=[])
+            return QueryResult(
+                question=question,
+                answer=self._no_answer_message,
+                sources=[],
+                confidence=0.0,
+                needs_human_review=True,
+            )
 
         context = _build_context(nodes)
         user_message = f"Context:\n{context}\n\nQuestion: {question}"
@@ -121,7 +151,30 @@ class QueryEngine:
             for i, node in enumerate(nodes, start=1)
         ]
 
-        return QueryResult(question=question, answer=answer_text, sources=sources)
+        # Deterministic confidence signal, same computation as the
+        # compliance layer's P4-02 (minimum similarity of cited sources).
+        # Deliberately NOT enforced as a hard override here the way P4-02
+        # enforces it for compliance judgments: doing so was tried and
+        # empirically caused a real regression — a plainly answerable,
+        # on-topic question ("What is the price and value outcome?",
+        # answered by content literally titled "The price and value
+        # outcome") got refused, because its retrieval scores (0.55-0.60)
+        # sit below CONFIDENCE_THRESHOLD, which ARCHITECTURE.md already
+        # documents as never validated against real evaluation data. The
+        # signal is exposed so callers have it; forcing enforcement on an
+        # untuned threshold would trade a working capability for false
+        # consistency. See ARCHITECTURE.md "Uncertainty handling" for the
+        # full account.
+        confidence = compute_confidence(sources, _extract_cited_indices(answer_text))
+        needs_human_review = confidence < CONFIDENCE_THRESHOLD or answer_text.strip() == self._no_answer_message
+
+        return QueryResult(
+            question=question,
+            answer=answer_text,
+            sources=sources,
+            confidence=confidence,
+            needs_human_review=needs_human_review,
+        )
 
 
 if __name__ == "__main__":

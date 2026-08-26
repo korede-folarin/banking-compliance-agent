@@ -5,6 +5,96 @@ Newest entry at the top.
 
 ---
 
+## Session 11 — 2026-08-21
+**Status:** Phase 6 (P6-01, P6-02) done and tested end-to-end. Reviewed
+what P4-02 already covered honestly rather than assuming or rebuilding,
+found two genuine gaps (extraction had no confidence signal at all;
+the query engine's refusal was purely LLM self-report), closed both,
+and made one deliberate, evidence-based call not to force full
+enforcement consistency onto the query engine.
+
+**Done:**
+- **Reviewed feature_list.json's P6-01/P6-02 against P4-02 field by
+  field before writing any code.** Compliance judgments were already
+  fully covered (P4-02: retrieval-similarity confidence, deterministic
+  threshold override, `needs_human_review`). Confirmed two real gaps,
+  matching exactly what the task brief anticipated might be missing:
+  1. Extraction (P2-01) had zero uncertainty signal, a bad extraction
+     could silently feed a compliance judgment that looked confident
+     but was built on shaky input.
+  2. The query engine's refusal (`NO_ANSWER_MESSAGE`) was entirely an
+     LLM self-report following a prompt instruction, never actually
+     checking the real similarity scores it computes for every source.
+     This quietly contradicted CLAUDE.md's own stated principle ("not
+     the model's self-reported confidence alone") since P1-02.
+- **Closed gap 1**: `src/agent/uncertainty.py`
+  (`extract_fields_with_confidence`, additive, wraps the unchanged
+  `extract_fields()`). Extraction has no retrieval step to derive
+  confidence from, so tried a single embedding-similarity check across
+  all fields first, and it empirically failed before it shipped: real,
+  correct `borrower_name`/`lender_name` values scored 0.43-0.51 against
+  document sentences containing them, indistinguishable from or lower
+  than a deliberately fabricated free-text field's score (0.55-0.67) in
+  the same test. Would have flagged every correct name on every document
+  as unreliable. Fixed with a 3-way split by field type: exact numeric-
+  presence check for `loan_amount`/`apr`/`term_months` (validated
+  against all 9 real values across the 3 synthetic docs), exact
+  substring match for the 2 name fields, and embedding similarity
+  (scoped to where it actually works) for the 6 free-text clause fields
+  — which does discriminate well once scoped correctly: 0.80-0.92 for
+  real correct extractions vs. 0.55-0.67 for a deliberately fabricated
+  fee/vulnerability clause on the same document.
+- **Closed gap 2, partially, on purpose**: `QueryResult` now carries
+  `confidence` (minimum similarity among sources actually cited inline
+  via `[n]` markers, same "minimum not average" reasoning as P4-02) and
+  `needs_human_review`, computed the same way, every time. Tried
+  enforcing this as a hard override too, the same way P4-02 enforces it
+  for compliance, and reverted it after empirically reproducing a real
+  regression: "What is the price and value outcome?", a plainly
+  answerable question whose retrieved content is literally titled "The
+  price and value outcome," got refused, because its cited sources'
+  similarity (0.55-0.60) sits below `CONFIDENCE_THRESHOLD` — the same
+  untuned-threshold issue Session 8 already documented for compliance,
+  now shown to hit a previously-reliable, general-purpose capability
+  even harder. Chose to expose the signal without force-enforcing it
+  there, rather than trade a working capability for superficial
+  consistency; documented as a deliberate, evidence-based scope
+  decision in ARCHITECTURE.md, not an oversight.
+- Full suite: `python -m pytest tests/` → 52 passed (43 prior + 8
+  `test_uncertainty.py` + 1 new `test_query_engine.py` assertion on the
+  new confidence field). No regressions from the `QueryResult` schema
+  change (2 new required fields; checked every construction site).
+- Marked P6-01 and P6-02 `passes: true` in feature_list.json.
+- Rewrote ARCHITECTURE.md's "Uncertainty handling" section from an
+  aspirational requirements list into an honest account of what's
+  actually built, what was already covered by P4-02, what was
+  genuinely missing and closed, and why full enforcement wasn't forced
+  onto the query engine.
+
+**Next:**
+- Phase 7 (human-in-the-loop UI): the data every relevant result object
+  now needs (`confidence`, evidence/sources, `needs_human_review`) is
+  fully in place across extraction, query engine, and compliance; Phase
+  7 is UI work on top of data that already exists, not new plumbing.
+  Alternatively, Phase 8 (evaluation) is the natural place to finally
+  validate `CONFIDENCE_THRESHOLD` against real data, which would unblock
+  reconsidering the query-engine enforcement decision made this session.
+
+**Known issues:**
+- Same root cause as Session 8/9's findings, now confirmed to affect a
+  third area: `CONFIDENCE_THRESHOLD` (0.65) is unvalidated against real
+  evaluation data, and this session found it can cause a plainly
+  answerable, on-topic query-engine question to score below it. Not
+  fixed today, deliberately, pending Phase 8. All three uncertainty
+  mechanisms (extraction, query engine, compliance) now compute the
+  signal identically; whether it's force-enforced varies by area for
+  documented reasons, not by accident.
+
+**Notes:**
+- None.
+
+---
+
 ## Session 10 — 2026-08-21
 **Status:** Phase 5 (P5-01 through P5-04) done and tested end-to-end. A
 custom MCP server exposes three tools across three genuinely separate

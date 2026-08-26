@@ -55,15 +55,109 @@ If a genuine reason emerges during build (e.g. retrieval needs different
 context/tool access than reasoning), split deliberately and document why
 here, in this file, at the time it happens.
 
-## Uncertainty handling (required, not optional)
-- Every extraction and every compliance check returns a confidence score.
-- Confidence is grounded in retrieval quality (e.g. vector similarity score
-  of the best-matching regulation), not the model's self-reported
-  confidence alone.
-- Below an explicit threshold, the agent does not answer; it abstains and
-  routes to human review with a stated reason ("insufficient regulatory
-  match", "conflicting clauses found").
-- UI must show: confidence %, evidence used, auto-resolved vs escalated tag.
+## Uncertainty handling (Phase 6)
+The requirement is: every extraction and every compliance check returns
+a confidence score, grounded in retrieval/evidence quality rather than
+the model's self-report, with an explicit threshold below which the
+agent abstains and routes to human review. Before building anything new
+for Phase 6, what P4-02 already did was checked against this
+requirement honestly, field by field, against `feature_list.json`'s
+P6-01/P6-02 wording, rather than assumed satisfied.
+
+**What P4-02 already covered:** compliance judgments. Confidence there
+is the minimum retrieval similarity among a judgment's cited sources,
+never the LLM's self-report, with a deterministic override to
+`insufficient_evidence` below `CONFIDENCE_THRESHOLD` and
+`needs_human_review` set accordingly. This part of P6-01/P6-02 was
+already done, not re-built.
+
+**What was genuinely missing, and closed:**
+
+1. **Extraction (P2-01) had no confidence signal at all.** A bad
+   extraction (a mis-read APR, an invented fee figure) could silently
+   feed into a compliance judgment that looked confident but was built
+   on shaky input, with nothing anywhere flagging it. Closed by
+   `src/agent/uncertainty.py`: `extract_fields_with_confidence()` wraps
+   the existing `extract_fields()` (unchanged) and adds a deterministic,
+   non-LLM-self-reported grounding check per field. Extraction has no
+   retrieval step of its own to derive a score from, so the check is
+   deliberately not one-size-fits-all; it's three strategies chosen per
+   field type, based on what empirical testing showed actually works:
+   - **Numeric fields** (`loan_amount`, `apr`, `term_months`): does the
+     value appear as a number in the source document. Binary, exact,
+     validated against all 3 synthetic documents' real extracted values.
+   - **Name fields** (`lender_name`, `borrower_name`): case-insensitive
+     substring match in the source document. Also binary and exact.
+   - **Free-text clause fields** (`fees`, `repayment_schedule`, and the
+     four Consumer-Duty-outcome fields): embedding similarity between
+     the extracted value and the source document's sentence-level
+     chunks (same embedding model, `BAAI/bge-small-en-v1.5`, used
+     everywhere else in this project), continuous, thresholded against
+     `CONFIDENCE_THRESHOLD` like everything else.
+
+   The three-way split exists because a single embedding-similarity
+   check across all fields was tried first and empirically failed for
+   short fields: correct, real `borrower_name`/`lender_name` values
+   scored 0.43-0.51 similarity against document sentences containing
+   them, indistinguishable from or *lower than* a deliberately
+   fabricated free-text field's score (0.55-0.67) in the same test. A
+   short 2-3 word name and a full sentence containing it just don't
+   embed as similarly as two comparable sentences do; a uniform
+   threshold would have flagged every correct name on every document as
+   unreliable. Names and numbers get exact matching instead, which is
+   both more appropriate for proper nouns/figures (no paraphrasing
+   expected) and empirically reliable (validated against all 9 real
+   numeric values across the 3 synthetic documents). The embedding
+   approach, once scoped to the fields it actually suits, does
+   discriminate well: a deliberately fabricated fee/vulnerability clause
+   scored 0.55-0.67 against a correct extraction's 0.80-0.92 on the same
+   document.
+
+2. **The query engine's refusal was purely LLM self-report, not
+   deterministic.** It computes real similarity scores for every
+   retrieved source and had never checked them against anything; the
+   decision to say "I don't know" was entirely up to the model following
+   a prompt instruction. This directly contradicted the "not the model's
+   self-reported confidence alone" requirement above, quietly, since
+   P1-02. `QueryResult` now carries `confidence` (minimum similarity
+   among sources actually cited inline via `[n]` markers in the answer,
+   same "minimum, not average" reasoning as the compliance layer) and
+   `needs_human_review`.
+
+   Enforcing this as a hard override, the same way P4-02 enforces it for
+   compliance judgments, was implemented and tested, then deliberately
+   reverted after empirically causing a real regression: the plainly
+   answerable, on-topic question "What is the price and value outcome?"
+   (answered by source content literally titled "The price and value
+   outcome") got refused, because its cited sources' similarity scores
+   (0.55-0.60) sit below `CONFIDENCE_THRESHOLD`. That's the same
+   untuned-threshold issue already documented below for compliance,
+   showing up somewhere more visible: a previously-reliable,
+   general-purpose capability. The signal is exposed, computed the same
+   way everywhere, so a caller can act on it; it is deliberately not
+   force-enforced on the query engine while the threshold itself remains
+   unvalidated. This is a documented, evidence-based scope decision, not
+   an oversight, see `tests/test_query_engine.py::
+   test_confidence_is_deterministically_computed_from_cited_sources`.
+
+**On "a single, consistent mechanism":** the signal is now computed the
+same way (same embedding model or similarity source, same
+`CONFIDENCE_THRESHOLD` constant, same `needs_human_review` naming)
+across extraction, query engine, and compliance. Whether it's *enforced*
+as a hard override differs by design, not oversight: compliance enforces
+it (P4-02, already tested and caveated), extraction enforces it (new,
+`needs_human_review` reflects a real override-equivalent decision since
+there's no existing answer to preserve), and the query engine exposes it
+without enforcing it, for the reason above. Full enforcement everywhere
+is contingent on Phase 8 actually validating `CONFIDENCE_THRESHOLD`
+against real data, not something to force now for the sake of
+appearing uniform.
+
+**UI display** ("confidence %, evidence used, auto-resolved vs escalated
+tag") is Phase 7's job, not Phase 6's: the data these fields need
+(`confidence`, `sources`/`cited_sources`, `needs_human_review`) now
+exists in structured form on every relevant result object, but no UI
+exists yet to display it (`streamlit run src/app.py` isn't built).
 
 ## Compliance-check field provenance
 `LoanAgreementFields` (`src/agent/schemas.py`) has four fields that map

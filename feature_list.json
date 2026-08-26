@@ -70,13 +70,13 @@
       "id": "P6-01",
       "phase": "Phase 6: Uncertainty handling",
       "description": "Every extraction/compliance check returns a confidence score grounded in retrieval quality",
-      "passes": false
+      "passes": true
     },
     {
       "id": "P6-02",
       "phase": "Phase 6: Uncertainty handling",
       "description": "Agent abstains and routes to human review when confidence is below threshold",
-      "passes": false
+      "passes": true
     },
     {
       "id": "P7-01",
