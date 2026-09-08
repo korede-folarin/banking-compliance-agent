@@ -1,0 +1,129 @@
+[SYNTHETIC DOCUMENT — FOR TESTING / DEMONSTRATION PURPOSES ONLY. THIS IS NOT A REAL
+LOAN AGREEMENT. ALL NAMES, ADDRESSES, AND FINANCIAL DETAILS ARE FICTIONAL. ANY
+RESEMBLANCE TO AN ACTUAL PERSON, COMPANY, OR AGREEMENT IS COINCIDENTAL.]
+
+CONSUMER LOAN AGREEMENT
+Reference: CTL-2026-02155
+
+This Agreement is made on 22 March 2026 between:
+
+(1) Copperfield Trust Lending Ltd, a company registered in England and
+Wales (company number 08833445), whose registered office is at 2 Castle
+Terrace, Edinburgh, EH1 2EL ("the Lender"); and
+
+(2) Jonah Mercer, of 6 Beech Road, Newcastle upon Tyne, NE1 5RB
+("the Borrower").
+
+KEY FACTS AT A GLANCE
+Loan amount: £9,500.00
+APR: 22.0%
+Term: 36 months
+Monthly repayment: £330.00
+Total amount repayable: £11,880.00
+Arrangement Fee: £175.00 (deducted from the Loan amount on drawdown — see
+clause 4)
+This summary is provided upfront to help the Borrower understand the key
+terms of this Agreement before reading the full terms and conditions set
+out below.
+
+1. LOAN DETAILS
+1.1 The Lender agrees to advance to the Borrower a loan of £9,500.00
+    ("the Loan").
+1.2 The Annual Percentage Rate of Charge (APR) applicable to this Agreement
+    is 22.0%.
+1.3 The term of this Agreement is 36 months, commencing on the date of first
+    drawdown.
+
+2. REPAYMENT
+2.1 The Borrower shall repay the Loan by 36 equal monthly instalments of
+    £330.00, payable by direct debit on the 23rd day of each calendar
+    month, the first such payment falling due one calendar month after
+    drawdown.
+2.2 The total amount payable over the term of this Agreement, inclusive of
+    interest, is £11,880.00.
+
+3. INTEREST
+3.1 Interest is charged on the outstanding balance at the rate set out in
+    clause 1.2, calculated daily and applied monthly.
+
+4. FEES AND CHARGES
+4.1 The Borrower will pay an Arrangement Fee of £175.00, which will be
+    deducted from the Loan amount before it is paid to the Borrower.
+4.2 No other fees or charges apply under this Agreement, save for interest as
+    set out in clause 3 and any charges arising from default as set out in
+    clause 6.
+4.3 The Lender has assessed that the total cost of credit under this
+    Agreement — comprising the Arrangement Fee referred to in clause 4.1 and
+    the interest charged under clause 3 — represents fair value to the
+    Borrower, having regard to the costs of providing the Loan, the benefits
+    and flexibility offered (including the early repayment right in
+    clause 5 and the support available under clause 9), and the pricing of
+    comparable products available in the market. This assessment is
+    reviewed periodically.
+
+5. EARLY REPAYMENT
+5.1 The Borrower may repay the Loan in full or in part at any time before the
+    end of the term. Where the Borrower does so, the Lender will provide a
+    statement setting out the amount required to settle the Agreement,
+    calculated in accordance with the Consumer Credit (Early Settlement)
+    Regulations 2004.
+
+6. DEFAULT
+6.1 If the Borrower fails to make a payment by its due date, the Lender may,
+    subject to serving the notices required by the Consumer Credit Act 1974,
+    treat the Borrower as being in default and take steps to recover the
+    sums owed.
+6.2 Interest continues to accrue on overdue sums at the rate set out in
+    clause 1.2.
+
+7. TARGET MARKET AND SUITABILITY
+7.1 This Loan is designed for consumers who need a fixed sum of credit
+    repayable by fixed monthly instalments over a defined term, and who can
+    evidence they are able to sustain those instalments alongside their
+    other financial commitments.
+7.2 The Lender has assessed the product's features — fixed pricing, defined
+    term, and the early repayment and vulnerable-customer support rights set
+    out elsewhere in this Agreement — as consistent with the needs of that
+    target market, and reviews this assessment periodically, including
+    monitoring of the channels through which the product is distributed.
+
+8. CUSTOMER SERVICE
+8.1 If the Borrower has any queries about this Agreement or their account,
+    they may contact the Lender's customer service team on 0800 215 5330 or
+    by email at helpdesk@copperfieldtrustlending.example, Monday to Friday,
+    9am to 5pm.
+
+9. SUPPORTING CUSTOMERS IN VULNERABLE CIRCUMSTANCES
+9.1 The Lender is committed to identifying and responding to the needs of
+    customers who are, or may become, in vulnerable circumstances, in line
+    with its obligations under the FCA's Consumer Duty.
+9.2 Vulnerability can arise from a range of factors, including but not
+    limited to health conditions, life events such as bereavement or
+    relationship breakdown, low financial resilience, and low capability or
+    confidence in dealing with financial matters.
+9.3 The Borrower can tell the Lender about their circumstances at any time,
+    by phone, email, or in writing, using the contact details in clause 8.
+    All such information is treated confidentially and used only to provide
+    appropriate support.
+9.4 Depending on the Borrower's circumstances, support may include:
+    extending the time given to make decisions, using alternative
+    communication formats, appointing a single dedicated point of contact,
+    or signposting to free, independent debt advice services such as
+    StepChange or the Money and Pensions Service.
+9.5 The Lender's frontline staff receive training to help them recognise
+    signs of vulnerability and respond appropriately.
+
+10. DATA PROTECTION
+10.1 The Lender will process the Borrower's personal data in accordance with
+     its privacy notice, a copy of which has been provided separately.
+
+11. GOVERNING LAW
+11.1 This Agreement is governed by the law of England and Wales, and the
+     parties submit to the exclusive jurisdiction of the courts of England
+     and Wales.
+
+SIGNED for and on behalf of the Lender: ______________________
+SIGNED by the Borrower: ______________________
+Date: 22 March 2026
+
+[END OF SYNTHETIC DOCUMENT]

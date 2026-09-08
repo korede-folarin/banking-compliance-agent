@@ -5,6 +5,112 @@ Newest entry at the top.
 
 ---
 
+## Session 12 — 2026-09-08
+**Status:** P8-01 and P8-02 done and tested end-to-end. Expanded the
+labelled evaluation set from 3 documents to 15 and measured real retrieval
+recall@k against it. The expensive main pass (extraction + compliance
+judgment across the full set) is deliberately not run this session — scoped
+and coded, but a separate cost decision, not part of this entry's "done".
+
+**Done:**
+- **P8-01**: `tests/fixtures/eval_set.py` — `EVAL_DOCUMENTS`, 15 entries: the
+  3 original synthetic docs (Sessions 4/8) plus 12 new ones
+  (`loan_agreement_4.txt` through `_15.txt`), each with a human-assigned
+  ground-truth label (`compliant`/`non_compliant`) per one of the 4 Consumer
+  Duty outcomes. The original set only ever isolated issues in
+  `price_and_value` and `consumer_support`; this set deliberately adds real
+  planted issues for `products_and_services` (missing target-market
+  statement, mismatched target-market statement) and `consumer_understanding`
+  (missing Key Facts summary, present-but-empty "KEY INFORMATION" heading)
+  for the first time, plus 3 varied `price_and_value`/`consumer_support`
+  issue variants (silent omission vs. self-contradiction vs. vague range;
+  full omission vs. perfunctory clause vs. wrongly-scoped clause) and 2
+  additional all-compliant controls (one in a deliberately different
+  plain-language house style, to test generalization beyond doc3's original
+  register). Ground truth is binary by design — `insufficient_evidence` is
+  documented as a retrieval-quality signal, not a label a document can
+  carry, scored as an abstention rather than right/wrong.
+  `tests/fixtures/eval_set.py` also holds `RETRIEVAL_QUERIES`: 4 canonical
+  per-outcome questions plus the existing off-topic control, with relevance
+  ground truth established by direct inspection of retriever output (chunk
+  text containing that outcome's dedicated chapter heading), not by LLM
+  judgment.
+- **P8-02**: `src/evaluation/run_eval.py`'s `recall` subcommand — zero API
+  cost, queries the retriever directly (`similarity_top_k=10`, covering the
+  production `k=5` and beyond) for each of the 5 `RETRIEVAL_QUERIES` and
+  writes hit-by-rank data plus recall@k for k in {1,2,3,5,10} to
+  `docs/eval_recall_at_k.json`. Actually run against the real index, not
+  just coded:
+  - `consumer_support`: recall@5 = 1.0
+  - `consumer_understanding`: recall@5 = 0.67 (recall@1 = 0.33, best of the
+    4 outcomes at k=1)
+  - `price_and_value`: recall@5 = 0.75
+  - `products_and_services`: recall@5 = 0.5 — weakest of the 4 at the
+    production k
+  - `off_topic_control`: 0 relevant hits at every k (correct — no chunk in
+    this corpus should ever count as relevant to "What is the capital of
+    France?")
+  - This gives Session 8/9's `price_and_value` retrieval-noise finding a
+    second, independent data point at the retrieval layer itself (not just
+    inferred from downstream LLM instability): `price_and_value` recall
+    only clears 0.5 between k=2 and k=5, consistent with the earlier finding
+    that its top-5 chunks mix genuinely relevant text with worked examples
+    for other product types. `products_and_services` shows the same pattern
+    and is in fact weaker at every k up to 5 (0.0 at k=1 and k=2, only
+    reaching 0.5 at k=5) — not previously flagged as an instability concern
+    in Sessions 8/9 because P4-01 testing only ever exercised 2 of the 4
+    outcomes' worked LLM behavior, but the recall numbers suggest it may
+    carry the same or a worse version of the same root cause. This is a
+    retrieval-only measurement, not a re-test of LLM judgment reliability —
+    it does not by itself confirm or update the false-accusation rate found
+    in Session 8; that requires the main pass (P8-03), not yet run.
+- Also built, this session, but explicitly not executed:
+  `src/evaluation/run_eval.py`'s `main` subcommand (full pipeline, 15 docs ×
+  n-runs × 9 API calls/run, appends to `docs/eval_raw_main_pass.jsonl`),
+  `variants` subcommand (P8-04, 2 system-prompt variants for
+  `price_and_value` specifically — targets the diagnosed worked-example
+  mismatch root cause, reuses cached first-pass context so it only repeats
+  the judgment call), and `summary` subcommand (reads both JSONL files plus
+  the recall data, computes confusion-matrix accuracy/FP/FN rates and a
+  threshold sweep for `CONFIDENCE_THRESHOLD` validation, zero API cost).
+  All three are real, runnable code, not stubs — but running `main` costs
+  real API calls at meaningful volume, and per this session's explicit
+  instruction, that's a separate, deliberate decision for a later session,
+  not bundled into this one.
+- Corrected `feature_list.json`: P8-01 and P8-02 flipped to `passes: true`
+  on the strength of the above (a real 15-doc labelled set exists; real
+  recall@k numbers exist, measured against it, not estimated). P8-03
+  (faithfulness/hallucination rate) and P8-04 (prompt variant comparison)
+  correctly remain `false` — both depend on the main pass, which has not
+  run.
+
+**Next:**
+- Run `python -m src.evaluation.run_eval main` (the expensive pass) as its
+  own deliberate step, then `variants` and `summary`. That will give the
+  first real evaluation-backed read on: per-outcome accuracy, false
+  positive/negative rates on the full 15-doc set (vs. the 3-doc informal
+  testing Sessions 8-11 relied on), whether `CONFIDENCE_THRESHOLD` (0.65,
+  still unvalidated) is actually well-placed, and whether the P8-04 variant
+  prompt measurably reduces `price_and_value`'s false-accusation rate.
+  `docs/eval_results.md` (referenced by `run_eval.py`'s own docstring)
+  should be written up from those results once they exist — not before.
+
+**Known issues:**
+- Same root cause, now with a second data point: `products_and_services`
+  recall@k is weaker than `price_and_value`'s at every k up to 5, which
+  Sessions 8/9 never had visibility into (their LLM-instability testing only
+  covered `price_and_value`/`consumer_understanding` on a 3-doc set with no
+  planted `products_and_services` issue at all). Whether this translates
+  into LLM judgment instability the way `price_and_value` did is an open
+  question the main pass will answer, not assumed here.
+- `CONFIDENCE_THRESHOLD` (0.65) remains unvalidated against real evaluation
+  data — unchanged from Sessions 6-11, still pending the main pass.
+
+**Notes:**
+- None.
+
+---
+
 ## Session 11 — 2026-08-21
 **Status:** Phase 6 (P6-01, P6-02) done and tested end-to-end. Reviewed
 what P4-02 already covered honestly rather than assuming or rebuilding,

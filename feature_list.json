@@ -88,13 +88,13 @@
       "id": "P8-01",
       "phase": "Phase 8: Evaluation",
       "description": "Labelled test set created (queries + expected outcomes)",
-      "passes": false
+      "passes": true
     },
     {
       "id": "P8-02",
       "phase": "Phase 8: Evaluation",
       "description": "Retrieval recall@k measured against test set",
-      "passes": false
+      "passes": true
     },
     {
       "id": "P8-03",

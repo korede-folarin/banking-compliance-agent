@@ -1,0 +1,367 @@
+[
+  {
+    "id": "price_and_value",
+    "question": "What does the Consumer Duty's Price and Value outcome require regarding fee disclosure and demonstrating fair value?",
+    "hits_by_rank": [
+      {
+        "rank": 1,
+        "file": "ps22-9.pdf",
+        "score": 0.7027488780017581,
+        "relevant": false
+      },
+      {
+        "rank": 2,
+        "file": "ps22-9.pdf",
+        "score": 0.6984696424105281,
+        "relevant": true
+      },
+      {
+        "rank": 3,
+        "file": "ps22-9.pdf",
+        "score": 0.6963397957292603,
+        "relevant": false
+      },
+      {
+        "rank": 4,
+        "file": "fg22-5.pdf",
+        "score": 0.6945386087645928,
+        "relevant": true
+      },
+      {
+        "rank": 5,
+        "file": "fg22-5.pdf",
+        "score": 0.6816677404082209,
+        "relevant": true
+      },
+      {
+        "rank": 6,
+        "file": "ps22-9.pdf",
+        "score": 0.674544167637469,
+        "relevant": true
+      },
+      {
+        "rank": 7,
+        "file": "fg22-5.pdf",
+        "score": 0.6634619303048876,
+        "relevant": false
+      },
+      {
+        "rank": 8,
+        "file": "fg22-5.pdf",
+        "score": 0.6572355822412569,
+        "relevant": false
+      },
+      {
+        "rank": 9,
+        "file": "FCA Handbook - PRIN 2A The Consumer Duty.pdf",
+        "score": 0.6548585446393866,
+        "relevant": false
+      },
+      {
+        "rank": 10,
+        "file": "fg22-5.pdf",
+        "score": 0.6539670616720616,
+        "relevant": false
+      }
+    ],
+    "recall_at_k": {
+      "1": 0.0,
+      "2": 0.25,
+      "3": 0.25,
+      "5": 0.75,
+      "10": 1.0
+    }
+  },
+  {
+    "id": "consumer_support",
+    "question": "What does the Consumer Duty's Consumer Support outcome require regarding identifying and supporting vulnerable customers?",
+    "hits_by_rank": [
+      {
+        "rank": 1,
+        "file": "ps22-9.pdf",
+        "score": 0.7058513091680121,
+        "relevant": false
+      },
+      {
+        "rank": 2,
+        "file": "fg22-5.pdf",
+        "score": 0.7040089649679193,
+        "relevant": true
+      },
+      {
+        "rank": 3,
+        "file": "ps22-9.pdf",
+        "score": 0.6828201022569468,
+        "relevant": false
+      },
+      {
+        "rank": 4,
+        "file": "ps22-9.pdf",
+        "score": 0.6750687578225698,
+        "relevant": true
+      },
+      {
+        "rank": 5,
+        "file": "fg22-5.pdf",
+        "score": 0.6703214204611234,
+        "relevant": false
+      },
+      {
+        "rank": 6,
+        "file": "fg22-5.pdf",
+        "score": 0.6697992218880149,
+        "relevant": false
+      },
+      {
+        "rank": 7,
+        "file": "fg22-5.pdf",
+        "score": 0.668450739692371,
+        "relevant": false
+      },
+      {
+        "rank": 8,
+        "file": "ps22-9.pdf",
+        "score": 0.6661185968635673,
+        "relevant": false
+      },
+      {
+        "rank": 9,
+        "file": "fg22-5.pdf",
+        "score": 0.6571501878297311,
+        "relevant": false
+      },
+      {
+        "rank": 10,
+        "file": "FCA Handbook - PRIN 2A The Consumer Duty.pdf",
+        "score": 0.6569636318141853,
+        "relevant": false
+      }
+    ],
+    "recall_at_k": {
+      "1": 0.0,
+      "2": 0.5,
+      "3": 0.5,
+      "5": 1.0,
+      "10": 1.0
+    }
+  },
+  {
+    "id": "products_and_services",
+    "question": "What does the Consumer Duty's Products and Services outcome require regarding target market fit?",
+    "hits_by_rank": [
+      {
+        "rank": 1,
+        "file": "fg22-5.pdf",
+        "score": 0.6804040025706988,
+        "relevant": false
+      },
+      {
+        "rank": 2,
+        "file": "fg22-5.pdf",
+        "score": 0.6713549343862759,
+        "relevant": false
+      },
+      {
+        "rank": 3,
+        "file": "fg22-5.pdf",
+        "score": 0.6683295688945035,
+        "relevant": true
+      },
+      {
+        "rank": 4,
+        "file": "ps22-9.pdf",
+        "score": 0.6582862530488536,
+        "relevant": false
+      },
+      {
+        "rank": 5,
+        "file": "fg22-5.pdf",
+        "score": 0.6511928296798027,
+        "relevant": true
+      },
+      {
+        "rank": 6,
+        "file": "ps22-9.pdf",
+        "score": 0.6430171573355877,
+        "relevant": true
+      },
+      {
+        "rank": 7,
+        "file": "fg22-5.pdf",
+        "score": 0.6357526860850501,
+        "relevant": false
+      },
+      {
+        "rank": 8,
+        "file": "ps22-9.pdf",
+        "score": 0.6352126445456515,
+        "relevant": false
+      },
+      {
+        "rank": 9,
+        "file": "ps22-9.pdf",
+        "score": 0.6340744848857114,
+        "relevant": false
+      },
+      {
+        "rank": 10,
+        "file": "ps22-9.pdf",
+        "score": 0.6330621370157071,
+        "relevant": true
+      }
+    ],
+    "recall_at_k": {
+      "1": 0.0,
+      "2": 0.0,
+      "3": 0.25,
+      "5": 0.5,
+      "10": 1.0
+    }
+  },
+  {
+    "id": "consumer_understanding",
+    "question": "What does the Consumer Duty's Consumer Understanding outcome require regarding presenting key terms clearly?",
+    "hits_by_rank": [
+      {
+        "rank": 1,
+        "file": "ps22-9.pdf",
+        "score": 0.6964613539829233,
+        "relevant": true
+      },
+      {
+        "rank": 2,
+        "file": "fg22-5.pdf",
+        "score": 0.6937743100930271,
+        "relevant": true
+      },
+      {
+        "rank": 3,
+        "file": "FCA Handbook - PRIN 2A The Consumer Duty.pdf",
+        "score": 0.689863616439891,
+        "relevant": false
+      },
+      {
+        "rank": 4,
+        "file": "ps22-9.pdf",
+        "score": 0.6739855763360428,
+        "relevant": false
+      },
+      {
+        "rank": 5,
+        "file": "fg22-5.pdf",
+        "score": 0.6728685778778227,
+        "relevant": false
+      },
+      {
+        "rank": 6,
+        "file": "ps22-9.pdf",
+        "score": 0.6728562854727358,
+        "relevant": true
+      },
+      {
+        "rank": 7,
+        "file": "ps22-9.pdf",
+        "score": 0.6639942668269628,
+        "relevant": false
+      },
+      {
+        "rank": 8,
+        "file": "fg22-5.pdf",
+        "score": 0.6617802215953349,
+        "relevant": false
+      },
+      {
+        "rank": 9,
+        "file": "fg22-5.pdf",
+        "score": 0.6511103743083879,
+        "relevant": false
+      },
+      {
+        "rank": 10,
+        "file": "ps22-9.pdf",
+        "score": 0.650632381661233,
+        "relevant": false
+      }
+    ],
+    "recall_at_k": {
+      "1": 0.3333333333333333,
+      "2": 0.6666666666666666,
+      "3": 0.6666666666666666,
+      "5": 0.6666666666666666,
+      "10": 1.0
+    }
+  },
+  {
+    "id": "off_topic_control",
+    "question": "What is the capital of France?",
+    "hits_by_rank": [
+      {
+        "rank": 1,
+        "file": "ps22-9.pdf",
+        "score": 0.38840243175418293,
+        "relevant": false
+      },
+      {
+        "rank": 2,
+        "file": "ps22-9.pdf",
+        "score": 0.3837941976341879,
+        "relevant": false
+      },
+      {
+        "rank": 3,
+        "file": "fg22-5.pdf",
+        "score": 0.3654421717286328,
+        "relevant": false
+      },
+      {
+        "rank": 4,
+        "file": "ps22-9.pdf",
+        "score": 0.3625558768587199,
+        "relevant": false
+      },
+      {
+        "rank": 5,
+        "file": "ps22-9.pdf",
+        "score": 0.35787161418843116,
+        "relevant": false
+      },
+      {
+        "rank": 6,
+        "file": "ps22-9.pdf",
+        "score": 0.3538098618411417,
+        "relevant": false
+      },
+      {
+        "rank": 7,
+        "file": "ps22-9.pdf",
+        "score": 0.35300009767716894,
+        "relevant": false
+      },
+      {
+        "rank": 8,
+        "file": "fg22-5.pdf",
+        "score": 0.35036398551712067,
+        "relevant": false
+      },
+      {
+        "rank": 9,
+        "file": "FCA Handbook - PRIN 2A The Consumer Duty.pdf",
+        "score": 0.34806840093383423,
+        "relevant": false
+      },
+      {
+        "rank": 10,
+        "file": "ps22-9.pdf",
+        "score": 0.3468914963909668,
+        "relevant": false
+      }
+    ],
+    "recall_at_k": {
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "5": 0,
+      "10": 0
+    }
+  }
+]
