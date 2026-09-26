@@ -5,6 +5,133 @@ Newest entry at the top.
 
 ---
 
+## Session 13 — 2026-09-08
+**Status:** P8-03 done and tested end-to-end. Ran the full Phase 8 main
+evaluation pass (405 Claude API calls: 15 documents × 3 runs × 9 calls/run)
+that Session 12 scoped but deliberately left unexecuted. Hit and fixed a
+real bug mid-run (not a band-aid — made the harness itself more robust),
+then computed real per-outcome accuracy/FP/FN, replaced Session 8's ~1-in-5
+price_and_value estimate with a real number from 33 samples, and evaluated
+`CONFIDENCE_THRESHOLD = 0.65` against real data for the first time since it
+shipped in Session 2's `.env.example`.
+
+**Done:**
+- **Real API key blocker, twice**: the first `main` attempt failed
+  immediately on a 401 (invalid key) — zero cost, nothing written. User
+  supplied a fresh key directly in chat; written straight to `.env`, never
+  echoed in any command output (same handling as Session 3's note on this).
+- **Found and fixed a real bug mid-pass, not just retried blindly**: after
+  12/45 samples succeeded cleanly, the 13th (`loan_agreement_5` run 0,
+  `consumer_support` judgment) got a malformed tool-call response from the
+  model — the `cited_sources` field missing, with literal
+  `<parameter name="cited_sources">...</invoke>` text bleeding into the
+  `reasoning` string instead of a separate structured field.
+  `instructor`'s internal retry (4 attempts) reproduced the identical
+  malformed structure each time — each retry fed the prior malformed
+  completion back as context, which appears to have reinforced rather than
+  corrected the pattern — and the whole batch crashed with an unhandled
+  `InstructorRetryException`, losing nothing already written (the harness
+  already appends incrementally) but stopping short of the remaining 33
+  samples. Rather than just re-run the identical command and hope, made
+  `src/evaluation/run_eval.py`'s `main` subcommand resumable (skips
+  `(doc_id, run_idx)` pairs already present in
+  `docs/eval_raw_main_pass.jsonl`) and resilient (a per-run exception is now
+  caught, logged to the new `docs/eval_raw_main_pass_errors.jsonl`, and the
+  batch continues instead of aborting) — a genuine improvement to the
+  harness's reliability for a 405-call pass against a real API, not a
+  workaround for a code bug (nothing in this codebase was wrong; the model
+  output itself was malformed on this one generation). Resumed run
+  completed all remaining 33 samples cleanly, 0 further failures — this
+  looks like a rare, non-deterministic model-output quirk specific to that
+  one generation, not a reproducible defect.
+- **Ran the full pass**: `python -m src.evaluation.run_eval main --n-runs 3`
+  → 45/45 (doc, run) samples recorded, 0 failures on the resumed portion.
+  `python -m src.evaluation.run_eval summary` → `docs/eval_summary.json`
+  (confusion-matrix accuracy/FP/FN per outcome, confidence-by-correctness,
+  a 7-point threshold sweep, zero additional API cost).
+- **Real findings, not estimates** (full detail and per-document breakdown
+  in `docs/eval_results.md`):
+  - `consumer_support` is fully reliable: 0 false positives, 0 false
+    negatives across all 45 samples — confirms Session 8/9's finding on a
+    much larger sample than the informal testing it was based on.
+  - The one real false negative in the whole evaluation:
+    `products_and_services` on `loan_agreement_11` run 1 (mismatched, not
+    missing, target-market statement) — traced to a genuine architectural
+    gap (the judgment call for one outcome has no access to the document's
+    other extracted fields, only to retrieved regulation), not a retrieval
+    or prompt-wording issue, and the confidence threshold does not catch it
+    (its confidence, 0.662, sits above 0.65).
+  - **Updated `price_and_value` instability read**: real false-accusation
+    rate is 1/33 (3.0%) of compliant-ground-truth samples, or 1/12 (8.3%)
+    among samples where the LLM actually committed to a verdict — both
+    well below Session 8's ~1-in-5 (20%) estimate, which was always
+    flagged as low-confidence given its n=5 sample size. The one real
+    false accusation recurred on the same document Session 8 first found
+    it on (`loan_agreement_3`, the original control) and, on inspection,
+    reflects a defensible strict reading of ambiguous evidence scope
+    language, not a random hallucination. 0 false negatives on
+    `price_and_value` across all 12 non-compliant samples where the LLM
+    committed to a verdict.
+  - **`CONFIDENCE_THRESHOLD = 0.65` validated for 2 outcomes, invalidated
+    for 2**: `consumer_support`/`products_and_services`'s correct-judgment
+    confidence averages comfortably above 0.65 (0.674/0.683), so the
+    threshold adds a modest, low-cost safety margin there.
+    `price_and_value`/`consumer_understanding`'s correct-judgment
+    confidence averages at or below 0.65 (0.644/0.622) — the threshold
+    cannot separate correct from incorrect for these two, and for
+    `consumer_understanding` specifically converts a 97.8%-accurate,
+    0%-abstention outcome into one where **100% of judgments** (44 correct,
+    1 incorrect) get overridden to `insufficient_evidence`. This is real
+    evidence for an outcome-specific threshold rather than one global
+    value — not implemented this session (a design decision the data
+    informs but doesn't by itself authorize), left as a clear next step.
+- Wrote `docs/eval_results.md`: full methodology, tables, and the findings
+  above, plus an explicit P8-03 scope note (per-outcome accuracy/FP-rate/
+  FN-rate against 45 human-labelled ground-truth samples is this project's
+  answer to "hallucination rate" — a false positive here literally is an
+  invented compliance finding — rather than a separate Ragas/LLM-as-judge
+  groundedness score).
+- Marked P8-03 `passes: true` in `feature_list.json`. P8-04 (prompt variant
+  comparison) correctly remains `false` — the harness (`variants`
+  subcommand, Variant B prompt targeting the diagnosed worked-example
+  mismatch) is built and ready, reusing this pass's cached `price_and_value`
+  context, but was not run this session.
+
+**Next:**
+- P8-04: run `python -m src.evaluation.run_eval variants --n-runs 3` — no
+  new extraction/retrieval calls needed (reuses this session's cached
+  first-pass context), only the judgment call repeated per variant per doc.
+  Directly informed by this session's finding that `price_and_value`'s one
+  real error was a defensible strict reading, not a hallucination — worth
+  seeing whether Variant B's scenario-matching instruction changes that.
+- The outcome-specific-threshold finding is worth a real design decision:
+  either per-outcome `CONFIDENCE_THRESHOLD` values (informed by this
+  session's confidence-by-correctness data) or an explicit documented
+  decision to keep one global value despite the cost to
+  `consumer_understanding`. Not done speculatively here.
+- Phase 7 (human-in-the-loop UI) remains fully unblocked and untouched.
+
+**Known issues:**
+- `products_and_services`' one false negative (`loan_agreement_11`,
+  mismatched target-market statement) is not caught by any global
+  confidence threshold near the current range, since it scored above 0.65.
+  Fixing it needs either a threshold specific to this outcome tuned above
+  0.662, or giving the judgment call access to the document's other
+  extracted fields (so it can actually cross-check the stated target market
+  against the loan's own structure) — an architecture change, not a prompt
+  or threshold tweak. Not fixed this session.
+- `CONFIDENCE_THRESHOLD = 0.65` remains a single global value despite the
+  outcome-specific finding above — deliberately not changed this session,
+  now backed by real data rather than the informal estimate Sessions 6-12
+  worked from.
+
+**Notes:**
+- User pasted a real `ANTHROPIC_API_KEY` directly into chat again this
+  session (same as Session 3). Handled the same way: written straight to
+  `.env`, never echoed. Noting again since it's now happened twice.
+
+---
+
 ## Session 12 — 2026-09-08
 **Status:** P8-01 and P8-02 done and tested end-to-end. Expanded the
 labelled evaluation set from 3 documents to 15 and measured real retrieval

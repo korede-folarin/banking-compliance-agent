@@ -1,0 +1,203 @@
+{
+  "n_main_runs": 45,
+  "n_variant_runs": 0,
+  "by_outcome": {
+    "price_and_value": {
+      "llm_status": {
+        "n": 45,
+        "tp": 10,
+        "tn": 11,
+        "fp": 1,
+        "fn": 0,
+        "abstain": 23,
+        "accuracy_excl_abstain": 0.9545454545454546,
+        "false_positive_rate": 0.08333333333333333,
+        "false_negative_rate": 0.0,
+        "abstention_rate": 0.5111111111111111
+      },
+      "post_threshold_status": {
+        "n": 45,
+        "tp": 3,
+        "tn": 1,
+        "fp": 0,
+        "fn": 0,
+        "abstain": 41,
+        "accuracy_excl_abstain": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "abstention_rate": 0.9111111111111111
+      }
+    },
+    "consumer_support": {
+      "llm_status": {
+        "n": 45,
+        "tp": 12,
+        "tn": 31,
+        "fp": 0,
+        "fn": 0,
+        "abstain": 2,
+        "accuracy_excl_abstain": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "abstention_rate": 0.044444444444444446
+      },
+      "post_threshold_status": {
+        "n": 45,
+        "tp": 8,
+        "tn": 31,
+        "fp": 0,
+        "fn": 0,
+        "abstain": 6,
+        "accuracy_excl_abstain": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "abstention_rate": 0.13333333333333333
+      }
+    },
+    "products_and_services": {
+      "llm_status": {
+        "n": 45,
+        "tp": 5,
+        "tn": 33,
+        "fp": 0,
+        "fn": 1,
+        "abstain": 6,
+        "accuracy_excl_abstain": 0.9743589743589743,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.16666666666666666,
+        "abstention_rate": 0.13333333333333333
+      },
+      "post_threshold_status": {
+        "n": 45,
+        "tp": 5,
+        "tn": 33,
+        "fp": 0,
+        "fn": 1,
+        "abstain": 6,
+        "accuracy_excl_abstain": 0.9743589743589743,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.16666666666666666,
+        "abstention_rate": 0.13333333333333333
+      }
+    },
+    "consumer_understanding": {
+      "llm_status": {
+        "n": 45,
+        "tp": 6,
+        "tn": 38,
+        "fp": 1,
+        "fn": 0,
+        "abstain": 0,
+        "accuracy_excl_abstain": 0.9777777777777777,
+        "false_positive_rate": 0.02564102564102564,
+        "false_negative_rate": 0.0,
+        "abstention_rate": 0.0
+      },
+      "post_threshold_status": {
+        "n": 45,
+        "tp": 0,
+        "tn": 0,
+        "fp": 0,
+        "fn": 0,
+        "abstain": 45,
+        "accuracy_excl_abstain": null,
+        "false_positive_rate": null,
+        "false_negative_rate": null,
+        "abstention_rate": 1.0
+      }
+    }
+  },
+  "confidence_by_correctness": {
+    "price_and_value": {
+      "correct_mean": 0.6436280534426142,
+      "correct_n": 21,
+      "incorrect_mean": 0.6379447484280627,
+      "incorrect_n": 1
+    },
+    "consumer_support": {
+      "correct_mean": 0.6743452330682963,
+      "correct_n": 43,
+      "incorrect_mean": null,
+      "incorrect_n": 0
+    },
+    "products_and_services": {
+      "correct_mean": 0.6828949029122098,
+      "correct_n": 38,
+      "incorrect_mean": 0.662285707240998,
+      "incorrect_n": 1
+    },
+    "consumer_understanding": {
+      "correct_mean": 0.6223430829835269,
+      "correct_n": 44,
+      "incorrect_mean": 0.6023211496622248,
+      "incorrect_n": 1
+    }
+  },
+  "threshold_sweep": {
+    "0.5": {
+      "correct_overridden_rate": 0.0,
+      "incorrect_caught_rate": 0.0
+    },
+    "0.55": {
+      "correct_overridden_rate": 0.0,
+      "incorrect_caught_rate": 0.0
+    },
+    "0.6": {
+      "correct_overridden_rate": 0.0,
+      "incorrect_caught_rate": 0.0
+    },
+    "0.65": {
+      "correct_overridden_rate": 0.4452054794520548,
+      "incorrect_caught_rate": 0.6666666666666666
+    },
+    "0.7": {
+      "correct_overridden_rate": 0.9931506849315068,
+      "incorrect_caught_rate": 1.0
+    },
+    "0.75": {
+      "correct_overridden_rate": 1.0,
+      "incorrect_caught_rate": 1.0
+    },
+    "0.8": {
+      "correct_overridden_rate": 1.0,
+      "incorrect_caught_rate": 1.0
+    }
+  },
+  "recall_at_k": {
+    "price_and_value": {
+      "1": 0.0,
+      "2": 0.25,
+      "3": 0.25,
+      "5": 0.75,
+      "10": 1.0
+    },
+    "consumer_support": {
+      "1": 0.0,
+      "2": 0.5,
+      "3": 0.5,
+      "5": 1.0,
+      "10": 1.0
+    },
+    "products_and_services": {
+      "1": 0.0,
+      "2": 0.0,
+      "3": 0.25,
+      "5": 0.5,
+      "10": 1.0
+    },
+    "consumer_understanding": {
+      "1": 0.3333333333333333,
+      "2": 0.6666666666666666,
+      "3": 0.6666666666666666,
+      "5": 0.6666666666666666,
+      "10": 1.0
+    },
+    "off_topic_control": {
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "5": 0,
+      "10": 0
+    }
+  }
+}

@@ -100,7 +100,7 @@
       "id": "P8-03",
       "phase": "Phase 8: Evaluation",
       "description": "Faithfulness / hallucination rate measured",
-      "passes": false
+      "passes": true
     },
     {
       "id": "P8-04",

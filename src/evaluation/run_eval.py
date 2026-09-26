@@ -58,6 +58,7 @@ from tests.fixtures.eval_set import (  # noqa: E402
 DOCS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "synthetic_docs"
 DOCS_OUT_DIR = Path(__file__).resolve().parent.parent.parent / "docs"
 MAIN_PASS_PATH = DOCS_OUT_DIR / "eval_raw_main_pass.jsonl"
+MAIN_PASS_ERRORS_PATH = DOCS_OUT_DIR / "eval_raw_main_pass_errors.jsonl"
 VARIANT_PASS_PATH = DOCS_OUT_DIR / "eval_raw_variant_pass.jsonl"
 RECALL_PATH = DOCS_OUT_DIR / "eval_recall_at_k.json"
 SUMMARY_PATH = DOCS_OUT_DIR / "eval_summary.json"
@@ -201,16 +202,39 @@ def cmd_main(args) -> None:
         f"Running main pass: {len(EVAL_DOCUMENTS)} docs x {n_runs} runs x 9 calls/run "
         f"= {total_calls} Claude API calls."
     )
+
+    # Resume support: a single malformed generation (observed once, see
+    # eval_results.md) shouldn't force re-spending API calls on combinations
+    # already recorded, and shouldn't crash the whole batch. Skip (doc_id,
+    # run_idx) pairs already in MAIN_PASS_PATH; on a per-run failure, log it
+    # to MAIN_PASS_ERRORS_PATH and continue rather than aborting.
+    existing = {(r["doc_id"], r["run_idx"]) for r in _read_jsonl(MAIN_PASS_PATH)}
+    if existing:
+        print(f"Resuming: {len(existing)} (doc, run) combinations already recorded, skipping those.")
+
     first_pass_agent = FirstPassAgent()
     compliance_agent = ComplianceAgent()
 
-    done = 0
+    done = len(existing)
+    failed = 0
+    total = len(EVAL_DOCUMENTS) * n_runs
     for doc in EVAL_DOCUMENTS:
         text = _load_doc_text(doc["file"])
         for run_idx in range(n_runs):
-            first_pass = first_pass_agent.run(text)
-            judgments = compliance_agent.evaluate(first_pass)
-            report = build_compliance_report(first_pass, judgments)
+            if (doc["id"], run_idx) in existing:
+                continue
+            try:
+                first_pass = first_pass_agent.run(text)
+                judgments = compliance_agent.evaluate(first_pass)
+                report = build_compliance_report(first_pass, judgments)
+            except Exception as exc:
+                failed += 1
+                _append_jsonl(
+                    MAIN_PASS_ERRORS_PATH,
+                    {"doc_id": doc["id"], "run_idx": run_idx, "error": repr(exc)},
+                )
+                print(f"[FAILED] {doc['id']} run {run_idx}: {exc!r} (logged to {MAIN_PASS_ERRORS_PATH}, continuing)")
+                continue
 
             record = {
                 "doc_id": doc["id"],
@@ -236,10 +260,10 @@ def cmd_main(args) -> None:
 
             _append_jsonl(MAIN_PASS_PATH, record)
             done += 1
-            print(f"[{done}/{len(EVAL_DOCUMENTS) * n_runs}] {doc['id']} run {run_idx}: "
+            print(f"[{done}/{total}] {doc['id']} run {run_idx}: "
                   f"{ {k: record['outcomes'][k]['llm_status'] for k in OUTCOME_KEYS} }")
 
-    print(f"\nWrote {MAIN_PASS_PATH} ({done} runs)")
+    print(f"\nWrote {MAIN_PASS_PATH} ({done}/{total} runs, {failed} failed)")
 
 
 # --- prompt variant comparison for price_and_value (P8-04) ---
