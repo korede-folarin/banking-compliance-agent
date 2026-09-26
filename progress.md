@@ -5,6 +5,66 @@ Newest entry at the top.
 
 ---
 
+## Session 14 — 2026-09-26
+**Status:** Data-reporting pass only, no code or feature changes. Extended
+the confidence-by-correctness analysis that Session 13 reported as
+per-outcome means to a full raw report for all 4 outcomes, computed
+directly from `docs/eval_raw_main_pass.jsonl`. No API calls, zero cost.
+
+**Done:**
+- Appended a "Raw findings: confidence score by correctness, all 4
+  outcomes" section to `docs/eval_results.md`: for each outcome, n / min /
+  max / mean for correct and incorrect judgments, every individual
+  confidence score (sorted), and the count of `insufficient_evidence`
+  abstentions excluded from both groups. Explicitly labelled as raw data for
+  the reader to interpret; the section contains no interpretation,
+  sufficiency judgment, or threshold recommendation, per the request.
+- Correctness rule matches `run_eval.py`'s `summary` subcommand exactly
+  (raw `llm_status` vs ground truth; abstentions excluded). n and correct-
+  group mean were cross-checked programmatically against
+  `docs/eval_summary.json` for all 4 outcomes and agree exactly; min/max
+  are new. Raw counts (correct/incorrect/abstained): price_and_value
+  21/1/23, consumer_support 43/0/2, products_and_services 38/1/6,
+  consumer_understanding 44/1/0.
+- Then appended a short "Class separability issue - deferred" section
+  right after the raw findings (documentation only, no new computation).
+  It states the observed facts per category: in `price_and_value` and
+  `products_and_services` the single incorrect judgment's confidence sits
+  inside the correct judgments' range (above the lowest correct score); in
+  `consumer_understanding` it sits just *below* the lowest correct score
+  (0.6023 vs. 0.6034), not inside the range — the request's draft wording
+  said "inside" for all three, which the table doesn't support for this
+  one, so the section reports it as it is. It records threshold calibration
+  as explicitly deferred (0 or 1 incorrect judgment per category) and lists
+  what a real attempt needs: more documents, more runs, enough real
+  incorrect examples in each category. No threshold value proposed;
+  `CONFIDENCE_THRESHOLD` untouched.
+- No changes to `feature_list.json` (no feature built or re-tested this
+  session), `src/`, `CONFIDENCE_THRESHOLD`, or any earlier eval_results.md
+  text.
+
+**Next:**
+- Unchanged from Session 13: P8-04 (`variants` run), the per-outcome-vs-
+  global `CONFIDENCE_THRESHOLD` design decision, Phase 7.
+
+**Known issues:**
+- Unchanged from Session 13, plus one documented limitation: confidence
+  scores don't demonstrably separate correct from incorrect judgments in
+  `price_and_value`/`products_and_services`, and calibration is deferred
+  until a larger evaluation set exists (see eval_results.md).
+
+**Notes:**
+- An earlier draft of this task also asked for a "Threshold calibration -
+  future work" section; the revised request dropped it in favour of raw
+  numbers only. The deferral is now recorded in the separability section
+  above instead.
+- Not committed or pushed by Claude; the user is reviewing and committing.
+- Line-ending note: git reports LF→CRLF conversion on `docs/eval_results.md`
+  (`core.autocrlf=true`); files are LF in the working tree, no action
+  needed.
+
+---
+
 ## Session 13 — 2026-09-08
 **Status:** P8-03 done and tested end-to-end. Ran the full Phase 8 main
 evaluation pass (405 Claude API calls: 15 documents × 3 runs × 9 calls/run)

@@ -256,3 +256,113 @@ stronger check than a groundedness-only metric would have been on its own.
   needed, only the judgment call itself repeated per variant. Not run in
   this session; a natural next step given the price_and_value findings
   above.
+
+## Raw findings: confidence score by correctness, all 4 outcomes
+
+**Raw data only — presented for the reader to interpret directly. No
+interpretation, sufficiency judgment, or threshold recommendation is made in
+this section.**
+
+Source: `docs/eval_raw_main_pass.jsonl` (45 samples per outcome). Computed
+by the same rule `src/evaluation/run_eval.py`'s `summary` subcommand uses for
+`confidence_by_correctness` in `docs/eval_summary.json`: a judgment is
+*correct* if its raw `llm_status` matches ground truth
+(`potentially_non_compliant` ↔ `non_compliant`, `compliant` ↔ `compliant`),
+*incorrect* if it doesn't; `llm_status = insufficient_evidence` is excluded
+from both groups (see the abstention table below). "Confidence" is the
+per-judgment `confidence` field (minimum retrieval similarity among cited
+sources). n, and the correct-group mean, match `eval_summary.json` exactly
+for all 4 outcomes (checked programmatically); min and max are new here.
+
+### Summary statistics
+
+| Outcome | Group | n | min | max | mean |
+|---|---|---|---|---|---|
+| price_and_value | correct | 21 | 0.6207 | 0.6690 | 0.6436 |
+| price_and_value | incorrect | 1 | 0.6379 | 0.6379 | 0.6379 |
+| consumer_support | correct | 43 | 0.6456 | 0.6900 | 0.6743 |
+| consumer_support | incorrect | 0 | n/a | n/a | n/a |
+| products_and_services | correct | 38 | 0.6586 | 0.7005 | 0.6829 |
+| products_and_services | incorrect | 1 | 0.6623 | 0.6623 | 0.6623 |
+| consumer_understanding | correct | 44 | 0.6034 | 0.6407 | 0.6223 |
+| consumer_understanding | incorrect | 1 | 0.6023 | 0.6023 | 0.6023 |
+
+Judgments excluded from both groups (`llm_status = insufficient_evidence`, scored as an abstention per the Methodology section):
+
+| Outcome | Abstained (excluded) n | Total samples |
+|---|---|---|
+| price_and_value | 23 | 45 |
+| consumer_support | 2 | 45 |
+| products_and_services | 6 | 45 |
+| consumer_understanding | 0 | 45 |
+
+### Every confidence score, sorted ascending
+
+**price_and_value**
+
+- Correct judgments (n=21): 0.6207, 0.6214, 0.6227, 0.6344, 0.6364, 0.6378, 0.6391, 0.6409, 0.6437, 0.6439, 0.6445, 0.6446, 0.6454, 0.6460, 0.6478, 0.6478, 0.6500, 0.6505, 0.6610, 0.6687, 0.6690
+- Incorrect judgments (n=1): 0.6379 (loan_agreement_3 run 0)
+
+**consumer_support**
+
+- Correct judgments (n=43): 0.6456, 0.6456, 0.6456, 0.6456, 0.6514, 0.6514, 0.6612, 0.6612, 0.6685, 0.6721, 0.6726, 0.6732, 0.6743, 0.6746, 0.6746, 0.6749, 0.6772, 0.6778, 0.6778, 0.6778, 0.6778, 0.6779, 0.6779, 0.6781, 0.6787, 0.6787, 0.6788, 0.6789, 0.6793, 0.6793, 0.6800, 0.6847, 0.6849, 0.6851, 0.6853, 0.6853, 0.6853, 0.6853, 0.6854, 0.6856, 0.6856, 0.6858, 0.6900
+- Incorrect judgments (n=0): (none)
+
+**products_and_services**
+
+- Correct judgments (n=38): 0.6586, 0.6648, 0.6659, 0.6692, 0.6699, 0.6710, 0.6738, 0.6762, 0.6765, 0.6765, 0.6765, 0.6767, 0.6790, 0.6797, 0.6797, 0.6797, 0.6798, 0.6798, 0.6811, 0.6833, 0.6839, 0.6854, 0.6861, 0.6862, 0.6885, 0.6885, 0.6925, 0.6925, 0.6925, 0.6925, 0.6925, 0.6927, 0.6938, 0.6952, 0.6952, 0.6952, 0.6988, 0.7005
+- Incorrect judgments (n=1): 0.6623 (loan_agreement_11 run 1)
+
+**consumer_understanding**
+
+- Correct judgments (n=44): 0.6034, 0.6078, 0.6089, 0.6090, 0.6091, 0.6091, 0.6096, 0.6126, 0.6130, 0.6145, 0.6147, 0.6148, 0.6151, 0.6160, 0.6169, 0.6172, 0.6179, 0.6180, 0.6183, 0.6185, 0.6187, 0.6204, 0.6206, 0.6230, 0.6231, 0.6240, 0.6246, 0.6252, 0.6254, 0.6260, 0.6266, 0.6274, 0.6277, 0.6282, 0.6309, 0.6309, 0.6350, 0.6365, 0.6407, 0.6407, 0.6407, 0.6407, 0.6407, 0.6407
+- Incorrect judgments (n=1): 0.6023 (loan_agreement_6 run 0)
+
+
+## Class separability issue - deferred
+
+**Documented limitation of the current evaluation, not a solved problem.**
+This section states only what the raw-findings tables above already show; no
+new computation, and no threshold value is proposed or tested here.
+
+**Observed, per category** (incorrect judgment's confidence vs. the range of
+correct judgments' confidence in the same category):
+
+| Outcome | Incorrect n | Incorrect score | Correct range (min – max) | Where the incorrect score sits |
+|---|---|---|---|---|
+| price_and_value | 1 | 0.6379 | 0.6207 – 0.6690 | Inside the correct range; higher than the lowest correct score |
+| products_and_services | 1 | 0.6623 | 0.6586 – 0.7005 | Inside the correct range; higher than the lowest correct score |
+| consumer_understanding | 1 | 0.6023 | 0.6034 – 0.6407 | Below the correct range, by 0.0011 (lower than every correct score) |
+| consumer_support | 0 | n/a | 0.6456 – 0.6900 | No incorrect judgment observed |
+
+**Class separability problem.** In `price_and_value` and
+`products_and_services`, the single incorrect judgment's confidence score
+falls inside the range of that category's correct judgments' scores and
+above the lowest correct score, so in those two cases the confidence score,
+as currently computed (minimum retrieval similarity among cited sources),
+does not distinguish the incorrect judgment from correct ones. In
+`consumer_understanding` the single incorrect judgment scores just below the
+lowest correct judgment (0.6023 vs. 0.6034), a 0.0011 gap; this is not the
+same overlap pattern, but with one incorrect example it neither shows nor
+rules out separability there. `consumer_support` has no incorrect judgment,
+so nothing can be said about separability for it from this data.
+
+**Threshold calibration is explicitly deferred, not attempted.** Every
+category has 0 or 1 observed incorrect judgment. That is far too few to draw
+a reliable conclusion about where, or whether, a confidence threshold could
+separate correct from incorrect judgments. No calibration was performed and
+`CONFIDENCE_THRESHOLD` is unchanged in code.
+
+**What would be needed to actually address this** (none of it exists yet):
+
+- **More documents**: a labelled evaluation set substantially larger than
+  the current 15 documents.
+- **More runs per document**: more than the current 3, to observe
+  run-to-run variance in both verdicts and cited-source selection.
+- **Enough real incorrect judgments per category**: enough observed false
+  positives and false negatives in *each* of the 4 outcomes (not 0 or 1) to
+  compare the confidence distribution of incorrect judgments against correct
+  ones and assess separability properly. Because incorrect judgments are
+  rare in this system, reaching that count is likely to require
+  deliberately adding harder or borderline documents, not just more of the
+  same.
