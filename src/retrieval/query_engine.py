@@ -25,6 +25,14 @@ NO_ANSWER_MESSAGE = (
     "answer this question."
 )
 
+# Length of the chunk excerpt stored on each SourceCitation. This is the
+# text a compliance judgment is actually shown for each retrieved source.
+# The single source of truth: groundedness.py and claim_verification.py
+# read it as `query_engine.SOURCE_EXCERPT_CHARS` at call time when they
+# rebuild sources by retrieval replay (checklist item 20), so changing it
+# here changes all three.
+SOURCE_EXCERPT_CHARS = 300
+
 
 def _build_system_prompt(corpus_description: str, no_answer_message: str) -> str:
     return (
@@ -146,7 +154,7 @@ class QueryEngine:
                 index=i,
                 file_name=node.metadata.get("file_name", "unknown"),
                 similarity_score=node.score or 0.0,
-                text_excerpt=node.text[:300],
+                text_excerpt=node.text[:SOURCE_EXCERPT_CHARS],
             )
             for i, node in enumerate(nodes, start=1)
         ]

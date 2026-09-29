@@ -47,9 +47,13 @@ Subcommands:
           to make, and (once judgments exist) all mechanical checks plus the
           exact number of claim-check calls `check` would make.
   judge   4 judgment calls per pilot document (resumable per document).
-  check   One narrow LLM claim-check call per regulatory claim, then writes
-          docs/eval_claim_pilot_checks.jsonl and
-          docs/eval_claim_verification_pilot.md.
+  check   One narrow LLM claim-check call per regulatory claim not already
+          checked. Each result is appended to the claim-check store
+          (--output, default docs/eval_claim_pilot_checks.jsonl) as soon as
+          it comes back; a re-run skips claims already in the store and says
+          so (checklist item 18). Then rebuilds, from EVERY recorded
+          judgment plus the whole store, <store>_results.jsonl and
+          <store>_report.md (checklist item 17).
 """
 
 import argparse
@@ -78,6 +82,7 @@ from src.agent.uncertainty import NOT_ADDRESSED, _cosine_similarity, _get_embed_
 from src.config import ANTHROPIC_MODEL, CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR  # noqa: E402
 from src.evaluation.groundedness import compute_signal1_cited  # noqa: E402
 from src.evaluation.run_eval import INPUT_HELP, MAIN_PASS_PATH, resolve_main_input  # noqa: E402
+from src.retrieval import query_engine  # noqa: E402  (SOURCE_EXCERPT_CHARS, read at call time)
 from src.retrieval.query_engine import QueryResult, SourceCitation, load_index  # noqa: E402
 from tests.fixtures.eval_set import EVAL_DOCUMENTS, OUTCOME_KEYS  # noqa: E402
 
@@ -85,8 +90,11 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 DOCS_DIR = ROOT / "data" / "synthetic_docs"
 DOCS_OUT_DIR = ROOT / "docs"
 PILOT_JUDGMENTS_PATH = DOCS_OUT_DIR / "eval_claim_pilot_judgments.jsonl"
+# Claim-check store (checklist items 17/18): append-only, one line per
+# regulatory claim checked by the LLM, appended as each result comes back.
+# It holds the paid-for results and is never rewritten. The full results
+# JSONL and the report are derived from it (see _resolve_check_outputs).
 PILOT_CHECKS_PATH = DOCS_OUT_DIR / "eval_claim_pilot_checks.jsonl"
-REPORT_PATH = DOCS_OUT_DIR / "eval_claim_verification_pilot.md"
 
 # One document per deliberately-planted issue outcome where available, plus
 # the control: loan_agreement_1 (price_and_value issue), _2 (consumer_support
@@ -96,7 +104,8 @@ REPORT_PATH = DOCS_OUT_DIR / "eval_claim_verification_pilot.md"
 DEFAULT_PILOT_DOCS = ["loan_agreement_1", "loan_agreement_2", "loan_agreement_3", "loan_agreement_12"]
 
 RETRIEVAL_TOP_K = 5
-EXCERPT_CHARS = 300  # matches QueryEngine.query(): the judge only ever sees node.text[:300]
+# The excerpt length the judge sees is query_engine.SOURCE_EXCERPT_CHARS,
+# read at call time in replay_sources (checklist item 20), not a copy here.
 
 # Classification cutoff for match_type == "fuzzy": the fraction of the
 # quote's words found, in order, in the best-matching window of the target
@@ -269,7 +278,7 @@ def locate_quote(quote: str, excerpt_number: int, sources: list[dict], corpus: l
     if m["match_type"] != "none":
         return {"quote_location": "other_retrieved_chunk", **m, "found_in": int(label)}
     # Retrieved chunks' full text first: chunks overlap, so the same sentence
-    # can sit in a retrieved chunk (past the 300-char excerpt) and in a
+    # can sit in a retrieved chunk (past the excerpt the judge saw) and in a
     # neighbouring one; ties keep the first candidate.
     ordered = sorted(corpus, key=lambda c: c["id"] not in retrieved_ids)
     label, m = _best_in(quote, [(c["id"], c["text"]) for c in ordered])
@@ -280,7 +289,7 @@ def locate_quote(quote: str, excerpt_number: int, sources: list[dict], corpus: l
             **m,
             "found_in": {"chunk_id": label, "file_name": chunk["file_name"]},
             # True means the quote is in a chunk that WAS retrieved, but past
-            # the 300-char excerpt the judge was actually shown.
+            # the excerpt (SOURCE_EXCERPT_CHARS) the judge was actually shown.
             "corpus_chunk_was_retrieved": label in retrieved_ids,
         }
     # fuzzy_score here is the best in-order word match against the NAMED
@@ -298,7 +307,7 @@ def replay_sources(retriever, fields: LoanAgreementFields, outcome_key: str) -> 
             "node_id": n.node.node_id,
             "file_name": n.metadata.get("file_name", "unknown"),
             "similarity_score": n.score or 0.0,
-            "text_excerpt": n.text[:EXCERPT_CHARS],
+            "text_excerpt": n.text[: query_engine.SOURCE_EXCERPT_CHARS],
         }
         for i, n in enumerate(nodes, start=1)
     ]
@@ -497,7 +506,17 @@ def cmd_plan(args) -> None:
         f"  document_facts: {sum(len(r['document_facts']) for r in results)}, "
         f"regulatory_requirements: {n_claims}, absences: {sum(len(r['absences']) for r in results)}"
     )
-    print(f"\n=> `check` would make exactly {n_claims} claim-check calls (one per regulatory claim, nominal).")
+    store_path, _, _ = _resolve_check_outputs(args.output)
+    stored = {_store_key(rec) for rec in _read_jsonl(store_path)}
+    already = sum(
+        _claim_key(r["doc_id"], r["outcome"], i, q["claim"]) in stored
+        for r in results
+        for i, q in enumerate(r["regulatory_requirements"])
+    )
+    print(
+        f"\n=> `check` would make exactly {n_claims - already} claim-check calls "
+        f"({already} of {n_claims} already in {store_path.name}; one per regulatory claim, nominal)."
+    )
 
 
 def cmd_judge(args) -> None:
@@ -560,48 +579,129 @@ def _check_claim(client, claim: str, chunk_texts: list[str]) -> ClaimCheck:
     )
 
 
+def _resolve_check_outputs(output: str | None) -> tuple[Path, Path, Path]:
+    """
+    Checklist item 17: `check` output paths. `--output` names the claim-check
+    store (default PILOT_CHECKS_PATH); the full results JSONL and the report
+    are derived from its name: <store stem>_results.jsonl and
+    <store stem>_report.md. The pilot judgments file is refused as a store.
+    """
+    store = Path(output) if output else PILOT_CHECKS_PATH
+    if store.resolve() == PILOT_JUDGMENTS_PATH.resolve():
+        raise SystemExit(f"Refusing to use {PILOT_JUDGMENTS_PATH} as the claim-check store: it holds the judgments.")
+    return store, store.with_name(f"{store.stem}_results.jsonl"), store.with_name(f"{store.stem}_report.md")
+
+
+def _claim_key(doc_id: str, outcome: str, claim_index: int, claim: str) -> tuple:
+    # The claim text is part of the key, so a re-judged document's new claims
+    # are never matched to an old claim's stored result.
+    return (doc_id, outcome, claim_index, claim)
+
+
+def _store_key(rec: dict) -> tuple:
+    return _claim_key(rec["doc_id"], rec["outcome"], rec["claim_index"], rec["claim"])
+
+
 def cmd_check(args) -> None:
     import instructor
     from anthropic import Anthropic
 
-    docs = _pilot_docs(args)
-    rows = [r for r in _read_jsonl(PILOT_JUDGMENTS_PATH) if r["doc_id"] in docs]
-    if not rows:
+    store_path, results_path, report_path = _resolve_check_outputs(args.output)
+    print(f"Claim-check store: {store_path}")
+    all_rows = _read_jsonl(PILOT_JUDGMENTS_PATH)
+    if not all_rows:
         raise SystemExit("No pilot judgments recorded — run `judge` first.")
-    results = mechanical_checks(rows, load_corpus())
-    total = sum(len(r["regulatory_requirements"]) for r in results)
-    print(f"Running {total} claim-check calls.")
+    docs = _pilot_docs(args)
 
-    sources_by_key = {(row["doc_id"], k): row["outcomes"][k]["sources"] for row in rows for k in OUTCOME_KEYS}
-    client = instructor.from_anthropic(Anthropic())
-    n = 0
-    for r in results:
-        by_index = {s["index"]: s for s in sources_by_key[(r["doc_id"], r["outcome"])]}
-        for req in r["regulatory_requirements"]:
-            numbers = list(dict.fromkeys(s["excerpt_number"] for s in req["sources"]))
-            chunk_texts = [by_index[i]["text_excerpt"] for i in numbers if i in by_index]
-            res = _check_claim(client, req["claim"], chunk_texts)
-            support_match = (
-                _best_in(res.supporting_sentence, [(str(i), by_index[i]["text_excerpt"]) for i in numbers if i in by_index])[1]
-                if res.supporting_sentence.strip()
-                else {"match_type": "none", "fuzzy_score": None}
+    # Mechanical checks (zero API cost) for EVERY recorded judgment, not just
+    # --docs: the results file and report are rebuilt below from all
+    # documents, so a --docs run never drops other documents (item 17).
+    # --docs only limits which claims get NEW claim-check calls.
+    results = mechanical_checks(all_rows, load_corpus())
+    stored = {_store_key(rec): rec for rec in _read_jsonl(store_path)}
+
+    requested = [
+        (r, i, req)
+        for r in results
+        if r["doc_id"] in docs
+        for i, req in enumerate(r["regulatory_requirements"])
+    ]
+    skipped = [(r, i, req) for r, i, req in requested if _claim_key(r["doc_id"], r["outcome"], i, req["claim"]) in stored]
+    pending = [(r, i, req) for r, i, req in requested if _claim_key(r["doc_id"], r["outcome"], i, req["claim"]) not in stored]
+
+    # Resume (item 18): skips are announced, never silent, matching item 11.
+    if skipped:
+        print(
+            f"\nWARNING: {store_path.name} already has claim-check results for {len(skipped)} of the "
+            f"{len(requested)} requested claims. These will be SKIPPED, not re-checked:"
+        )
+        for r, i, req in skipped:
+            print(f"  - {r['doc_id']} {r['outcome']} claim #{i}: {req['claim'][:80]}")
+        if not pending:
+            print(
+                "WARNING: every requested claim already has a result, so this invocation will make "
+                "NO API calls. The results file and report are still rebuilt."
             )
-            req["llm_check"] = {
+        print()
+    print(f"Running {len(pending)} claim-check calls.")
+
+    sources_by_key = {(row["doc_id"], k): row["outcomes"][k]["sources"] for row in all_rows for k in OUTCOME_KEYS}
+    client = instructor.from_anthropic(Anthropic()) if pending else None
+    for n, (r, i, req) in enumerate(pending, start=1):
+        by_index = {s["index"]: s for s in sources_by_key[(r["doc_id"], r["outcome"])]}
+        numbers = list(dict.fromkeys(s["excerpt_number"] for s in req["sources"]))
+        chunk_texts = [by_index[x]["text_excerpt"] for x in numbers if x in by_index]
+        res = _check_claim(client, req["claim"], chunk_texts)
+        support_match = (
+            _best_in(res.supporting_sentence, [(str(x), by_index[x]["text_excerpt"]) for x in numbers if x in by_index])[1]
+            if res.supporting_sentence.strip()
+            else {"match_type": "none", "fuzzy_score": None}
+        )
+        rec = {
+            "doc_id": r["doc_id"],
+            "outcome": r["outcome"],
+            "claim_index": i,
+            "claim": req["claim"],
+            "llm_check": {
                 "verdict": res.verdict,
                 "supporting_sentence": res.supporting_sentence,
                 "supporting_sentence_match_type": support_match["match_type"],
-                "chunks_shown": [i for i in numbers if i in by_index],
-            }
-            n += 1
-            print(
-                f"[{n}/{total}] {r['doc_id']} {r['outcome']}: llm={res.verdict} "
-                f"quote={[s['quote_location'] + '/' + s['match_type'] for s in req['sources']]} "
-                f"sim_min={req['similarity_min']}"
-            )
+                "chunks_shown": [x for x in numbers if x in by_index],
+            },
+        }
+        # Item 18: saved the moment it comes back, so a crash later in the
+        # run loses nothing already paid for.
+        _append_jsonl(store_path, rec)
+        stored[_store_key(rec)] = rec
+        print(
+            f"[{n}/{len(pending)}] {r['doc_id']} {r['outcome']}: llm={res.verdict} "
+            f"quote={[s['quote_location'] + '/' + s['match_type'] for s in req['sources']]} "
+            f"sim_min={req['similarity_min']}"
+        )
 
-    PILOT_CHECKS_PATH.write_text("\n".join(json.dumps(r) for r in results) + "\n", encoding="utf-8")
-    write_report(results)
-    print(f"\nWrote {PILOT_CHECKS_PATH}\nWrote {REPORT_PATH}")
+    # Attach stored results to every judgment's claims (all documents).
+    used = set()
+    for r in results:
+        for i, req in enumerate(r["regulatory_requirements"]):
+            key = _claim_key(r["doc_id"], r["outcome"], i, req["claim"])
+            req["llm_check"] = stored[key]["llm_check"] if key in stored else None
+            if key in stored:
+                used.add(key)
+    if len(stored) > len(used):
+        print(
+            f"NOTE: {len(stored) - len(used)} stored result(s) in {store_path.name} match no claim in the "
+            "current judgments file (e.g. a document was re-judged). They stay in the store, unused."
+        )
+
+    # Item 17: the results file and report ARE rewritten in full, deliberately.
+    # Both are pure views of (judgments file + whole store), rebuilt from all
+    # documents every run, so nothing is lost by rewriting them. The store,
+    # the only file holding paid-for results, is only ever appended to.
+    results_path.write_text("\n".join(json.dumps(r) for r in results) + "\n", encoding="utf-8")
+    complete = [r for r in results if all(q["llm_check"] for q in r["regulatory_requirements"])]
+    incomplete = [r for r in results if not all(q["llm_check"] for q in r["regulatory_requirements"])]
+    write_report(complete, report_path, store_path, results_path, incomplete)
+    print(f"\nWrote {results_path}\nWrote {report_path}")
 
 
 # --- report (facts only) ---
@@ -622,7 +722,10 @@ def _fmt(x) -> str:
     return "n/a" if x is None else f"{x:.4f}"
 
 
-def write_report(results: list[dict]) -> None:
+def write_report(
+    results: list[dict], report_path: Path, store_path: Path, results_path: Path, incomplete: list[dict]
+) -> None:
+    """results: judgments whose claims are ALL claim-checked; incomplete: the rest, listed but not tabulated."""
     reqs = [(r, q) for r in results for q in r["regulatory_requirements"]]
     srcs = [(r, q, s) for r, q in reqs for s in q["sources"]]
     facts = [(r, f) for r in results for f in r["document_facts"]]
@@ -635,9 +738,20 @@ def write_report(results: list[dict]) -> None:
     L.append(
         "Raw results only; no interpretation. Generated by "
         "`python -m src.evaluation.claim_verification check`. Design and limits: ARCHITECTURE.md "
-        "\"Structured-claim verification (P8-06)\". Per-claim records: `docs/eval_claim_pilot_checks.jsonl`."
+        "\"Structured-claim verification (P8-06)\". Claim-check results (append-only store): "
+        f"`{store_path.name}`. Full per-judgment records: `{results_path.name}`."
     )
     L.append("")
+    if incomplete:
+        L.append("## Judgments not yet fully claim-checked (excluded from every table below)")
+        L.append("")
+        for r in incomplete:
+            n_unchecked = sum(1 for q in r["regulatory_requirements"] if not q["llm_check"])
+            L.append(
+                f"- {r['doc_id']} / {r['outcome']}: {n_unchecked} of "
+                f"{len(r['regulatory_requirements'])} regulatory claims unchecked"
+            )
+        L.append("")
     docs = sorted({r["doc_id"] for r in results}, key=lambda d: int(d.rsplit("_", 1)[1]))
     L.append(
         f"**Scope**: {len(docs)} documents ({', '.join(docs)}), run_idx 0, all 4 outcomes = "
@@ -684,7 +798,7 @@ def write_report(results: list[dict]) -> None:
     L.append("")
     L.append(
         f"corpus_not_retrieved sources whose corpus chunk was one of the judgment's retrieved chunks "
-        f"(quote lies past the 300-char excerpt the judge saw): {corpus_retrieved}"
+        f"(quote lies past the {query_engine.SOURCE_EXCERPT_CHARS}-char excerpt the judge saw): {corpus_retrieved}"
     )
     L.append(
         f"Sources naming an excerpt number that was not among the retrieved excerpts: "
@@ -851,7 +965,7 @@ def write_report(results: list[dict]) -> None:
         L.append(f"| {r['doc_id']} | {r['outcome']} | {r['cited_sources']} | {per} | {_fmt(s1['min'])} | {_fmt(s1['mean'])} |")
     L.append("")
 
-    REPORT_PATH.write_text("\n".join(L), encoding="utf-8")
+    report_path.write_text("\n".join(L), encoding="utf-8")
 
 
 def main() -> None:
@@ -866,6 +980,14 @@ def main() -> None:
         p.add_argument("--docs", nargs="+", help=f"Pilot doc ids (default: {DEFAULT_PILOT_DOCS})")
         if name in ("plan", "judge"):  # `check` reads only the pilot judgments file
             p.add_argument("--input", help=INPUT_HELP)
+        if name in ("plan", "check"):
+            p.add_argument(
+                "--output",
+                help=(
+                    f"Claim-check store (default: docs/{PILOT_CHECKS_PATH.name}). Results and report "
+                    "are written next to it as <store stem>_results.jsonl and <store stem>_report.md."
+                ),
+            )
         p.set_defaults(func=func)
     args = parser.parse_args()
     args.func(args)

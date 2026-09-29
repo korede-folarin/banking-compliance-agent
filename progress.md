@@ -5,6 +5,99 @@ Newest entry at the top.
 
 ---
 
+## Session 20 — 2026-09-29
+**Status:** Three deferred-checklist items built and tested offline in one
+session: 17, 18 and 20. They are recorded separately below. Nothing else
+from the checklist was touched. Zero API calls.
+
+**Done: item 17, `claim_verification check` no longer overwrites or drops
+results**
+- `check` (and `plan`) take `--output`, naming the claim-check store.
+  Default: `docs/eval_claim_pilot_checks.jsonl`. The other two outputs are
+  derived from its name: `<store stem>_results.jsonl` (full per-judgment
+  records) and `<store stem>_report.md`. The report's default name changed
+  from `docs/eval_claim_verification_pilot.md` to
+  `docs/eval_claim_pilot_checks_report.md`; the pilot has never run, so no
+  existing file is affected.
+- Mechanical checks now run for every recorded judgment, not just
+  `--docs`. The results file and report are rebuilt from all documents
+  plus the whole store, so a `--docs` run never drops other documents.
+  Judgments with unchecked claims appear in the results file with
+  `llm_check: null`. The report lists them in a "not yet fully
+  claim-checked" section and leaves them out of its tables.
+- Stated explicitly: the results file and report ARE still rewritten in
+  full on each run. That is the simplest correct behaviour here, because
+  both are pure views of (judgments file + whole store) and are rebuilt
+  from everything each time. The store, the only file holding paid-for
+  results, is only ever appended to.
+- The pilot judgments file is refused as a store path.
+
+**Done: item 18, `claim_verification check` saves incrementally and
+resumes**
+- Each claim-check result is appended to the store as soon as it comes
+  back, not held in memory until the end.
+- A re-run skips claims already in the store. The match is on doc,
+  outcome, claim index and claim text, so a re-judged document's new
+  claims are never matched to old results. Skips are announced with a
+  WARNING listing each claim. If every requested claim is already stored,
+  a second warning says no API calls will be made. This matches item 11's
+  pattern.
+- Stored results that match no current claim are kept in the store, and a
+  NOTE gives their count.
+- `plan` now reports the remaining claim-check count ("exactly N calls (M
+  of T already in <store>)"), so an approved count stays accurate after a
+  partial run.
+
+**Done: item 20, one source of truth for the excerpt length**
+- `src/retrieval/query_engine.py` had the 300 inline in a slice. It now
+  defines `SOURCE_EXCERPT_CHARS = 300` and uses it.
+- `groundedness.py` (`reconstruct_sources`) and `claim_verification.py`
+  (`replay_sources`, one report string) read
+  `query_engine.SOURCE_EXCERPT_CHARS` through the module at call time, not
+  by copying it with a from-import. Changing the one constant therefore
+  changes all three. `claim_verification.py`'s own `EXCERPT_CHARS = 300`
+  is removed.
+
+**Tests (offline: no API calls, no Chroma, no embedding model)**
+- `tests/test_claim_check_store.py` (6 tests):
+  - Item 17:
+    - the derived default paths, and refusal of the judgments file;
+    - a second run makes 0 calls, leaves the store byte-identical and
+      keeps every result;
+    - a `--docs loan_agreement_1` run keeps doc 2 present and listed as
+      unchecked; a following `--docs loan_agreement_2` run keeps all of
+      doc 1's results; re-running doc 1 alone again drops nothing.
+  - Item 18:
+    - before each call, the store already holds every earlier result;
+    - a simulated crash on call 6 leaves exactly 5 results on disk;
+    - the re-run makes the remaining 11 calls, announces "5 of the 16"
+      skipped and names each skipped claim, with no duplicates;
+    - `plan` reports 11 remaining.
+- `tests/test_excerpt_length_single_source.py` (4 tests, item 20):
+  - the constant is defined in the query engine and used by `query()`;
+  - neither evaluation file contains `[:300]` or a local constant;
+  - the query engine, groundedness replay and claim_verification replay
+    all produce 300-char excerpts;
+  - monkeypatching only `query_engine.SOURCE_EXCERPT_CHARS` to 40 makes
+    all three produce 40-char excerpts.
+- All five offline re-run test files: 47 tests, all passing. Every file in
+  `docs/` was hashed before and after (all identical), and no file was
+  created in `docs/`.
+- feature_list.json P8-07 (one clause per item) and ARCHITECTURE.md
+  checklist rows 17, 18 and 20 updated. The P8-06 pilot-output line now
+  names the new files.
+
+**Next:**
+- Remaining checklist items: 3, 4, 6-10, 12, 14-16.
+
+**Known issues:**
+- None new.
+
+**Notes:**
+- Not committed or pushed by Claude; the user is reviewing and committing.
+
+---
+
 ## Session 19 — 2026-09-29
 **Status:** Deferred-checklist item 19 (`groundedness.py run`
 overwriting `docs/eval_groundedness.md`) built and tested offline.

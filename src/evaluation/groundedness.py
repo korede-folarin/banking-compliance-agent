@@ -85,6 +85,7 @@ from src.agent.schemas import LoanAgreementFields  # noqa: E402
 from src.agent.uncertainty import _cosine_similarity, _get_embed_model  # noqa: E402
 from src.config import ANTHROPIC_MODEL  # noqa: E402
 from src.evaluation.run_eval import INPUT_HELP, resolve_main_input  # noqa: E402
+from src.retrieval import query_engine  # noqa: E402  (SOURCE_EXCERPT_CHARS, read at call time)
 from src.retrieval.query_engine import load_index  # noqa: E402
 from tests.fixtures.eval_set import OUTCOME_KEYS  # noqa: E402
 
@@ -154,7 +155,7 @@ def reconstruct_sources(retriever, fields: LoanAgreementFields, outcome_key: str
     the persisted index) to reconstruct the set of sources a judgment for
     this outcome/document actually saw. Matches
     src.retrieval.query_engine.QueryEngine.query()'s own source-building
-    exactly (same 300-char excerpt truncation), since that's what's being
+    exactly (same excerpt truncation, query_engine.SOURCE_EXCERPT_CHARS), since that's what's being
     reconstructed. Spot-checked against the one outcome/run the raw eval
     log DOES cache verbatim (price_and_value, run_idx 0) and reproduced it
     exactly.
@@ -166,7 +167,7 @@ def reconstruct_sources(retriever, fields: LoanAgreementFields, outcome_key: str
             "index": i,
             "file_name": node.metadata.get("file_name", "unknown"),
             "similarity_score": node.score or 0.0,
-            "text_excerpt": node.text[:300],
+            "text_excerpt": node.text[: query_engine.SOURCE_EXCERPT_CHARS],
         }
         for i, node in enumerate(nodes, start=1)
     ]
