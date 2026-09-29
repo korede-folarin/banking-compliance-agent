@@ -7,7 +7,10 @@ why this exists, the paraphrase-tolerance-vs-overreach-detection tradeoff it
 is designed around, and why two independent signals are compared rather than
 either trusted alone).
 
-Runs against the already-recorded docs/eval_raw_main_pass.jsonl, restricted
+Runs against an already-recorded main-pass file (--input; default
+docs/eval_raw_main_pass_v2.jsonl, the file `run_eval main` now writes; the
+P8-05 results in docs/eval_groundedness.md came from the Phase 8 file,
+reproducible with --input docs/eval_raw_main_pass.jsonl), restricted
 to run_idx == 0 rows, across all 4 outcomes. That restriction is a real,
 structural data constraint, not a convenience:
 
@@ -77,11 +80,11 @@ from src.agent.first_pass import QUESTION_BUILDERS  # noqa: E402
 from src.agent.schemas import LoanAgreementFields  # noqa: E402
 from src.agent.uncertainty import _cosine_similarity, _get_embed_model  # noqa: E402
 from src.config import ANTHROPIC_MODEL  # noqa: E402
+from src.evaluation.run_eval import INPUT_HELP, resolve_main_input  # noqa: E402
 from src.retrieval.query_engine import load_index  # noqa: E402
 from tests.fixtures.eval_set import OUTCOME_KEYS  # noqa: E402
 
 DOCS_OUT_DIR = Path(__file__).resolve().parent.parent.parent / "docs"
-MAIN_PASS_PATH = DOCS_OUT_DIR / "eval_raw_main_pass.jsonl"
 GROUNDEDNESS_OUT_PATH = DOCS_OUT_DIR / "eval_groundedness.md"
 
 # Descriptive-only bucket boundary for Signal 1, used solely to label rows
@@ -250,11 +253,21 @@ def build_scope(main_records: list[dict]) -> list[dict]:
     return scope
 
 
-def cmd_plan(_args) -> None:
-    main_records = _read_jsonl(MAIN_PASS_PATH)
+def _load_main_records(args) -> list[dict]:
+    input_path = resolve_main_input(args.input)
+    print(f"Main-pass input: {input_path}")
+    main_records = _read_jsonl(input_path)
     if not main_records:
-        print(f"No records found at {MAIN_PASS_PATH} — run `python -m src.evaluation.run_eval main` first.")
+        print(
+            f"No records found at {input_path} — run `python -m src.evaluation.run_eval main` "
+            "first, or pass --input."
+        )
         raise SystemExit(1)
+    return main_records
+
+
+def cmd_plan(args) -> None:
+    main_records = _load_main_records(args)
 
     scope = build_scope(main_records)
     total_claims = sum(len(j["claims"]) for j in scope)
@@ -324,14 +337,11 @@ def _agreement(signal1: float, signal2_bucket: str) -> str:
     return "disagreement"
 
 
-def cmd_run(_args) -> None:
+def cmd_run(args) -> None:
     import instructor
     from anthropic import Anthropic
 
-    main_records = _read_jsonl(MAIN_PASS_PATH)
-    if not main_records:
-        print(f"No records found at {MAIN_PASS_PATH} — run `python -m src.evaluation.run_eval main` first.")
-        raise SystemExit(1)
+    main_records = _load_main_records(args)
 
     scope = build_scope(main_records)
     total_claims = sum(len(j["claims"]) for j in scope)
@@ -445,9 +455,11 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_plan = sub.add_parser("plan", help="Zero-API-cost dry run: reports exact Signal-2 call count")
+    p_plan.add_argument("--input", help=INPUT_HELP)
     p_plan.set_defaults(func=cmd_plan)
 
     p_run = sub.add_parser("run", help="Runs Signal 2 (real API calls) and writes docs/eval_groundedness.md")
+    p_run.add_argument("--input", help=INPUT_HELP)
     p_run.set_defaults(func=cmd_run)
 
     args = parser.parse_args()

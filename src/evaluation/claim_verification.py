@@ -34,7 +34,9 @@ judgment's logged cited chunks only, per chunk, with min and mean reported
 (src.evaluation.groundedness.compute_signal1_cited).
 
 Pilot scope: run_idx 0 of a few documents, all 4 outcomes. Extraction is the
-cached run-0 `_cached_fields` from docs/eval_raw_main_pass.jsonl and
+cached run-0 `_cached_fields` from the main-pass file given by --input
+(default docs/eval_raw_main_pass_v2.jsonl; pass docs/eval_raw_main_pass.jsonl
+for the Phase 8 data), and
 retrieval is replayed (deterministic, zero API cost), so the only new API
 calls are the 4 judgment calls per document and one claim-check call per
 regulatory claim. The 405-call main pass is NOT re-run.
@@ -75,13 +77,13 @@ from src.agent.schemas import LoanAgreementFields  # noqa: E402
 from src.agent.uncertainty import NOT_ADDRESSED, _cosine_similarity, _get_embed_model, _splitter  # noqa: E402
 from src.config import ANTHROPIC_MODEL, CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR  # noqa: E402
 from src.evaluation.groundedness import compute_signal1_cited  # noqa: E402
+from src.evaluation.run_eval import INPUT_HELP, MAIN_PASS_PATH, resolve_main_input  # noqa: E402
 from src.retrieval.query_engine import QueryResult, SourceCitation, load_index  # noqa: E402
 from tests.fixtures.eval_set import EVAL_DOCUMENTS, OUTCOME_KEYS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 DOCS_DIR = ROOT / "data" / "synthetic_docs"
 DOCS_OUT_DIR = ROOT / "docs"
-MAIN_PASS_PATH = DOCS_OUT_DIR / "eval_raw_main_pass.jsonl"
 PILOT_JUDGMENTS_PATH = DOCS_OUT_DIR / "eval_claim_pilot_judgments.jsonl"
 PILOT_CHECKS_PATH = DOCS_OUT_DIR / "eval_claim_pilot_checks.jsonl"
 REPORT_PATH = DOCS_OUT_DIR / "eval_claim_verification_pilot.md"
@@ -155,11 +157,11 @@ def _doc_meta(doc_id: str) -> dict:
     raise SystemExit(f"Unknown doc id: {doc_id}")
 
 
-def _cached_run0(doc_id: str) -> dict:
-    for r in _read_jsonl(MAIN_PASS_PATH):
+def _cached_run0(doc_id: str, main_pass_path: Path) -> dict:
+    for r in _read_jsonl(main_pass_path):
         if r["doc_id"] == doc_id and r["run_idx"] == 0:
             return r
-    raise SystemExit(f"No cached run_idx 0 row for {doc_id} in {MAIN_PASS_PATH}")
+    raise SystemExit(f"No cached run_idx 0 row for {doc_id} in {main_pass_path} (pass --input?)")
 
 
 # --- quote matching (no LLM) ---
@@ -437,6 +439,7 @@ def mechanical_checks(judgment_rows: list[dict], corpus: list[dict]) -> list[dic
                     "confidence": o["confidence"],
                     "cached_run0_llm_status": o["cached_run0_llm_status"],
                     "cached_run0_status": o["cached_run0_status"],
+                    "main_pass_input": row.get("main_pass_input", "unrecorded"),
                     "cited_sources": j["cited_sources"],
                     "reasoning": j["reasoning"],
                     "signal1_cited": compute_signal1_cited(j["reasoning"], o["resolved_cited_sources"]),
@@ -458,12 +461,14 @@ def _pilot_docs(args) -> list[str]:
 
 def cmd_plan(args) -> None:
     docs = _pilot_docs(args)
+    main_pass_path = resolve_main_input(args.input)
     retriever = load_index().as_retriever(similarity_top_k=RETRIEVAL_TOP_K)
 
+    print(f"Main-pass input: {main_pass_path}")
     print(f"Pilot documents: {docs}")
     print("\nRetrieval-replay spot check vs. cached run-0 price_and_value context:")
     for doc_id in docs:
-        cached = _cached_run0(doc_id)
+        cached = _cached_run0(doc_id, main_pass_path)
         replay = replay_sources(retriever, LoanAgreementFields(**cached["_cached_fields"]), "price_and_value")
         cached_src = cached["_cached_price_and_value_context"]["sources"]
         same = [
@@ -499,12 +504,14 @@ def cmd_judge(args) -> None:
     docs = _pilot_docs(args)
     done = {r["doc_id"] for r in _read_jsonl(PILOT_JUDGMENTS_PATH)}
     todo = [d for d in docs if d not in done]
+    main_pass_path = resolve_main_input(args.input)
+    print(f"Main-pass input: {main_pass_path}")
     print(f"Judging {len(todo)} docs x {len(OUTCOME_KEYS)} outcomes = {len(todo) * len(OUTCOME_KEYS)} API calls.")
 
     retriever = load_index().as_retriever(similarity_top_k=RETRIEVAL_TOP_K)
     agent = ComplianceAgent()
     for doc_id in todo:
-        cached = _cached_run0(doc_id)
+        cached = _cached_run0(doc_id, main_pass_path)
         fields = LoanAgreementFields(**cached["_cached_fields"])
         sources = {k: replay_sources(retriever, fields, k) for k in OUTCOME_KEYS}
         contexts = {k: _query_result(QUESTION_BUILDERS[k](fields), sources[k]) for k in OUTCOME_KEYS}
@@ -530,6 +537,9 @@ def cmd_judge(args) -> None:
             {
                 "doc_id": doc_id,
                 "run_idx": 0,
+                # Which main-pass file the cached fields and cached_run0_*
+                # statuses came from (Phase 8 or a re-run), for the report.
+                "main_pass_input": main_pass_path.name,
                 "ground_truth": _doc_meta(doc_id)["ground_truth"],
                 "fields": fields.model_dump(),
                 "outcomes": outcomes,
@@ -804,7 +814,13 @@ def write_report(results: list[dict]) -> None:
         L.append("None.")
     L.append("")
 
-    L.append("## Status vs. cached Phase 8 run-0 status")
+    L.append("## Status vs. cached run-0 status")
+    L.append("")
+    L.append(
+        "Cached run-0 values come from: "
+        + ", ".join(sorted({r["main_pass_input"] for r in results}))
+        + f" ({MAIN_PASS_PATH.name} is the Phase 8 data)."
+    )
     L.append("")
     L.append("| doc_id | outcome | ground truth | cached llm_status | new llm_status | cached status | new status | confidence |")
     L.append("|---|---|---|---|---|---|---|---|")
@@ -848,6 +864,8 @@ def main() -> None:
     ]:
         p = sub.add_parser(name, help=help_text)
         p.add_argument("--docs", nargs="+", help=f"Pilot doc ids (default: {DEFAULT_PILOT_DOCS})")
+        if name in ("plan", "judge"):  # `check` reads only the pilot judgments file
+            p.add_argument("--input", help=INPUT_HELP)
         p.set_defaults(func=func)
     args = parser.parse_args()
     args.func(args)

@@ -23,13 +23,19 @@ for the full methodology and findings):
             judgment specifically (P8-04), reusing the first successful
             main-pass FirstPassResult per document as fixed input context
             (no extra extraction/retrieval calls) — only the judgment call
-            itself is repeated, --n-runs times per variant per doc. Requires
-            docs/eval_raw_main_pass.jsonl to exist (run `main` first).
+            itself is repeated, --n-runs times per variant per doc. Reads
+            the main-pass file given by --input (default
+            docs/eval_raw_main_pass_v2.jsonl; run `main` first).
             Appends to docs/eval_raw_variant_pass.jsonl.
 
-  summary   Reads both JSONL files (and the recall@k JSON) and prints/saves
-            computed metrics to docs/eval_summary.json. Does not call the
-            API.
+  summary   Reads the main-pass file given by --input (default
+            docs/eval_raw_main_pass_v2.jsonl), the variant JSONL and the
+            recall@k JSON, and prints/saves computed metrics to
+            <input stem>_summary.json next to the input. Never writes the
+            Phase 8 summary, docs/eval_summary.json (eval_results.md cites
+            it). Does not call the API.
+
+  For Phase 8 reference, pass --input docs/eval_raw_main_pass.jsonl.
 
 Ground truth: tests/fixtures/eval_set.py. See its module docstring for the
 compliant/non_compliant labelling convention.
@@ -61,14 +67,18 @@ from tests.fixtures.eval_set import (  # noqa: E402
 DOCS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "synthetic_docs"
 DOCS_OUT_DIR = Path(__file__).resolve().parent.parent.parent / "docs"
 # Phase 8 main-pass data (Session 13). Read-only from here on: `main` refuses
-# to write to it (see _resolve_main_output). `variants` and `summary` still
-# read it; pointing them at the re-run output is checklist item 13.
+# to write to it (see _resolve_main_output). Readers (`variants`, `summary`,
+# groundedness.py, claim_verification.py) default to MAIN_PASS_V2_PATH and
+# reach this file only via an explicit --input (checklist item 13).
 MAIN_PASS_PATH = DOCS_OUT_DIR / "eval_raw_main_pass.jsonl"
 MAIN_PASS_ERRORS_PATH = DOCS_OUT_DIR / "eval_raw_main_pass_errors.jsonl"
 # Default output for any new `main` pass (checklist item 11).
 MAIN_PASS_V2_PATH = DOCS_OUT_DIR / "eval_raw_main_pass_v2.jsonl"
 VARIANT_PASS_PATH = DOCS_OUT_DIR / "eval_raw_variant_pass.jsonl"
 RECALL_PATH = DOCS_OUT_DIR / "eval_recall_at_k.json"
+# The Phase 8 summary, cited by docs/eval_results.md. `summary` never writes
+# here any more: its output path is derived from --input (see
+# _summary_output_for), so no input can overwrite this file.
 SUMMARY_PATH = DOCS_OUT_DIR / "eval_summary.json"
 
 K_VALUES = [1, 2, 3, 5, 10]
@@ -141,6 +151,40 @@ def _load_doc_text(file_name: str) -> str:
 def _append_jsonl(path: Path, record: dict) -> None:
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record) + "\n")
+
+
+def resolve_main_input(input_path: str | None) -> Path:
+    """
+    Checklist item 13: which main-pass file a reader opens. Defaults to the
+    file `main` now writes (MAIN_PASS_V2_PATH), never silently to the Phase
+    8 file; the Phase 8 file stays readable by passing it explicitly, e.g.
+    `--input docs/eval_raw_main_pass.jsonl`, so the Phase 8 write-ups remain
+    reproducible. Shared by run_eval.py, groundedness.py and
+    claim_verification.py.
+    """
+    return Path(input_path) if input_path else MAIN_PASS_V2_PATH
+
+
+INPUT_HELP = (
+    f"Main-pass JSONL to read (default: docs/{MAIN_PASS_V2_PATH.name}). Pass "
+    f"docs/{MAIN_PASS_PATH.name} to read the Phase 8 data."
+)
+
+
+def _summary_output_for(input_path: Path) -> Path:
+    """
+    `summary` writes next to its input, named after it:
+    eval_raw_main_pass_v2.jsonl -> eval_raw_main_pass_v2_summary.json. The
+    Phase 8 summary (SUMMARY_PATH, cited by eval_results.md) is never the
+    target; an input whose derived name would collide with it is refused.
+    """
+    out = input_path.with_name(f"{input_path.stem}_summary.json")
+    if out.resolve() == SUMMARY_PATH.resolve():
+        raise SystemExit(
+            f"Refusing to write the summary to {SUMMARY_PATH}: that is the Phase 8 summary "
+            "cited by docs/eval_results.md. Rename the input file."
+        )
+    return out
 
 
 def _read_jsonl(path: Path) -> list[dict]:
@@ -324,7 +368,9 @@ def cmd_variants(args) -> None:
     from anthropic import Anthropic
 
     n_runs = args.n_runs
-    main_records = _read_jsonl(MAIN_PASS_PATH)
+    input_path = resolve_main_input(args.input)
+    print(f"Main-pass input: {input_path}")
+    main_records = _read_jsonl(input_path)
     cached_by_doc = {
         r["doc_id"]: r
         for r in main_records
@@ -332,7 +378,10 @@ def cmd_variants(args) -> None:
     }
     missing = [d["id"] for d in EVAL_DOCUMENTS if d["id"] not in cached_by_doc]
     if missing:
-        print(f"ERROR: missing cached price_and_value context for: {missing}. Run `main` first.")
+        print(
+            f"ERROR: missing cached price_and_value context in {input_path} for: {missing}. "
+            "Run `main` first, or pass --input."
+        )
         raise SystemExit(1)
 
     total_calls = len(EVAL_DOCUMENTS) * len(VARIANTS) * n_runs
@@ -432,13 +481,16 @@ def _score_predictions(records: list[dict], status_field: str, outcome_key: str 
     }
 
 
-def cmd_summary(_args) -> None:
-    main_records = _read_jsonl(MAIN_PASS_PATH)
+def cmd_summary(args) -> None:
+    input_path = resolve_main_input(args.input)
+    output_path = _summary_output_for(input_path)
+    print(f"Main-pass input: {input_path}")
+    main_records = _read_jsonl(input_path)
     variant_records = _read_jsonl(VARIANT_PASS_PATH)
     recall_data = json.loads(RECALL_PATH.read_text(encoding="utf-8")) if RECALL_PATH.exists() else None
 
     if not main_records:
-        print("No main pass records found — run `main` first.")
+        print(f"No main pass records found in {input_path} — run `main` first, or pass --input.")
         raise SystemExit(1)
 
     summary: dict = {"n_main_runs": len(main_records), "n_variant_runs": len(variant_records)}
@@ -508,10 +560,10 @@ def cmd_summary(_args) -> None:
     if recall_data:
         summary["recall_at_k"] = {r["id"]: r["recall_at_k"] for r in recall_data}
 
-    DOCS_OUT_DIR.mkdir(exist_ok=True)
-    SUMMARY_PATH.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(json.dumps(summary, indent=2))
-    print(f"\nWrote {SUMMARY_PATH}")
+    print(f"\nWrote {output_path}")
 
 
 def main() -> None:
@@ -531,9 +583,14 @@ def main() -> None:
 
     p_variants = sub.add_parser("variants", help="price_and_value prompt variant comparison")
     p_variants.add_argument("--n-runs", type=int, default=3)
+    p_variants.add_argument("--input", help=INPUT_HELP)
     p_variants.set_defaults(func=cmd_variants)
 
     p_summary = sub.add_parser("summary", help="Compute metrics from saved JSONL (zero API cost)")
+    p_summary.add_argument(
+        "--input",
+        help=INPUT_HELP + " Output is written next to it as <input stem>_summary.json.",
+    )
     p_summary.set_defaults(func=cmd_summary)
 
     args = parser.parse_args()

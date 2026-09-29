@@ -5,6 +5,78 @@ Newest entry at the top.
 
 ---
 
+## Session 18 — 2026-09-29
+**Status:** Deferred-checklist item 13 (readers hardcoding the Phase 8
+file) built and tested offline. Nothing else from the checklist was
+touched. Zero API calls.
+
+**Done:**
+- `run_eval.py`:
+  - New shared `resolve_main_input(input)` returns `--input` if given,
+    else `MAIN_PASS_V2_PATH` (`docs/eval_raw_main_pass_v2.jsonl`), the
+    file `main` writes since item 11. The Phase 8 file is read only when
+    passed explicitly (`--input docs/eval_raw_main_pass.jsonl`), so the
+    Phase 8 write-ups stay reproducible.
+  - `summary` and `variants` take `--input`.
+  - `summary` now writes `<input stem>_summary.json` next to its input
+    (`_summary_output_for`), e.g. `eval_raw_main_pass_v2_summary.json`,
+    never `docs/eval_summary.json`. An input whose derived name would be
+    `docs/eval_summary.json` is refused. Summarising the Phase 8 data now
+    writes `docs/eval_raw_main_pass_summary.json`.
+  - What the readers compute, and how they read rows, is unchanged.
+- `groundedness.py` (`plan`, `run`) and `claim_verification.py` (`plan`,
+  `judge`) take `--input` via the same resolver; their local
+  `MAIN_PASS_PATH` constants are gone. `check` has no `--input` because it
+  reads only the pilot judgments file.
+- One labelling fix in `claim_verification.py`, needed because of the new
+  default. Pilot judgment rows now record `main_pass_input` (which
+  main-pass file the cached fields and `cached_run0_*` statuses came
+  from). The report heading "Status vs. cached Phase 8 run-0 status" is
+  now "Status vs. cached run-0 status", with a line naming the source
+  file. Nothing it computes changed.
+- New offline test file `tests/test_eval_readers_input.py` (21 tests,
+  all passing; with item 11's 8, 29 total). LLM clients, retrievers,
+  `build_scope` and agents are faked. No API calls, no Chroma queries, no
+  embedding model. It covers:
+  - Every reader's CLI (`summary`, `variants`, groundedness `plan`/`run`,
+    claim_verification `plan`/`judge`) defaults to the v2 path and
+    accepts the Phase 8 path explicitly.
+  - `summary` on a v2 input writes a new, distinct
+    `eval_raw_main_pass_v2_summary.json`.
+  - `summary` on a temp copy of the Phase 8 file produces JSON identical
+    to the existing `docs/eval_summary.json`. This reproduces Phase 8
+    behaviour exactly.
+  - The derived summary path is never `docs/eval_summary.json`, and a
+    colliding input is refused.
+  - `variants` builds its prompts from the Phase 8 cached contexts when
+    given the Phase 8 file, and from the v2 file's contexts by default.
+  - groundedness `plan` passes exactly the Phase 8 rows to `build_scope`
+    when given that file, and the v2 rows by default (`run` too). A
+    missing v2 file fails loudly.
+  - claim_verification `_cached_run0` and `judge` read the Phase 8 file
+    when given it, and the v2 file by default, recording which one.
+  A module-level fixture confirms `docs/eval_raw_main_pass.jsonl` and
+  `docs/eval_summary.json` are byte-identical before and after, and that
+  no file was created in `docs/`. Also checked by hand: `892da01c...` and
+  `cef74c0f...` unchanged.
+- feature_list.json P8-07 and ARCHITECTURE.md checklist row 13 updated.
+
+**Next:**
+- Remaining checklist items: 3, 4, 6-10, 12, 14-20.
+
+**Known issues:**
+- Item 19 is still open, and now easier to hit. `groundedness.py run`
+  defaults to the v2 input but still writes `docs/eval_groundedness.md`
+  in full, so running it on a v2 pass would overwrite the Phase 8 P8-05
+  write-up. Do not run `groundedness.py run` until item 19 is built.
+- The Session 17 known issue ("`summary` after a v2 pass would still
+  summarise the Phase 8 data") is resolved.
+
+**Notes:**
+- Not committed or pushed by Claude; the user is reviewing and committing.
+
+---
+
 ## Session 17 — 2026-09-29
 **Status:** Deferred-checklist item 11 (the silent no-op risk) built and
 tested offline. Nothing else from the checklist was touched. Zero API
