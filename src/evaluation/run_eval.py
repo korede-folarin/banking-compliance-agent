@@ -246,6 +246,12 @@ def cmd_main(args) -> None:
                         "status": getattr(report, key).status,
                         "confidence": getattr(report, key).confidence,
                         "cited_source_count": len(getattr(report, key).cited_sources),
+                        # Forward-looking fix, added alongside compliance.py's
+                        # matching logging fix (see ARCHITECTURE.md "Evaluation
+                        # notes"): the full cited source objects, not just a
+                        # count, so a future main pass carries real per-claim
+                        # citation data. Does not touch already-recorded rows.
+                        "cited_sources": [s.model_dump() for s in getattr(report, key).cited_sources],
                         "reasoning": getattr(report, key).reasoning,
                     }
                     for key in OUTCOME_KEYS
@@ -313,7 +319,7 @@ def cmd_variants(args) -> None:
             for run_idx in range(n_runs):
                 judgment = client.messages.create(
                     model=ANTHROPIC_MODEL,
-                    max_tokens=1024,
+                    max_tokens=4096,  # see compliance.py: P8-06 structured-claim fields
                     system=system_prompt,
                     messages=[{"role": "user", "content": user_message}],
                     response_model=OutcomeJudgment,

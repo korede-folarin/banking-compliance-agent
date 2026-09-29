@@ -442,6 +442,195 @@ and never mentions. This is deliberately scoped as one real
 demonstration of the wiring working, not a claim that every outcome
 now routes through MCP.
 
+## Groundedness cross-check (P8-05)
+New scope, added after Phase 8's original evaluation plan (recall@k,
+per-outcome accuracy/FP/FN, `CONFIDENCE_THRESHOLD` validation — all already
+covered above and in `docs/eval_results.md`). This is a second, independent
+check on the Compliance Agent's *reasoning text itself*: not "is the
+confidence score high enough" (P4-02, already covered), but "does the
+reasoning's actual content match what the cited evidence says." Tracked as
+`feature_list.json`'s P8-05, not folded into an existing Phase 8 subtask,
+because it checks something none of P8-01 through P8-04 check: text-level
+faithfulness of the reasoning, not the correctness of the final status
+label.
+
+**The inherent tradeoff this is built around.** There is no single
+mechanical method that both tolerates legitimate paraphrasing and reliably
+catches unsupported overreach, and this project does not claim to have
+found one:
+
+- A purely mechanical, embedding-similarity check (reuse of the same local
+  model, `BAAI/bge-small-en-v1.5`, used everywhere else in this project) is
+  cheap, deterministic, and *tolerant of paraphrasing* — a reasoning
+  sentence that restates a source's meaning in different words still scores
+  high. But that same tolerance is exactly what makes it unable to catch
+  *overreach*: a sentence that takes a source's general principle and
+  extends it into a specific, unsupported claim can still embed close to
+  that source, because embedding similarity measures topical/semantic
+  closeness, not whether a specific factual assertion is actually licensed
+  by the text.
+- A narrow, per-claim LLM check ("does this specific claim appear, in
+  substance, in this source text — yes/no/partially") is better positioned
+  to catch that kind of overreach, because it's actually asked to reason
+  about entailment for one isolated claim, not just measure similarity. But
+  it introduces exactly the failure mode the mechanical signal doesn't
+  have: it's an LLM judgment, capable of being miscalibrated, inconsistent
+  between claims, or itself too strict/lenient about what counts as
+  "supported."
+
+Neither weakness is fixed by using more of the same method (a bigger
+embedding model still can't distinguish paraphrase from overreach by
+construction; more LLM claim-checks still inherit LLM judgment variance).
+That's why this feature compares two *independently-failing* signals
+against each other rather than picking one and trusting it:
+
+- **Signal 1 (mechanical)**: maximum cosine similarity between a
+  judgment's full reasoning text and any single retrieved source excerpt.
+  Documented explicitly, per this design: **high similarity is weak
+  positive evidence, not proof of correctness** (the reasoning merely
+  resembles something it was shown); **low similarity is a stronger red
+  flag** (the reasoning doesn't resemble anything it was shown at all,
+  which is harder to explain away as legitimate paraphrasing).
+- **Signal 2 (narrow LLM claim-check)**: reasoning is split into
+  individual claims by a mechanical, non-LLM step (regex sentence
+  splitting — not an LLM extraction call, to keep this step as close to
+  mechanical as possible), then each claim gets its own narrow LLM call
+  asking only whether that one claim is supported by the source text.
+  Deliberately scoped per-claim, not one holistic "is this grounded"
+  question, to keep it closer to fact-checking than open-ended quality
+  assessment.
+- **Comparison, not trust in either alone**: cases where the two signals
+  agree (high similarity + all claims supported, or low similarity + a
+  flagged claim) are lower priority — two independently-failing methods
+  landing on the same answer is modestly reassuring. Cases where they
+  **disagree** are the actual output of interest: disagreement between two
+  signals with different, uncorrelated failure modes is more informative
+  than either signal's own confidence, and gets flagged for human review
+  rather than resolved automatically by either signal.
+
+**This is this project's own applied methodology, not a technique drawn
+from established literature.** Two sources were reviewed while designing
+this (Bandi et al. 2025's survey of agentic-AI evaluation approaches, and
+the HAL evaluation-infrastructure paper); neither describes a settled,
+validated technique for exactly this problem (cross-checking an LLM
+reasoning agent's grounding against retrieved evidence via two
+independently-failing signals compared against each other). This is stated
+plainly so the method is not overstated as more validated than it is: it's
+a reasonable, documented engineering response to a real tradeoff, built and
+reasoned about for this specific project, not a peer-reviewed or
+industry-standard evaluation protocol.
+
+**Scope and results**: see `docs/eval_groundedness.md` for the actual run
+(51 in-scope judgments, 192 Signal-2 claim-check calls, agreement/
+disagreement counts and specific disagreement cases) and its own scope
+caveat (checked against the full retrieved source set, not a verified
+cited-only subset — see "Evaluation notes" below for why).
+
+## Structured-claim verification (P8-06)
+Replaces P8-05's Signal 2 Part A (the regex sentence splitter). P8-05 found
+that splitting free-text reasoning into sentences produced claims of mixed
+kinds (statements about the loan document, statements about the
+regulation, and absence statements) that were then all checked against
+regulatory text only. Instead of recovering claim types after the fact,
+the judgment now declares them.
+
+**Schema change.** `OutcomeJudgment` (`src/agent/compliance.py`) gains three
+fields, appended *after* the existing `status`, `reasoning` and
+`cited_sources` so the verdict is generated before the claims are
+itemised. The existing prompt text, existing field descriptions and field
+order are unchanged. The new descriptions are short and neutral: they say
+what to record, not how to decide status.
+- `document_facts`: `{claim, verbatim_quote}`, quote copied from the loan
+  agreement text the judge was shown.
+- `regulatory_requirements`: `{claim, sources: [{excerpt_number,
+  verbatim_quote}]}`. One requirement per claim wherever possible; several
+  sources only for a synthesis that cannot be split. Short quotes (one
+  sentence or clause).
+- `absences`: `{claim, kind, explanation}`, `kind` exactly
+  `absent_from_document` or `absent_from_retrieved_regulation`.
+
+`max_tokens` for the judgment call was raised from 1024 to 4096 because
+the quote fields make the output longer and a truncated tool call fails
+schema validation. This is a call parameter, not a prompt or schema change.
+
+**Why verbatim quotes allow non-LLM checking.** A paraphrased claim can
+only be compared with its source by a model (or by embedding similarity,
+which measures topical closeness, not support). A verbatim quote is a
+string: whether it occurs in a given text is a deterministic question.
+Asking the generator to attach a quote to each claim turns "does the
+evidence say this" into two parts: "is the quoted text really in the named
+source" (mechanical: substring and fuzzy matching) and "does the quoted
+text support the claim" (still a judgment). The first part, which covers
+fabricated or misattributed quotes, needs no LLM.
+
+**Verifier** (`src/evaluation/claim_verification.py`). Every result is
+logged; no step is gated on a threshold.
+- `document_facts`: normalised substring match of the quote against the
+  full loan document text only. Not against the extracted field text the
+  judge was shown: that text is a paraphrase, so a quote missing from it
+  says nothing about whether the claim is true.
+- `regulatory_requirements`, per source: text is normalised (lowercase,
+  whitespace collapsed, punctuation stripped, PDF hyphenation and
+  apostrophe artefacts undone), then matched as exact, normalised, or
+  fuzzy (in-order word match, cutoff 0.9, best score always logged).
+  Search order and `quote_location`: the named excerpt as shown to the
+  judge (`named_chunk`), the judgment's other retrieved excerpts
+  (`other_retrieved_chunk`), the full text of every corpus chunk
+  (`corpus_not_retrieved`, with a flag when the chunk was retrieved but
+  the quote lies past the 300-character excerpt the judge saw), else
+  `not_found`. Also logged: embedding similarity between the claim and
+  each named excerpt (every score plus the minimum, not an average),
+  `source_count`, and whether each named excerpt is in `cited_sources`.
+  Then every claim, with no gating, gets one narrow LLM check that sees
+  only the claim and the text of its named excerpts (no excerpt labels, no
+  reasoning) and returns yes / partially / no plus the supporting sentence
+  copied from the chunk. A failed quote match does not mark a claim as
+  failed; the quote result, similarity scores and LLM verdict are logged
+  side by side and their disagreements reported.
+- `absences`: `absent_from_document` is checked against the extracted
+  field(s) for that outcome (is the field the "Not addressed in this
+  document." sentinel), with the nearest document chunk logged for a
+  reader. `absent_from_retrieved_regulation` is marked
+  `needs_human_review`, not verified.
+- Comparison and status are not mechanically checked.
+
+**Signal 1 change.** Signal 1 (reasoning-vs-chunk embedding similarity) is
+now computed against the judgment's logged cited chunks only, per chunk,
+with minimum and mean reported and no pass/fail threshold
+(`src.evaluation.groundedness.compute_signal1_cited`). The P8-05 numbers
+in `docs/eval_groundedness.md` predate citation logging and were computed
+against the full retrieved set; see that file's correction.
+
+**Limits, stated plainly.**
+- The generator chooses the buckets. A claim about the regulation filed
+  as a document fact, or an overreaching claim filed as an absence, is
+  checked by the wrong method, and nothing here detects the misfiling.
+- The excerpt labels are self-reported. The quote search tells us where
+  the quote actually is, but the claim-to-excerpt pairing is the
+  generator's own.
+- Shared model bias remains: the narrow claim check uses the same model
+  family as the generator, so shared blind spots are not independent
+  errors.
+- The new field descriptions are extra context in the tool schema and may
+  slightly affect judgments, even though they come after the verdict and
+  say nothing about how to decide it. The pilot compares status against
+  the cached Phase 8 run-0 status to make any such shift visible, but with
+  run-to-run variance already documented, a difference is not proof of
+  cause.
+- A multi-source claim can pass every quote check and still go beyond its
+  sources: each quote can be real while the synthesis across them is not
+  supported by any one of them.
+- A found quote shows only that the quoted text exists where it was said
+  to be. Write-ups should say a claim is "supported by the cited chunk"
+  (when the checks agree), never that it is "derived from" it.
+
+**This is this project's own method**, built for this pipeline. It is not
+a published or validated evaluation protocol, and is not presented as one.
+
+Pilot: built, not yet run; deferred to the comprehensive re-run (see
+"Evaluation notes" below). When run, it writes raw facts only to
+`docs/eval_claim_verification_pilot.md`.
+
 ## Decision trade-offs (fill in as built; this is the judgement section)
 | Decision | Chosen | Rejected | Why |
 |---|---|---|---|
@@ -466,6 +655,152 @@ now routes through MCP.
   evidence), task success rate, false positive/negative flag rate
 - At least 2 prompt variants compared with scores, not just one prompt
   assumed to be correct
+
+## Evaluation notes
+
+**Citation-logging fix (forward-looking, does not affect existing eval
+data).** `src.agent.compliance.validate_outcome` (P4-02) now logs each
+judgment's full resolved cited-source objects — index, file name,
+similarity score, chunk text, via `logger.info`, `json.dumps`'d for
+machine-parseability — not just how many sources were cited.
+`src.evaluation.run_eval`'s `main` subcommand's per-outcome record now
+similarly persists the full `cited_sources` list (in addition to the
+existing `cited_source_count`) for any future run. **This fix is in place
+for future evaluation runs only.** The current Phase 8 main pass data
+(`docs/eval_raw_main_pass.jsonl`, 405 calls, Session 13) predates it and
+was never backfilled — it recorded `cited_source_count` as a bare integer,
+not which of the retrieved sources were actually cited. That is the
+specific, structural reason `docs/eval_groundedness.md`'s P8-05 check is
+scoped against each judgment's *full retrieved context* (typically 5
+sources) rather than a verified cited-only subset: the cited-only subset
+was never recorded for this dataset, and can't be reconstructed after the
+fact (unlike the retrieved-sources list itself, which is reconstructable
+by replaying deterministic retrieval — see `src/evaluation/groundedness.py`'s
+module docstring).
+
+**On finding gaps like this one, going forward.** This citation-logging
+gap is treated as one instance of a general pattern likely to recur: as
+evaluation and analysis work continues, it's expected that other
+not-originally-scoped gaps in what the harness records will surface
+(this session's gap was discovered by trying to build the P8-05
+groundedness check against data that turned out not to carry what was
+needed). The deliberate policy, going forward: **fix each such gap in the
+code as it's found and document it here, but do not re-run the expensive
+405-call main pass every time.** Re-running incrementally, once per
+discovered gap, would repeatedly pay the full API cost while the build is
+still actively changing and more gaps are still likely to surface. Instead,
+accumulate fixes (this session's citation logging is the first) and do
+**one comprehensive re-run once the build reaches a stable point** — not
+before. This trades slightly stale interim eval data (already flagged with
+its own caveats, as above) for not re-paying a 405-call pass multiple
+times over the course of ongoing build work. Tracked in `progress.md` each
+time a new gap/fix is added, so the eventual comprehensive re-run has a
+clear checklist of what it needs to validate, rather than being decided on
+an ad hoc basis when it happens.
+
+**Deferred-changes checklist for the comprehensive re-run** (as of Session
+16):
+
+| # | Change | State | Why it waits for the re-run |
+|---|---|---|---|
+| 1 | Citation logging (full cited-source objects) | In code | Existing Phase 8 data predates it; not backfilled |
+| 2 | `OutcomeJudgment` structured-claim fields (P8-06) | In code, tested offline only | No real judgment has produced them yet |
+| 3 | `run_eval.py main` persisting the structured-claim fields | **Not built** | `ValidatedOutcome` doesn't carry them; needed so the verifier can run on the re-run's output |
+| 4 | Judge sees the full loan document text, not only the extracted statement | **Not built** | Changes the judgment's user message (see below) |
+| 5 | P8-06 pilot (16 judgment calls + one claim check per regulatory claim) | Built, **not run** | Would test a judgment input that #4 is about to change |
+| 6 | Save every retrieved source per outcome (not just cited ones), including node IDs, for every run | **Not built** | The verifier's `named_chunk` / `other_retrieved_chunk` tiers, claims naming an uncited excerpt, and `corpus_chunk_was_retrieved` all need the full retrieved set; only run 0 can rebuild it by replay |
+| 7 | Save extracted fields for every run, not just run 0 | **Not built** | Extraction is a fresh, non-deterministic LLM call per run, so runs 1 and 2 can't be replayed without saved fields; `absent_from_document` checks also read them |
+| 8 | Save the structured-claim fields (`document_facts`, `regulatory_requirements`, `absences`) in the main-pass record for every run | **Not built** | Same underlying work as #3, stated explicitly as per-run: without it no run has anything for P8-06 to verify |
+| 9 | Save the raw judgment `cited_sources` list before excerpt resolution drops out-of-range entries | **Not built** | Only resolved citations are saved today; an out-of-range excerpt number the judge cited is lost |
+| 10 | Update `groundedness.py` and `claim_verification.py` to read main-pass records for all three runs | **Not built** | `build_scope` skips `run_idx != 0` and requires `_cached_fields`; `claim_verification.py` reads its own pilot file and gets inputs from run 0 plus replay |
+| 11 | **MOST SERIOUS ITEM: silent no-op risk, not just missing data.** Give the re-run a new output path, or archive `docs/eval_raw_main_pass.jsonl` first | **Not built** | `run_eval.py main` resumes by skipping every `(doc_id, run_idx)` pair already in that file. All 45 pairs are there. A re-run would print "Resuming: 45 ... skipping those", make zero calls and write nothing, and everything downstream would keep reading the old Phase 8 rows. A partial re-run would mix new-schema and old rows in one file |
+| 12 | Make P8-04 `variants` records save reasoning, raw and resolved cited sources, retrieved sources and the structured-claim fields | **Not built** | Its record saves only `llm_status`, `status`, `confidence` and `cited_source_count`: the same count-only pattern citation logging fixed for `main`. Needed if P8-04 runs in the final batch and its judgments should be checkable |
+| 13 | Point every reader at the re-run's output, or archive `docs/eval_summary.json` too | **Not built** | `summary`, `variants`, `groundedness.py` and `claim_verification.py` all hardcode `docs/eval_raw_main_pass.jsonl`. If #11 is fixed with a new path, all four must be updated or they silently keep reading Phase 8 data. If #11 is fixed by archiving, `summary` then overwrites `docs/eval_summary.json`, which `eval_results.md` cites, so it must be archived as well |
+| 14 | Give `variants` a skip check and run identity | **Not built** | `docs/eval_raw_variant_pass.jsonl` is append-only. Running `variants` twice duplicates every row, and `summary` scores them all together |
+| 15 | Flag partial runs | **Not built** | Failed `(doc, run)` pairs go to the errors file and the batch continues. `summary` never checks the row count against the expected 45, so a few silent failures would give results on, say, 43/45 rows with no warning. The errors file also accumulates across invocations |
+| 16 | Stop a pilot re-run from silently skipping documents | **Not built** | `claim_verification judge` skips any document already in `docs/eval_claim_pilot_judgments.jsonl`, the same pattern as #11. The file doesn't exist yet, but once it does, a second pilot run (e.g. after #4) would silently skip the documents judged before |
+| 17 | Stop `claim_verification check` overwriting its outputs | **Not built** | It rewrites `docs/eval_claim_pilot_checks.jsonl` and `docs/eval_claim_verification_pilot.md` in full on every run. A second run replaces earlier results; a run limited with `--docs` keeps only that subset and drops the other documents' results |
+| 18 | Give `claim_verification check` resume and incremental saving | **Not built** | No resume, and all results are held in memory until the end. A crash partway through loses every completed, already-paid-for claim check, and a re-run pays for all of them again |
+| 19 | Stop `groundedness.py run` overwriting `docs/eval_groundedness.md` | **Not built** | It rewrites the file in full, which would erase the hand-written "Observed limitation" section and the Signal 1 correction. Already noted in progress.md's "Known issues", but not previously on this checklist |
+| 20 | Stop hardcoding the 300-character excerpt length | **Not built** | `groundedness.py` (`node.text[:300]`) and `claim_verification.py` (`EXCERPT_CHARS = 300`) each copy the query engine's truncation instead of importing it. If that length ever changes, rebuilt sources would silently stop matching what the judge actually saw. Item #6 removes the need for this, since saved sources replace replay |
+
+**The final re-run needs a new output path, or the old
+`docs/eval_raw_main_pass.jsonl` archived first (item 11), or it will
+silently do nothing.**
+
+**This is the fourth and final completeness pass. Items 1-20 are the
+complete checklist before the comprehensive re-run, and all 20 must be in
+place before it runs. No further completeness passes will be run; building
+starts now.** Items 6-10 came from a read-only check of what the Phase
+8 log records per run. Only run 0 has `_cached_fields` and
+`_cached_price_and_value_context`; no run records which excerpts were
+retrieved; and the analysis code is hard-wired to run 0. Citation logging
+(#1) alone would give every run only the new cited-chunk Signal 1. Running
+the re-run with any of 6-10 missing would again limit groundedness
+checking to run 0, or remove it entirely, and would mean paying for the
+405-call pass a second time. This is the reason for the batching policy
+above. Items 11 and 12 came from a later end-to-end read of `compliance.py`,
+`run_eval.py`, `groundedness.py` and `claim_verification.py`. Items 13-16
+came from a third pass over how the re-run is invoked, where its output
+goes, and what reads that output afterwards. Items 17-20 came from a
+fourth pass over the same four files.
+
+Notes for the re-run (smaller points, not blocking groundedness checking
+itself):
+- **No record of which settings produced a row.** Rows store no model ID
+  (`ANTHROPIC_MODEL` comes from `.env`), timestamp or prompt version. Item
+  #4 changes the judge's input, so rows should ideally be tagged with the
+  configuration that produced them. This includes `CONFIDENCE_THRESHOLD`
+  (also from `.env`), which decides the post-threshold `status`.
+  `load_dotenv()` does not override variables already set in the shell, so
+  a stray shell variable would take effect without any sign.
+- **One failed call loses all 4 outcomes for that run.** A failure in any
+  of the 4 judgment calls sends the whole `(doc, run)` to the errors file.
+  The larger structured output makes validation failures somewhat more
+  likely than in Phase 8, which could leave holes in a 405-call pass.
+- **Hardcoded top-k.** `groundedness.py` and `claim_verification.py` pass
+  `similarity_top_k=5` directly instead of using
+  `QUERY_SIMILARITY_TOP_K`. They agree today. Item #6 (saving retrieved
+  sources) removes the need for replay, and with it this risk.
+- **Corpus re-ingestion risk, before and after the re-run.** The
+  verifier's corpus tier reads chunk text live from Chroma. If the corpus
+  is re-ingested between the re-run and the analysis, node IDs saved under
+  item #6 may no longer match. Re-ingesting *before* the re-run is also a
+  risk. `chroma_db/` is gitignored, and ingest deletes and rebuilds the
+  collection with fresh node IDs, so the Phase 8 index can't be restored.
+  Retrieval would change versus Phase 8 and confound every other change.
+  Nothing re-ingests automatically (checked: `init.sh`, tests, MCP code).
+  Only re-ingest if that is deliberately intended, and record it if done.
+- **OneDrive sync.** The repo is inside a OneDrive-synced folder. A
+  long-running append to the JSONL output, and Chroma's SQLite file, could
+  be locked or split into conflict copies by sync during the run. Before
+  starting, pause OneDrive sync for the duration of the re-run, or move
+  output outside the synced folder.
+- **A crash mid-write breaks resume.** A truncated last line in a JSONL
+  file makes `json.loads` fail on the next read. This fails loudly, not
+  silently. Recovery step: fix or delete the truncated last line by hand,
+  then re-invoke.
+
+**Why #4 exists.** The judge is currently shown only the extracted field
+text for each outcome, never the loan document itself. That text is
+sometimes a paraphrase (`LoanAgreementFields` allows "quote or closely
+paraphrase"). A `document_facts` verbatim quote can therefore only come
+from the paraphrase, and a quote-vs-document miss can reflect how the
+extraction was worded rather than a wrong or invented claim. Until the
+judge sees the document, the `document_facts` check can't really verify
+anything. Checking quotes against the extracted text instead was
+considered and rejected. A paraphrase can't reliably contain an exact
+quote, so a miss against it is uninformative. Because #4 changes what the
+judge sees, it may also shift judgments. That's one more reason to
+measure it once, in the comprehensive re-run, rather than in a pilot that
+would immediately be out of date.
+
+**What is built and tested offline (P8-06).** The schema fields, the
+verifier (`src/evaluation/claim_verification.py`), and cited-chunk Signal 1.
+The quote normaliser and matcher were tested against real corpus text.
+A hand-built judgment exercised every bucket, search tier and report
+section. Retrieval replay reproduced the cached run-0 sources for all 4
+pilot documents. No verifier result on a real model judgment exists yet.
 
 ## Explicitly out of scope (for this project)
 - Multimodal / image-based document verification (KYC photo/ID checks):

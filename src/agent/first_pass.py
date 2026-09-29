@@ -18,6 +18,59 @@ class FirstPassResult(BaseModel):
     consumer_understanding_context: QueryResult
 
 
+# Pure, deterministic question-builders (no retrieval, no API call) — pulled
+# out of FirstPassAgent.run() so a caller that already has a document's
+# extracted fields (e.g. the groundedness harness replaying a cached eval
+# row) can reconstruct the exact same question text and reuse the query
+# engine's retriever, without re-running extraction. FirstPassAgent.run()
+# below calls these directly, so there is exactly one place these templates
+# are defined.
+
+def build_price_and_value_question(fields: LoanAgreementFields) -> str:
+    return (
+        "What does the Consumer Duty's Price and Value outcome require "
+        "regarding fee/charge disclosure and demonstrating that a price "
+        "represents fair value? The loan agreement under review states "
+        f'its fees as: "{fields.fees}" and its fair value justification '
+        f'as: "{fields.fair_value_justification}"'
+    )
+
+
+def build_consumer_support_question(fields: LoanAgreementFields) -> str:
+    return (
+        "What does the Consumer Duty's Consumer Support outcome require "
+        "regarding identifying and supporting customers in vulnerable "
+        "circumstances? The loan agreement under review addresses this "
+        f'as follows: "{fields.vulnerable_customer_provision}"'
+    )
+
+
+def build_products_and_services_question(fields: LoanAgreementFields) -> str:
+    return (
+        "What does the Consumer Duty's Products and Services outcome "
+        "require regarding a product being designed for and suitable "
+        "for its target market? The loan agreement under review "
+        f'addresses this as follows: "{fields.target_market_suitability_statement}"'
+    )
+
+
+def build_consumer_understanding_question(fields: LoanAgreementFields) -> str:
+    return (
+        "What does the Consumer Duty's Consumer Understanding outcome "
+        "require regarding presenting key terms clearly so customers can "
+        "make informed decisions? The loan agreement under review "
+        f'addresses this as follows: "{fields.key_terms_summary_provision}"'
+    )
+
+
+QUESTION_BUILDERS = {
+    "price_and_value": build_price_and_value_question,
+    "consumer_support": build_consumer_support_question,
+    "products_and_services": build_products_and_services_question,
+    "consumer_understanding": build_consumer_understanding_question,
+}
+
+
 class FirstPassAgent:
     """
     Wires the Intake Agent (structured extraction) and the query engine
@@ -36,38 +89,14 @@ class FirstPassAgent:
     def run(self, document_text: str) -> FirstPassResult:
         fields = extract_fields(document_text)
 
-        price_and_value_question = (
-            "What does the Consumer Duty's Price and Value outcome require "
-            "regarding fee/charge disclosure and demonstrating that a price "
-            "represents fair value? The loan agreement under review states "
-            f'its fees as: "{fields.fees}" and its fair value justification '
-            f'as: "{fields.fair_value_justification}"'
+        price_and_value_context = self._query_engine.query(build_price_and_value_question(fields))
+        consumer_support_context = self._query_engine.query(build_consumer_support_question(fields))
+        products_and_services_context = self._query_engine.query(
+            build_products_and_services_question(fields)
         )
-        price_and_value_context = self._query_engine.query(price_and_value_question)
-
-        consumer_support_question = (
-            "What does the Consumer Duty's Consumer Support outcome require "
-            "regarding identifying and supporting customers in vulnerable "
-            "circumstances? The loan agreement under review addresses this "
-            f'as follows: "{fields.vulnerable_customer_provision}"'
+        consumer_understanding_context = self._query_engine.query(
+            build_consumer_understanding_question(fields)
         )
-        consumer_support_context = self._query_engine.query(consumer_support_question)
-
-        products_and_services_question = (
-            "What does the Consumer Duty's Products and Services outcome "
-            "require regarding a product being designed for and suitable "
-            "for its target market? The loan agreement under review "
-            f'addresses this as follows: "{fields.target_market_suitability_statement}"'
-        )
-        products_and_services_context = self._query_engine.query(products_and_services_question)
-
-        consumer_understanding_question = (
-            "What does the Consumer Duty's Consumer Understanding outcome "
-            "require regarding presenting key terms clearly so customers can "
-            "make informed decisions? The loan agreement under review "
-            f'addresses this as follows: "{fields.key_terms_summary_provision}"'
-        )
-        consumer_understanding_context = self._query_engine.query(consumer_understanding_question)
 
         return FirstPassResult(
             document_fields=fields,

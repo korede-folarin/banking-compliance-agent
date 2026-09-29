@@ -80,6 +80,50 @@ MCP_ENRICHED_SYSTEM_PROMPT = (
 )
 
 
+# Structured-claim sub-models (P8-06). Appended AFTER the existing
+# status/reasoning/cited_sources fields, so the verdict is generated first
+# and these only itemise what it rests on. Each carries verbatim quotes so
+# src/evaluation/claim_verification.py can check most of it without an LLM.
+# Descriptions are deliberately short and neutral: they say what to record,
+# never how to decide status.
+
+class DocumentFact(BaseModel):
+    claim: str = Field(description="A statement about what the loan agreement says.")
+    verbatim_quote: str = Field(
+        description="Text copied exactly, character for character, from the loan agreement text provided."
+    )
+
+
+class RegulatorySource(BaseModel):
+    excerpt_number: int = Field(description="The number of the retrieved excerpt quoted.")
+    verbatim_quote: str = Field(
+        description=(
+            "A short quote (one sentence or clause) copied exactly, character "
+            "for character, from that excerpt."
+        )
+    )
+
+
+class RegulatoryRequirement(BaseModel):
+    claim: str = Field(description="A statement about what the retrieved regulatory excerpts say.")
+    sources: list[RegulatorySource] = Field(
+        description=(
+            "One or more sources for this claim, each with its own quote. Use "
+            "a single source wherever possible; use multiple sources only when "
+            "the claim is a genuine synthesis that cannot be split into "
+            "separate single-source claims."
+        )
+    )
+
+
+class Absence(BaseModel):
+    claim: str = Field(description="A statement that something is not present.")
+    kind: Literal["absent_from_document", "absent_from_retrieved_regulation"] = Field(
+        description="Where the thing is absent: the loan agreement, or the retrieved regulatory excerpts."
+    )
+    explanation: str = Field(description="What was looked for and not found.")
+
+
 class OutcomeJudgment(BaseModel):
     status: Status
     reasoning: str = Field(
@@ -94,6 +138,18 @@ class OutcomeJudgment(BaseModel):
             "this judgment's reasoning actually relies on. Empty only if "
             "status is insufficient_evidence."
         )
+    )
+    document_facts: list[DocumentFact] = Field(
+        description="Statements about the loan agreement that the reasoning relies on, each with a verbatim quote."
+    )
+    regulatory_requirements: list[RegulatoryRequirement] = Field(
+        description=(
+            "Statements about the retrieved regulatory excerpts that the "
+            "reasoning relies on. One requirement per claim wherever possible."
+        )
+    )
+    absences: list[Absence] = Field(
+        description="Statements that something is not present, that the reasoning relies on."
     )
 
 
@@ -145,7 +201,10 @@ class ComplianceAgent:
         )
         return self._client.messages.create(
             model=ANTHROPIC_MODEL,
-            max_tokens=1024,
+            # 4096, not 1024: the P8-06 structured-claim fields (verbatim
+            # quotes) are appended after status/reasoning and can push output
+            # past 1024 tokens; truncation would fail schema validation.
+            max_tokens=4096,
             system=COMPLIANCE_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
             response_model=OutcomeJudgment,
@@ -261,7 +320,10 @@ class ComplianceAgent:
 
         judgment = self._client.messages.create(
             model=ANTHROPIC_MODEL,
-            max_tokens=1024,
+            # 4096, not 1024: the P8-06 structured-claim fields (verbatim
+            # quotes) are appended after status/reasoning and can push output
+            # past 1024 tokens; truncation would fail schema validation.
+            max_tokens=4096,
             system=MCP_ENRICHED_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
             response_model=OutcomeJudgment,
@@ -319,6 +381,22 @@ def validate_outcome(
 ) -> ValidatedOutcome:
     cited_sources = _resolve_cited_sources(judgment.cited_sources, context)
     confidence = compute_confidence(cited_sources)
+
+    # Forward-looking fix (does not change or backfill existing eval data,
+    # see ARCHITECTURE.md "Evaluation notes" and docs/eval_groundedness.md):
+    # the full cited source objects (index, file name, similarity score,
+    # chunk text) are logged here, not just a count, so a judgment's actual
+    # evidentiary basis is captured for audit and is available to any
+    # future evaluation harness run without needing to reconstruct it via
+    # retrieval replay. json.dumps for machine-parseability, not just a
+    # human-readable message.
+    logger.info(
+        "outcome=%s status=%s confidence=%.4f cited_sources=%s",
+        outcome_key,
+        judgment.status,
+        confidence,
+        json.dumps([s.model_dump() for s in cited_sources]),
+    )
 
     status = judgment.status
     if confidence < threshold:

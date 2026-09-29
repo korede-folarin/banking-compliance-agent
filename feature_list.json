@@ -109,6 +109,18 @@
       "passes": false
     },
     {
+      "id": "P8-05",
+      "phase": "Phase 8: Evaluation (additional scope, not in original plan)",
+      "description": "Groundedness/faithfulness cross-check for Compliance Agent reasoning: two independent signals (mechanical embedding similarity vs. narrow per-claim LLM check) compared against each other, disagreement flagged for human review",
+      "passes": true
+    },
+    {
+      "id": "P8-06",
+      "phase": "Phase 8: Evaluation (additional scope, not in original plan)",
+      "description": "Structured-claim verification: OutcomeJudgment itemises document_facts / regulatory_requirements / absences with verbatim quotes (appended after status and reasoning); verifier checks quotes mechanically (location + match type), logs claim-vs-excerpt similarity and a narrow ungated LLM claim check side by side, and computes Signal 1 against logged cited chunks. Replaces P8-05's regex claim splitter. Status: built and tested offline only; pilot NOT run, deferred to the final comprehensive re-run together with showing the judge the full document text (see ARCHITECTURE.md 'Evaluation notes')",
+      "passes": false
+    },
+    {
       "id": "P9-01",
       "phase": "Phase 9: Monitoring",
       "description": "Every agent run logged: query, tools called, output, confidence, flag status",

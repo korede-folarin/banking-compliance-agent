@@ -5,6 +5,303 @@ Newest entry at the top.
 
 ---
 
+## Session 16 — 2026-09-29
+**Status:** P8-06 (structured-claim verification) built and tested offline.
+Pilot deliberately NOT run: deferred to the final comprehensive re-run
+(see "Deferred" below). Zero API calls made this session.
+
+**Done:**
+- `OutcomeJudgment` gains `document_facts`, `regulatory_requirements`,
+  `absences`, appended after `status`/`reasoning`/`cited_sources`. Prompt
+  text, existing fields and field order unchanged. Judgment `max_tokens`
+  raised 1024 -> 4096 (in `ComplianceAgent._judge`, the MCP judge, and
+  `run_eval.py`'s `variants` call) so longer structured output isn't
+  truncated.
+- New `src/evaluation/claim_verification.py` (`plan` / `judge` / `check`).
+  Quote location + match type, claim-vs-named-excerpt similarity (all
+  scores + min), source_count, in-cited flag, ungated narrow LLM check per
+  regulatory claim, absence handling, Signal 1 against cited chunks. All
+  logged, nothing gated on a threshold.
+- `groundedness.compute_signal1_cited` (per cited chunk, min + mean, no
+  threshold); `build_scope` uses it when a row carries `cited_sources`.
+- Offline tests (zero API cost): normaliser and matcher against real
+  corpus text (curly apostrophes, line breaks, a quote past the 300-char
+  excerpt, a fabricated quote); a hand-built fake judgment exercised every
+  bucket, tier and report section. This found and fixed one bug: the
+  corpus tier matched a duplicate overlapping chunk before the retrieved
+  chunk the quote came from. `plan`: retrieval replay reproduced the
+  cached run-0 price_and_value sources 5/5 for all 4 pilot docs.
+  `pytest --collect-only` still collects all 52 tests.
+- Design review, then change: `document_facts` quotes were first checked
+  against both the full document and the extracted field text. The
+  extracted-field comparison was removed. That text is a paraphrase, so a
+  "not found" against it says nothing about whether a claim is true. Now
+  checked against the full document text only.
+- Docs: ARCHITECTURE.md "Structured-claim verification (P8-06)" (design,
+  why verbatim quotes allow non-LLM checking, limits, own-method
+  statement) and an updated "Evaluation notes" deferred-changes list.
+  `docs/eval_groundedness.md`: corrected what Signal 1 measures in the
+  P8-05 run. feature_list.json: P8-06 added, `passes: false` (built and
+  tested offline, not yet run).
+
+**Found while reviewing the design (not fixed, deferred):** the judge is
+shown only the extracted field text, never the full loan document. Every
+`document_facts` quote can therefore only be copied from that
+(sometimes paraphrased) extraction, so a quote-vs-document miss can
+reflect how the extraction was worded rather than a wrong or invented
+claim. `document_facts` checking can't mean much until the judge sees
+the document itself.
+
+**Deferred to the one final comprehensive re-run (not done now):**
+1. Citation logging (Session 15): already in code; existing Phase 8 data
+   predates it.
+2. New `OutcomeJudgment` structured-claim fields (this session): in code;
+   no real judgment has produced them yet.
+3. `run_eval.py main` doesn't persist the new fields yet
+   (`ValidatedOutcome` doesn't carry them). Needs a code change before the
+   re-run.
+4. Show the judge the full document text alongside the extracted
+   statement, so `document_facts` quotes can really be checked. This
+   changes the judgment's user message, so the judge's behaviour (and
+   status) may shift. Needs a code change before the re-run.
+5. The P8-06 pilot itself (16 judgment calls plus one claim-check call per
+   regulatory claim). Deferred because running it now would test a
+   judgment input (extracted text only) that item 4 is about to change.
+   Its results would be stale before the re-run.
+
+Items 6-10 were added after a read-only check of what the Phase 8 log
+records per run. Only run 0 has `_cached_fields` and
+`_cached_price_and_value_context`, and no run records which excerpts were
+retrieved. Citation logging alone would make only the new cited-chunk
+Signal 1 possible for every run. None of 6-10 is built:
+6. Save every retrieved source per outcome (not just cited ones),
+   including node IDs, for every run. Needed for the P8-06 verifier's
+   `named_chunk` / `other_retrieved_chunk` tiers, for claims naming an
+   uncited excerpt, and for `corpus_chunk_was_retrieved`.
+7. Save extracted fields for every run, not just run 0. Extraction is a
+   fresh, non-deterministic LLM call per run, so runs 1 and 2 can't be
+   replayed without them, and `absent_from_document` checks need them.
+8. Save the structured-claim fields (`document_facts`,
+   `regulatory_requirements`, `absences`) in the main-pass record for
+   every run. Same underlying work as item 3, stated here explicitly as
+   per-run.
+9. Save the raw judgment `cited_sources` list before excerpt resolution
+   drops out-of-range entries (currently only resolved citations are
+   saved).
+10. Update `groundedness.py` (`build_scope` skips `run_idx != 0` and needs
+    `_cached_fields`) and `claim_verification.py` (reads its own pilot
+    file and gets inputs from run 0 plus replay) to read main-pass records
+    for all three runs.
+
+Items 11-12 were added after a later end-to-end read of `compliance.py`,
+`run_eval.py`, `groundedness.py` and `claim_verification.py`. Neither is
+built:
+11. **MOST SERIOUS ITEM: silent no-op risk, not just missing data.**
+    `run_eval.py main` resumes by skipping every `(doc_id, run_idx)` pair
+    already in `docs/eval_raw_main_pass.jsonl`, and all 45 pairs are
+    there. A re-run would print "Resuming: 45 ... skipping those", make
+    zero calls and write nothing, and every downstream step would keep
+    reading the old Phase 8 rows. A partial re-run would mix new-schema
+    and old rows in one file. Fix: a new output path, or archive the old
+    file first.
+12. P8-04 `variants` records save only `llm_status`, `status`,
+    `confidence` and `cited_source_count` (the same count-only pattern).
+    If P8-04 runs in the final batch, they need reasoning, raw and
+    resolved cited sources, retrieved sources and the structured-claim
+    fields.
+
+Items 13-16 were added after a third pass over how the re-run is
+invoked, where its output goes, and what reads that output. None is built:
+13. Every reader (`summary`, `variants`, `groundedness.py`,
+    `claim_verification.py`) hardcodes `docs/eval_raw_main_pass.jsonl`.
+    If item 11 is fixed with a new path, all four must be updated too, or
+    they silently keep reading Phase 8 data. If it's fixed by archiving,
+    `docs/eval_summary.json` must be archived as well, since `summary`
+    overwrites it and `eval_results.md` cites it.
+14. `variants` has no skip check and no run identity. Running it twice
+    duplicates every row, and `summary` scores them all together.
+15. Partial runs aren't flagged. `summary` never checks the row count
+    against the expected 45, so a few silent failures would give results
+    on 43/45 rows with no warning.
+16. A pilot re-run would silently skip already-judged documents, the same
+    way item 11 does, once `docs/eval_claim_pilot_judgments.jsonl` exists.
+
+Items 17-20 were added after a fourth pass over the same four files. None
+is built:
+17. `claim_verification check` overwrites its output files in full on
+    every run (`docs/eval_claim_pilot_checks.jsonl` and
+    `docs/eval_claim_verification_pilot.md`). A second run, or a run
+    limited with `--docs`, replaces or drops earlier results.
+18. `claim_verification check` has no resume and holds all results in
+    memory until the end. A crash partway through loses every completed,
+    already-paid-for claim check, and a re-run pays for all of them again.
+19. `groundedness.py run` overwrites `docs/eval_groundedness.md` in full,
+    which would erase the hand-written "Observed limitation" section and
+    the Signal 1 correction. Already noted under "Known issues" below, but
+    not previously on this checklist.
+20. The 300-character excerpt length is hardcoded separately in
+    `groundedness.py` and `claim_verification.py` instead of imported from
+    the query engine. If that length ever changes, rebuilt sources would
+    silently stop matching what the judge actually saw. Item 6 removes the
+    need for this, since saved sources replace replay.
+
+**The final re-run needs a new output path, or the old
+`docs/eval_raw_main_pass.jsonl` archived first (item 11), or it will
+silently do nothing.**
+
+**This is the fourth and final completeness pass. Items 1-20 are the
+complete checklist before the comprehensive re-run. No further
+completeness passes will be run; building starts now.**
+
+Notes for the re-run (smaller points, not blocking):
+- No record of which settings produced a row: no model ID, timestamp or
+  prompt version on rows. `CONFIDENCE_THRESHOLD` and `ANTHROPIC_MODEL` both
+  come from `.env` and aren't recorded per row. `load_dotenv()` doesn't
+  override shell variables, so a stray shell variable would win silently.
+- One failed judgment call loses all 4 outcomes for that `(doc, run)`.
+  Larger structured output makes this somewhat more likely.
+- `groundedness.py` and `claim_verification.py` hardcode
+  `similarity_top_k=5` instead of `QUERY_SIMILARITY_TOP_K`. Item 6 removes
+  the need for replay, and with it this risk.
+- The verifier's corpus tier reads Chroma live. Re-ingesting the corpus
+  between the re-run and the analysis could make saved node IDs stale.
+- Manual re-ingestion *before* the re-run would also change retrieval
+  versus Phase 8 and confound every other change (ingest deletes and
+  rebuilds the collection; `chroma_db/` is gitignored, so the Phase 8
+  index can't be restored). Only re-ingest if deliberately intended, and
+  record it if done.
+- The repo is inside OneDrive. A long-running append to JSONL and Chroma's
+  SQLite file could be locked or split by sync during the run. Before
+  starting, pause OneDrive sync for the duration of the re-run, or move
+  output outside the synced folder.
+- A crash mid-write breaks resume. It fails loudly, not silently. Known
+  recovery step: fix the truncated last line of the JSONL file by hand,
+  then re-invoke.
+
+**The final re-run needs items 1-20 all in place before it runs, not
+just the first five.** Running it with any of 6-10 missing would again
+limit groundedness checking to run 0, or remove it entirely, and would
+mean paying for the 405-call pass a second time.
+
+Why deferred: the policy in ARCHITECTURE.md "Evaluation notes". Gaps keep
+turning up as the build continues. Re-running expensive passes after each
+fix pays the API cost again and again for results that the next fix makes
+stale. Fixes are batched for one re-run once the build is otherwise
+complete.
+
+**Next:**
+- Unchanged: P8-04, the per-outcome-vs-global `CONFIDENCE_THRESHOLD`
+  decision, Phase 7.
+- Before the final re-run: items 1-20 above must all be in place (1 and
+  2 are already in code; build 3, 4 and 6-20, with 11 and 13 first, since
+  without them the re-run is a silent no-op or reads the wrong file).
+  Then run the pilot
+  (`claim_verification plan`, then `judge`, then `plan` again for the exact
+  claim-check count, then `check`) with the call count approved first.
+  Then run the main pass. Set P8-06 `passes: true` only after checking
+  real output.
+
+**Known issues:**
+- Re-running `groundedness.py run` would regenerate
+  `docs/eval_groundedness.md` and drop its hand-written sections (the
+  "Observed limitation" section and the new Signal 1 correction).
+
+**Notes:**
+- Not committed or pushed by Claude; the user is reviewing and committing.
+
+---
+
+## Session 15 — 2026-09-28
+**Status:** Two items. (1) A forward-looking citation-logging fix in
+`src/agent/compliance.py` and `src/evaluation/run_eval.py` (does not touch
+existing eval data). (2) Built and ran P8-05, a new groundedness/
+faithfulness cross-check for the Compliance Agent's reasoning — new scope,
+not part of Phase 8's original plan, tracked as its own feature. 192 real
+API calls made (approved beforehand as an exact, pre-computed count).
+
+**Done:**
+- **Citation-logging fix**: `src.agent.compliance.validate_outcome` (P4-02)
+  now logs each judgment's full resolved cited-source objects (index, file
+  name, similarity score, chunk text) via `logger.info`, not just how many
+  were cited. `src.evaluation.run_eval`'s `main` subcommand now also
+  persists the full `cited_sources` list per outcome (alongside the
+  existing `cited_source_count`) for any future run. Forward-looking only —
+  the existing `docs/eval_raw_main_pass.jsonl` (405 calls, Session 13) is
+  unchanged and not backfilled. Documented in ARCHITECTURE.md's new
+  "Evaluation notes" section.
+- **Policy decision, documented, not just the fix itself**: ARCHITECTURE.md
+  now states explicitly that data/logging gaps like this one are expected
+  to keep surfacing as build work continues, and the deliberate choice is
+  to fix each one as found and log it, but do **one comprehensive re-run of
+  the 405-call main pass once the build reaches a stable point** — not an
+  incremental re-run per fix. This citation-logging fix is the first
+  entry against that eventual re-run.
+- **P8-05 (groundedness cross-check) built and run end-to-end**:
+  `src/evaluation/groundedness.py` (`plan`/`run` subcommands). Refactored
+  `src/agent/first_pass.py` to expose its 4 outcome question-builders as
+  pure functions (`QUESTION_BUILDERS`), reused by the new module to
+  deterministically reconstruct each judgment's retrieved sources via
+  retrieval replay — validated by spot-checking the reconstruction against
+  the one outcome/run the raw log caches verbatim (price_and_value, run 0)
+  before trusting it for the other 3 outcomes; it reproduced the cached
+  sources exactly. Zero-cost `plan` run first reported the exact scope (51
+  in-scope judgments: run_idx==0, all 4 outcomes, excluding
+  `insufficient_evidence`) and exact Signal-2 call count (192 claims) for
+  approval before spending anything — approved, then `run` executed all
+  192 real Claude API calls.
+- **Real result, and a real limitation found while writing it up, not
+  glossed over**: Signal 2 (narrow per-claim LLM check) returned "all
+  claims supported" for 0 of 51 judgments — every judgment landed in
+  `flagged`/`partial`, which collapsed the intended two-signal comparison
+  into mostly just re-reporting Signal 1's own high/low bucket (38
+  `disagreement`, 13 `agree_flagged`, 0 `agree_grounded`). Investigated why
+  rather than reporting the raw counts at face value: checked the actual
+  claim text behind the 142 `no`/`partially` verdicts in the disagreement
+  cases and found 83% of `no` verdicts and 48% of `partially` verdicts are
+  on claims that either (a) describe the loan agreement under review, not
+  the regulation — checked against a source pool that only ever contains
+  regulatory excerpts, a category error, not a faithfulness problem — or
+  (b) assert an absence ("no conflict is evident"), which a positive
+  claim-support check handles poorly regardless of whether the underlying
+  observation is reasonable. Documented this plainly in
+  `docs/eval_groundedness.md`'s "Observed limitation" section, placed
+  before the raw disagreement table so it's read first, not after: **this
+  is a real limitation of this run's mechanical claim-extraction step, not
+  evidence that 38 of 51 judgments are actually unsupported.** Flagged as
+  future work: restrict claim extraction to sentences asserting a
+  regulatory requirement, and handle negative/absence claims differently.
+- Marked `feature_list.json`'s new P8-05 `passes: true` — the feature was
+  built and run end-to-end against real data with a real, examined result,
+  per CLAUDE.md's testing bar; the claim-extraction limitation above is
+  recorded as a known issue, not a reason the feature doesn't work.
+- Added ARCHITECTURE.md's "Groundedness cross-check (P8-05)" section: the
+  paraphrase-tolerance-vs-overreach-detection tradeoff neither signal
+  resolves alone, why two independently-failing signals are compared
+  rather than either trusted alone, and an explicit statement that this is
+  this project's own applied methodology — Bandi et al. 2025 and the HAL
+  evaluation-infrastructure paper were both reviewed and neither describes
+  a settled technique for this, so it is not presented as one.
+
+**Next:**
+- Unchanged substantively from Session 14 (P8-04, per-outcome-vs-global
+  `CONFIDENCE_THRESHOLD` decision, Phase 7), plus: refine P8-05's claim
+  extraction per the limitation above before drawing conclusions from its
+  disagreement list, and remember the citation-logging fix + this session's
+  entry when the eventual comprehensive main-pass re-run happens.
+
+**Known issues:**
+- New: P8-05's Signal 2, as currently built, cannot meaningfully validate
+  claims that describe the document under review or assert an absence —
+  see `docs/eval_groundedness.md`'s "Observed limitation" section. Not
+  fixed this session; flagged as the specific next step before relying on
+  its disagreement list.
+- Unchanged from Session 14 otherwise.
+
+**Notes:**
+- Not committed or pushed by Claude; the user is reviewing and committing.
+
+---
+
 ## Session 14 — 2026-09-26
 **Status:** Data-reporting pass only, no code or feature changes. Extended
 the confidence-by-correctness analysis that Session 13 reported as
