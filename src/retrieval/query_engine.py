@@ -54,6 +54,11 @@ class SourceCitation(BaseModel):
     file_name: str
     similarity_score: float
     text_excerpt: str
+    # Chroma/LlamaIndex node ID of the retrieved chunk (checklist item 6), so
+    # a saved source can be matched to its full corpus chunk without
+    # replaying retrieval. Optional: sources built elsewhere (e.g. the MCP
+    # path's renumbered policy sources) may not have one.
+    node_id: str | None = None
 
 
 class QueryResult(BaseModel):
@@ -155,6 +160,7 @@ class QueryEngine:
                 file_name=node.metadata.get("file_name", "unknown"),
                 similarity_score=node.score or 0.0,
                 text_excerpt=node.text[:SOURCE_EXCERPT_CHARS],
+                node_id=node.node.node_id,
             )
             for i, node in enumerate(nodes, start=1)
         ]

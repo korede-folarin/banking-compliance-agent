@@ -336,6 +336,7 @@ def _query_result(question: str, sources: list[dict]) -> QueryResult:
                 file_name=s["file_name"],
                 similarity_score=s["similarity_score"],
                 text_excerpt=s["text_excerpt"],
+                node_id=s.get("node_id"),
             )
             for s in sources
         ],

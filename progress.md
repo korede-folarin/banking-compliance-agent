@@ -5,6 +5,108 @@ Newest entry at the top.
 
 ---
 
+## Session 21 — 2026-09-29
+**Status:** Five deferred-checklist items built and tested offline in one
+session, all in `run_eval.py main`'s saving logic: 3/8, 6, 7 and 9, built
+in that order. They are recorded separately below. Nothing else from the
+checklist was touched. Zero API calls.
+
+**Done: items 3 and 8, full judgment saved, including the
+structured-claim fields, for every run**
+- Each outcome record now has a `judgment` field: the full
+  `OutcomeJudgment` exactly as the judge returned it
+  (`judgments[key].model_dump()`). It includes `status`, `reasoning`, the
+  raw `cited_sources`, and the Session 16 fields `document_facts`,
+  `regulatory_requirements` and `absences`.
+- The fields are taken from the judge's output directly, not via
+  `ValidatedOutcome`, so the report schema is unchanged.
+- The record is built for every run. Items 3 and 8 are one code change;
+  item 8 is the "every run" guarantee, tested on runs 0, 1 and 2.
+- The existing summary fields (`llm_status`, `status`, `confidence`,
+  `cited_source_count`, `cited_sources`, `reasoning`) are kept, so
+  `summary` and the other readers work unchanged on the new records
+  (tested).
+
+**Done: item 6, every retrieved source saved, with node IDs, for every
+run**
+- `SourceCitation` gained an optional `node_id` (default `None`), filled
+  by `QueryEngine.query` from the retrieved node. The `None` default means
+  the MCP path's renumbered policy sources, and other code that builds
+  citations, are unaffected. The pilot's replay helper also passes its
+  node IDs through.
+- Each outcome record now has `retrieved_sources`: every source retrieved
+  for that outcome, cited or not, as shown to the judge, with node IDs.
+  So the verifier's `other_retrieved_chunk` tier and the
+  `in_cited_sources` check don't need retrieval replay.
+- Resolved `cited_sources` entries now carry `node_id` too.
+
+**Done: item 7, extracted fields saved for every run**
+- `_cached_fields` moved out of the `if run_idx == 0` block, so every run
+  saves its own extraction.
+- `_cached_price_and_value_context` deliberately stays run-0-only.
+  `variants` indexes rows by document with the last row winning. Caching
+  the context on every run would silently switch P8-04's fixed input from
+  run 0 to run 2. Item 6's `retrieved_sources` already holds every run's
+  price_and_value sources anyway.
+
+**Done: item 9, raw cited_sources saved next to the resolved list**
+- Each outcome record now has `cited_sources_raw`: the excerpt numbers
+  exactly as the judge cited them, before resolution drops any that match
+  no retrieved excerpt. The resolved `cited_sources` is unchanged.
+  `judgment.cited_sources` (items 3/8) also holds the raw list;
+  `cited_sources_raw` makes it an explicit, named field.
+
+**Tests (offline: no API calls, no Chroma, no embedding model)**
+- New `tests/test_main_pass_record.py` (8 tests). Only the two LLM-backed
+  agents are faked. Real `FirstPassResult`, `QueryResult`,
+  `SourceCitation`, `OutcomeJudgment` and the real deterministic
+  `build_compliance_report` are used, so citation resolution really runs.
+  The fake extraction gives different fields on every run, like the real
+  call. `main` runs over 2 documents x 3 runs into a temp file.
+  - Items 3/8:
+    - every run's saved `judgment` equals what the judge returned,
+      including non-empty `document_facts`, a two-source
+      `regulatory_requirements` entry and `absences`;
+    - the saved judgment round-trips through `OutcomeJudgment`;
+    - the summary fields are still present, and `summary` runs on the new
+      records.
+  - Item 6:
+    - every run's `retrieved_sources` has all 5 sources, with node IDs,
+      including uncited ones;
+    - `QueryEngine.query` fills `node_id`, and a `SourceCitation` built
+      without one defaults to `None`.
+  - Item 7:
+    - on the real (read-only) Phase 8 file, runs 1 and 2 have no
+      `_cached_fields` (the gap);
+    - in the new records, runs 0, 1 and 2 each have their own
+      `_cached_fields`, and the three differ per document;
+    - `_cached_price_and_value_context` is present only on run 0.
+  - Item 9: price_and_value cites `[1, 9]` with only excerpts 1-5
+    retrieved. `cited_sources_raw` is `[1, 9]`, the resolved
+    `cited_sources` is `[1]`, and `cited_source_count` is 1.
+- `tests/test_run_eval_main_output.py` (item 11): its fake first pass and
+  fake judge now supply the context and judgment objects `main` reads.
+  What those tests check is unchanged.
+- The 47 existing offline tests plus 8 new: 55, all passing.
+  `pytest --collect-only` still collects all 107 tests, including the
+  API-backed ones, which were not run. Every file in `docs/` was hashed
+  before and after, including the Phase 8 JSONL (`892da01c...`) and
+  `eval_summary.json` (`cef74c0f...`); all identical, and no file was
+  created in `docs/`.
+- feature_list.json P8-07 (one clause per item) and ARCHITECTURE.md
+  checklist rows 3, 6, 7, 8 and 9 updated.
+
+**Next:**
+- Remaining checklist items: 4, 10, 12, 14-16.
+
+**Known issues:**
+- None new.
+
+**Notes:**
+- Not committed or pushed by Claude; the user is reviewing and committing.
+
+---
+
 ## Session 20 — 2026-09-29
 **Status:** Three deferred-checklist items built and tested offline in one
 session: 17, 18 and 20. They are recorded separately below. Nothing else

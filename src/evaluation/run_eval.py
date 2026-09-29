@@ -51,6 +51,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from src.agent.compliance import (  # noqa: E402
     COMPLIANCE_SYSTEM_PROMPT,
+    CONTEXT_FIELD_BY_OUTCOME,
     ComplianceAgent,
     OutcomeJudgment,
     build_compliance_report,
@@ -341,17 +342,43 @@ def cmd_main(args) -> None:
                         # count, so a future main pass carries real per-claim
                         # citation data. Does not touch already-recorded rows.
                         "cited_sources": [s.model_dump() for s in getattr(report, key).cited_sources],
+                        # Checklist item 9: the excerpt numbers exactly as the
+                        # judge cited them, BEFORE resolution drops any that
+                        # match no retrieved excerpt. `cited_sources` above is
+                        # the resolved list; compare the two to see drops.
+                        "cited_sources_raw": list(judgments[key].cited_sources),
                         "reasoning": getattr(report, key).reasoning,
+                        # Checklist items 3/8: the full OutcomeJudgment exactly as
+                        # the judge returned it, every run: status, reasoning, raw
+                        # cited_sources, and the P8-06 structured-claim fields
+                        # (document_facts, regulatory_requirements, absences),
+                        # which ValidatedOutcome does not carry. The summary
+                        # fields above stay for the existing readers.
+                        "judgment": judgments[key].model_dump(),
+                        # Checklist item 6: every source retrieved for this
+                        # outcome (cited or not), with node IDs, as shown to the
+                        # judge, so claim checks can search uncited excerpts
+                        # without replaying retrieval. Every run.
+                        "retrieved_sources": [
+                            s.model_dump()
+                            for s in getattr(first_pass, CONTEXT_FIELD_BY_OUTCOME[key]).sources
+                        ],
                     }
                     for key in OUTCOME_KEYS
                 },
                 "needs_human_review": report.needs_human_review,
             }
+            # Checklist item 7: every run saves its own extracted fields.
+            # Extraction is a fresh, non-deterministic LLM call per run, so
+            # runs 1 and 2 cannot be reconstructed without this.
+            record["_cached_fields"] = first_pass.document_fields.model_dump()
             # Only the price_and_value first_pass context is cached for the
-            # variant comparison — that's the only outcome P8-04 varies.
+            # variant comparison — that's the only outcome P8-04 varies. Kept
+            # run-0-only on purpose: `variants` picks one row per document
+            # (last one wins), so caching it every run would silently switch
+            # P8-04's fixed input from run 0 to run 2.
             if run_idx == 0:
                 record["_cached_price_and_value_context"] = first_pass.price_and_value_context.model_dump()
-                record["_cached_fields"] = first_pass.document_fields.model_dump()
 
             _append_jsonl(output_path, record)
             done += 1

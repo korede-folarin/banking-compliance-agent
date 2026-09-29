@@ -66,8 +66,27 @@ class _FakeReport:
             setattr(self, key, _FakeOutcome())
 
 
+class _FakeContext:
+    # Item 6 (Session 21): `main` now saves each outcome's retrieved sources.
+    sources = []
+
+    def model_dump(self):
+        return {"sources": []}
+
+
+class _FakeJudgment:
+    # Items 3/8/9 (Session 21): `main` now saves the full judgment and its raw cited_sources.
+    cited_sources = [1]
+
+    def model_dump(self):
+        return {"status": "compliant", "cited_sources": [1]}
+
+
 class _FakeFirstPass:
-    price_and_value_context = _Dumpable({"sources": []})
+    price_and_value_context = _FakeContext()
+    consumer_support_context = _FakeContext()
+    products_and_services_context = _FakeContext()
+    consumer_understanding_context = _FakeContext()
     document_fields = _Dumpable({"fake": True})
 
 
@@ -89,7 +108,7 @@ def fake_env(tmp_path, monkeypatch):
 
     class FakeComplianceAgent:
         def evaluate(self, first_pass):
-            return {}
+            return {k: _FakeJudgment() for k in OUTCOME_KEYS}
 
     def fake_report(first_pass, judgments):
         return _FakeReport()
