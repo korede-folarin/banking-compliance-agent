@@ -213,7 +213,9 @@ def captured_scope_input(monkeypatch):
         return []
 
     monkeypatch.setattr(groundedness, "build_scope", fake_build_scope)
-    monkeypatch.setattr(groundedness, "_write_report", lambda scope: captured.setdefault("report_written", True))
+    monkeypatch.setattr(
+        groundedness, "_write_report", lambda scope, output_path: captured.setdefault("report_written", output_path)
+    )
     return captured
 
 
@@ -229,7 +231,7 @@ def test_groundedness_plan_and_run_default_to_v2(captured_scope_input, v2_file, 
     assert captured_scope_input["records"] == v2_rows
 
     captured_scope_input.clear()
-    groundedness.cmd_run(argparse.Namespace(input=None))
+    groundedness.cmd_run(argparse.Namespace(input=None, output=None))
     assert captured_scope_input["records"] == v2_rows
     assert fake_llm.user_messages == []  # empty scope: no claim checks
 

@@ -5,6 +5,63 @@ Newest entry at the top.
 
 ---
 
+## Session 19 — 2026-09-29
+**Status:** Deferred-checklist item 19 (`groundedness.py run`
+overwriting `docs/eval_groundedness.md`) built and tested offline.
+Nothing else from the checklist was touched. Zero API calls.
+
+**Done:**
+- `src/evaluation/groundedness.py` `run`:
+  - New `--output` flag. The default is derived from the main-pass input:
+    `docs/eval_groundedness_<input stem>.md`, e.g.
+    `eval_groundedness_eval_raw_main_pass_v2.md`, or
+    `eval_groundedness_eval_raw_main_pass.md` for the Phase 8 file.
+  - Writing to `docs/eval_groundedness.md` is refused outright
+    (`SystemExit`), whether given by absolute or relative path. The same
+    hard-refusal pattern as item 11. That file holds the Phase 8 P8-05
+    results plus the hand-written "Observed limitation" section and the
+    Signal 1 correction, which the script doesn't regenerate.
+  - The output path is resolved first, before any input is read or API
+    call made, so a refused path costs nothing.
+  - `_write_report` now takes the output path. What the report contains is
+    unchanged.
+- New offline test file `tests/test_groundedness_output.py` (8 tests).
+  `build_scope` and the LLM client are faked. No API calls, no Chroma
+  queries, no embedding model. It covers:
+  - the default output is the derived filename, for both the v2 and
+    Phase 8 inputs, and never `docs/eval_groundedness.md`;
+  - an explicit `--output docs/eval_groundedness.md` is refused with a
+    clear error, by absolute and relative path;
+  - `run` given that path stops before `build_scope` or any claim-check
+    call;
+  - the CLI accepts `--output`;
+  - `run` writes the report to an explicit `--output`, and to the derived
+    filename by default.
+  A module-level fixture confirms that `docs/eval_groundedness.md` is
+  byte-identical before and after. It also extracts the two hand-written
+  sections (from their opening marker to the next `## ` heading) and
+  confirms both are present and unchanged, and that no file was created
+  in `docs/`. Also checked by hand: `c72ccb37...` unchanged, and the
+  Phase 8 JSONL and `eval_summary.json` hashes still match.
+- `tests/test_eval_readers_input.py` (item 13): two lines updated for the
+  new `_write_report` signature and `cmd_run`'s `output` argument. Nothing
+  those tests check changed.
+- All three offline re-run test files: 37 tests, all passing.
+- feature_list.json P8-07 and ARCHITECTURE.md checklist row 19 updated.
+
+**Next:**
+- Remaining checklist items: 3, 4, 6-10, 12, 14-18, 20.
+
+**Known issues:**
+- Resolved: the Session 18 warning ("do not run `groundedness.py run`
+  until item 19 is built") and the Session 16 known issue about `run`
+  dropping hand-written sections.
+
+**Notes:**
+- Not committed or pushed by Claude; the user is reviewing and committing.
+
+---
+
 ## Session 18 — 2026-09-29
 **Status:** Deferred-checklist item 13 (readers hardcoding the Phase 8
 file) built and tested offline. Nothing else from the checklist was
