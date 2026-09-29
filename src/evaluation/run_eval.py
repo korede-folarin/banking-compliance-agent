@@ -13,8 +13,11 @@ for the full methodology and findings):
             --n-runs times each (default 3). This is the expensive pass —
             9 Claude API calls per run (1 extraction + 4 retrieval-synthesis
             + 4 compliance judgments) x 15 docs x n_runs. Appends one JSON
-            line per (doc, run) to docs/eval_raw_main_pass.jsonl as it goes,
-            so a partial run is never silently lost.
+            line per (doc, run) to docs/eval_raw_main_pass_v2.jsonl (or
+            --output) as it goes, so a partial run is never silently lost.
+            Never writes to the Phase 8 file, docs/eval_raw_main_pass.jsonl,
+            and warns loudly about any (doc, run) pair it skips because the
+            output file already has it.
 
   variants  Compares 2 system-prompt phrasings for the price_and_value
             judgment specifically (P8-04), reusing the first successful
@@ -57,8 +60,13 @@ from tests.fixtures.eval_set import (  # noqa: E402
 
 DOCS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "synthetic_docs"
 DOCS_OUT_DIR = Path(__file__).resolve().parent.parent.parent / "docs"
+# Phase 8 main-pass data (Session 13). Read-only from here on: `main` refuses
+# to write to it (see _resolve_main_output). `variants` and `summary` still
+# read it; pointing them at the re-run output is checklist item 13.
 MAIN_PASS_PATH = DOCS_OUT_DIR / "eval_raw_main_pass.jsonl"
 MAIN_PASS_ERRORS_PATH = DOCS_OUT_DIR / "eval_raw_main_pass_errors.jsonl"
+# Default output for any new `main` pass (checklist item 11).
+MAIN_PASS_V2_PATH = DOCS_OUT_DIR / "eval_raw_main_pass_v2.jsonl"
 VARIANT_PASS_PATH = DOCS_OUT_DIR / "eval_raw_variant_pass.jsonl"
 RECALL_PATH = DOCS_OUT_DIR / "eval_recall_at_k.json"
 SUMMARY_PATH = DOCS_OUT_DIR / "eval_summary.json"
@@ -195,33 +203,70 @@ def cmd_recall(_args) -> None:
 
 # --- main pass (expensive: full pipeline, n_runs per doc) ---
 
+def _resolve_main_output(output: str | None) -> tuple[Path, Path]:
+    """
+    Deferred-checklist item 11 (ARCHITECTURE.md "Evaluation notes"): the
+    main pass writes to MAIN_PASS_V2_PATH by default, never to the Phase 8
+    file. All 45 (doc_id, run_idx) pairs already exist in MAIN_PASS_PATH, so
+    resuming against it would silently skip the whole re-run. Writing to it
+    is refused outright, so the Phase 8 data is never appended to or moved.
+    The errors file sits next to whichever output file is used, so a new
+    pass's failures don't mix with Phase 8's.
+    """
+    output_path = Path(output) if output else MAIN_PASS_V2_PATH
+    if output_path.resolve() == MAIN_PASS_PATH.resolve():
+        raise SystemExit(
+            f"Refusing to write the main pass to {MAIN_PASS_PATH}: that is the Phase 8 "
+            "data, which must not be modified. Omit --output to use "
+            f"{MAIN_PASS_V2_PATH.name}, or pass a different path."
+        )
+    return output_path, output_path.with_name(f"{output_path.stem}_errors.jsonl")
+
+
 def cmd_main(args) -> None:
     n_runs = args.n_runs
+    output_path, errors_path = _resolve_main_output(args.output)
     total_calls = len(EVAL_DOCUMENTS) * n_runs * 9
     print(
         f"Running main pass: {len(EVAL_DOCUMENTS)} docs x {n_runs} runs x 9 calls/run "
-        f"= {total_calls} Claude API calls."
+        f"= {total_calls} Claude API calls.\nOutput: {output_path}"
     )
 
     # Resume support: a single malformed generation (observed once, see
     # eval_results.md) shouldn't force re-spending API calls on combinations
     # already recorded, and shouldn't crash the whole batch. Skip (doc_id,
-    # run_idx) pairs already in MAIN_PASS_PATH; on a per-run failure, log it
-    # to MAIN_PASS_ERRORS_PATH and continue rather than aborting.
-    existing = {(r["doc_id"], r["run_idx"]) for r in _read_jsonl(MAIN_PASS_PATH)}
-    if existing:
-        print(f"Resuming: {len(existing)} (doc, run) combinations already recorded, skipping those.")
+    # run_idx) pairs already in the OUTPUT file (not the Phase 8 file); on a
+    # per-run failure, log it to the errors file and continue rather than
+    # aborting. Skipping is announced loudly, never silent: a re-run that
+    # skips everything is exactly the failure item 11 exists to prevent.
+    requested = {(doc["id"], run_idx) for doc in EVAL_DOCUMENTS for run_idx in range(n_runs)}
+    existing = {(r["doc_id"], r["run_idx"]) for r in _read_jsonl(output_path)}
+    skipped = requested & existing
+    if skipped:
+        print(
+            f"\nWARNING: {output_path.name} already has rows for {len(skipped)} of the "
+            f"{len(requested)} requested (doc_id, run_idx) pairs. These will be SKIPPED, "
+            "not re-run:"
+        )
+        for doc_id, run_idx in sorted(skipped):
+            print(f"  - {doc_id} run {run_idx}")
+        if skipped == requested:
+            print(
+                "WARNING: every requested pair already exists, so this invocation will make "
+                "NO API calls and write nothing. For a fresh pass, use a different --output."
+            )
+        print()
 
     first_pass_agent = FirstPassAgent()
     compliance_agent = ComplianceAgent()
 
-    done = len(existing)
+    done = len(skipped)
     failed = 0
-    total = len(EVAL_DOCUMENTS) * n_runs
+    total = len(requested)
     for doc in EVAL_DOCUMENTS:
         text = _load_doc_text(doc["file"])
         for run_idx in range(n_runs):
-            if (doc["id"], run_idx) in existing:
+            if (doc["id"], run_idx) in skipped:
                 continue
             try:
                 first_pass = first_pass_agent.run(text)
@@ -230,10 +275,10 @@ def cmd_main(args) -> None:
             except Exception as exc:
                 failed += 1
                 _append_jsonl(
-                    MAIN_PASS_ERRORS_PATH,
+                    errors_path,
                     {"doc_id": doc["id"], "run_idx": run_idx, "error": repr(exc)},
                 )
-                print(f"[FAILED] {doc['id']} run {run_idx}: {exc!r} (logged to {MAIN_PASS_ERRORS_PATH}, continuing)")
+                print(f"[FAILED] {doc['id']} run {run_idx}: {exc!r} (logged to {errors_path}, continuing)")
                 continue
 
             record = {
@@ -264,12 +309,12 @@ def cmd_main(args) -> None:
                 record["_cached_price_and_value_context"] = first_pass.price_and_value_context.model_dump()
                 record["_cached_fields"] = first_pass.document_fields.model_dump()
 
-            _append_jsonl(MAIN_PASS_PATH, record)
+            _append_jsonl(output_path, record)
             done += 1
             print(f"[{done}/{total}] {doc['id']} run {run_idx}: "
                   f"{ {k: record['outcomes'][k]['llm_status'] for k in OUTCOME_KEYS} }")
 
-    print(f"\nWrote {MAIN_PASS_PATH} ({done}/{total} runs, {failed} failed)")
+    print(f"\nWrote {output_path} ({done}/{total} runs, {failed} failed)")
 
 
 # --- prompt variant comparison for price_and_value (P8-04) ---
@@ -478,6 +523,10 @@ def main() -> None:
 
     p_main = sub.add_parser("main", help="Full pipeline pass (expensive)")
     p_main.add_argument("--n-runs", type=int, default=3)
+    p_main.add_argument(
+        "--output",
+        help=f"Output JSONL (default: docs/{MAIN_PASS_V2_PATH.name}). The Phase 8 file is refused.",
+    )
     p_main.set_defaults(func=cmd_main)
 
     p_variants = sub.add_parser("variants", help="price_and_value prompt variant comparison")

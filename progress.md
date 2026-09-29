@@ -5,6 +5,64 @@ Newest entry at the top.
 
 ---
 
+## Session 17 — 2026-09-29
+**Status:** Deferred-checklist item 11 (the silent no-op risk) built and
+tested offline. Nothing else from the checklist was touched. Zero API
+calls.
+
+**Done:**
+- `src/evaluation/run_eval.py` `main`:
+  - Writes to a new default path, `docs/eval_raw_main_pass_v2.jsonl`
+    (`MAIN_PASS_V2_PATH`), overridable with `--output`. The new-path
+    option was chosen over archiving so the Phase 8 file,
+    `docs/eval_raw_main_pass.jsonl`, is never moved or modified.
+  - Refuses (SystemExit) to write to the Phase 8 file, whether given as an
+    absolute or relative path.
+  - Resume now checks only the output file's own rows, never Phase 8's.
+  - Any `(doc_id, run_idx)` pair skipped because the output already has it
+    is announced with a WARNING listing every pair. If every requested
+    pair is skipped, a second warning says no API calls will be made and
+    nothing written.
+  - The errors file now sits next to the output
+    (`<output>_errors.jsonl`), so a new pass's failures don't mix with
+    Phase 8's.
+- New offline test file `tests/test_run_eval_main_output.py` (8 tests, all
+  passing). Agents and report builder are faked, and the Phase 8/v2 paths
+  point at temp files. No model loading and no API calls. It covers:
+  - the real default path is the v2 file;
+  - the Phase 8 path is refused, both absolute and relative;
+  - a fresh run with a Phase 8 file containing every pair still runs all
+    pairs into the new file, leaves the Phase 8 file byte-identical, and
+    prints no warning;
+  - resume against the new file skips only the pair already there, adds
+    no duplicate, and names the pair in a WARNING;
+  - with all pairs present, it makes 0 calls, leaves the file unchanged,
+    and warns "NO API calls";
+  - failures go to the errors file next to the output, not Phase 8's;
+  - `--output` is honoured.
+  A module-level fixture confirms the real
+  `docs/eval_raw_main_pass.jsonl` SHA-256 is identical before and after
+  (also checked by hand: `892da01c...`). No `_v2` file was created in
+  `docs/`.
+- feature_list.json: new P8-07 (re-run prerequisites, `passes: false`)
+  recording item 11 as built and tested offline. ARCHITECTURE.md checklist
+  row 11 updated to match.
+
+**Next:**
+- Remaining checklist items, starting with item 13: `summary` and
+  `variants` in `run_eval.py`, `groundedness.py` and
+  `claim_verification.py` still read the Phase 8 file, so they would not
+  see a v2 pass's output. Then 3, 4, 6-10, 12, 14-20.
+
+**Known issues:**
+- Until item 13 is built, `summary` run after a v2 pass would still
+  summarise the Phase 8 data.
+
+**Notes:**
+- Not committed or pushed by Claude; the user is reviewing and committing.
+
+---
+
 ## Session 16 — 2026-09-29
 **Status:** P8-06 (structured-claim verification) built and tested offline.
 Pilot deliberately NOT run: deferred to the final comprehensive re-run

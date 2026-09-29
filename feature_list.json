@@ -121,6 +121,12 @@
       "passes": false
     },
     {
+      "id": "P8-07",
+      "phase": "Phase 8: Evaluation (additional scope, not in original plan)",
+      "description": "Comprehensive re-run prerequisites: all 20 items of the deferred checklist in ARCHITECTURE.md 'Evaluation notes' in place before the one final main-pass re-run. Progress: items 1-2 in code (not yet exercised by a real run); item 11 (main pass writes to docs/eval_raw_main_pass_v2.jsonl by default, refuses the Phase 8 file, resumes against its own output only, warns loudly about skipped pairs) built and tested offline (tests/test_run_eval_main_output.py). Items 3-10 and 12-20 not built",
+      "passes": false
+    },
+    {
       "id": "P9-01",
       "phase": "Phase 9: Monitoring",
       "description": "Every agent run logged: query, tools called, output, confidence, flag status",
