@@ -33,27 +33,42 @@ Signal 1 (reasoning vs. chunk embedding similarity) is computed against the
 judgment's logged cited chunks only, per chunk, with min and mean reported
 (src.evaluation.groundedness.compute_signal1_cited).
 
-Pilot scope: run_idx 0 of a few documents, all 4 outcomes. Extraction is the
-cached run-0 `_cached_fields` from the main-pass file given by --input
-(default docs/eval_raw_main_pass_v2.jsonl; pass docs/eval_raw_main_pass.jsonl
-for the Phase 8 data), and
-retrieval is replayed (deterministic, zero API cost), so the only new API
-calls are the 4 judgment calls per document and one claim-check call per
-regulatory claim. The 405-call main pass is NOT re-run.
+Judgment rows are identified by (doc_id, run_idx), and any run can be used
+(checklist item 10). Two ways to fill a judgments file (--judgments):
+
+  judge   Pilot: re-judges selected (doc, run) pairs (--docs, --runs; default
+          the pilot docs, run 0). Extraction is that run's saved
+          `_cached_fields` from the main-pass file given by --input (default
+          docs/eval_raw_main_pass_v2.jsonl; pass docs/eval_raw_main_pass.jsonl
+          for the Phase 8 data, where only run 0 has fields). Excerpts are
+          the row's saved `retrieved_sources` when present, else replayed
+          (deterministic, zero API cost). The judge sees the full document
+          (checklist item 4). 4 judgment calls per pair.
+  ingest  Zero API cost: copies judgments a main pass already made (every run
+          saves the full judgment, retrieved sources and fields since
+          checklist items 3/6/7/8/9) into a judgments file, so the main
+          pass's own judgments can be claim-checked without re-judging.
+
+Both skip (doc, run) pairs already in the judgments file and say so
+(checklist item 16). The 405-call main pass is NOT re-run here.
 
 Subcommands:
   plan    Zero API cost. Retrieval-replay spot check against the cached
-          price_and_value context, the exact number of judgment calls still
-          to make, and (once judgments exist) all mechanical checks plus the
-          exact number of claim-check calls `check` would make.
-  judge   4 judgment calls per pilot document (resumable per document).
+          price_and_value context (run 0), the exact number of judgment
+          calls still to make, and (once judgments exist) all mechanical
+          checks plus the exact number of claim-check calls `check` would
+          make.
+  judge   See above.
+  ingest  See above.
   check   One narrow LLM claim-check call per regulatory claim not already
           checked. Each result is appended to the claim-check store
-          (--output, default docs/eval_claim_pilot_checks.jsonl) as soon as
-          it comes back; a re-run skips claims already in the store and says
-          so (checklist item 18). Then rebuilds, from EVERY recorded
-          judgment plus the whole store, <store>_results.jsonl and
-          <store>_report.md (checklist item 17).
+          (--output; default docs/eval_claim_pilot_checks.jsonl for the pilot
+          judgments file, else <judgments stem>_checks.jsonl) as soon as it
+          comes back; a re-run skips claims already in the store and says
+          so (checklist item 18). Then rebuilds, from EVERY judgment in the
+          judgments file plus the whole store, <store>_results.jsonl and
+          <store>_report.md (checklist item 17). --docs / --runs only limit
+          which claims get new checks.
 """
 
 import argparse
@@ -166,11 +181,35 @@ def _doc_meta(doc_id: str) -> dict:
     raise SystemExit(f"Unknown doc id: {doc_id}")
 
 
-def _cached_run0(doc_id: str, main_pass_path: Path) -> dict:
+def _cached_run(doc_id: str, run_idx: int, main_pass_path: Path) -> dict:
+    """The main-pass row for (doc_id, run_idx), which must carry `_cached_fields`."""
     for r in _read_jsonl(main_pass_path):
-        if r["doc_id"] == doc_id and r["run_idx"] == 0:
+        if r["doc_id"] == doc_id and r["run_idx"] == run_idx:
+            if "_cached_fields" not in r:
+                raise SystemExit(
+                    f"{doc_id} run {run_idx} in {main_pass_path} has no _cached_fields (the Phase 8 pass saved "
+                    "them for run 0 only; main passes since checklist item 7 save them for every run)."
+                )
             return r
-    raise SystemExit(f"No cached run_idx 0 row for {doc_id} in {main_pass_path} (pass --input?)")
+    raise SystemExit(f"No row for {doc_id} run {run_idx} in {main_pass_path} (pass --input?)")
+
+
+def _announce_skips(path: Path, noun: str, n_requested: int, skipped_labels: list[str], nothing_left: bool) -> None:
+    """Checklist item 16: skips are announced, never silent (same pattern as items 11 and 18)."""
+    if not skipped_labels:
+        return
+    print(
+        f"\nWARNING: {path.name} already has {len(skipped_labels)} of the {n_requested} requested {noun}. "
+        "These will be SKIPPED, not redone:"
+    )
+    for label in skipped_labels:
+        print(f"  - {label}")
+    if nothing_left:
+        print(
+            f"WARNING: every requested {noun[:-1] if noun.endswith('s') else noun} is already present, so this "
+            "invocation will make NO API calls and write nothing."
+        )
+    print()
 
 
 # --- quote matching (no LLM) ---
@@ -430,9 +469,10 @@ def check_absences(
 
 
 def mechanical_checks(judgment_rows: list[dict], corpus: list[dict]) -> list[dict]:
-    """One record per (doc, outcome), all non-LLM checks filled in."""
+    """One record per (doc, run, outcome), all non-LLM checks filled in."""
     results = []
     for row in judgment_rows:
+        run_idx = row.get("run_idx", 0)
         doc_text = (DOCS_DIR / _doc_meta(row["doc_id"])["file"]).read_text(encoding="utf-8")
         fields = LoanAgreementFields(**row["fields"])
         doc_chunks = [(c, _embed(c)) for c in _splitter.split_text(doc_text)]
@@ -442,13 +482,19 @@ def mechanical_checks(judgment_rows: list[dict], corpus: list[dict]) -> list[dic
             results.append(
                 {
                     "doc_id": row["doc_id"],
+                    "run_idx": run_idx,
+                    "label": f"{row['doc_id']} run {run_idx}",
+                    "origin": row.get("origin", "pilot_judge"),
                     "outcome": key,
                     "ground_truth": row["ground_truth"][key],
                     "llm_status": j["status"],
                     "status": o["validated_status"],
                     "confidence": o["confidence"],
-                    "cached_run0_llm_status": o["cached_run0_llm_status"],
-                    "cached_run0_status": o["cached_run0_status"],
+                    # The main-pass statuses for the same (doc, run) whose
+                    # fields a pilot judgment was made from; None for
+                    # ingested rows, which ARE the main-pass judgments.
+                    "reference_llm_status": o.get("reference_llm_status"),
+                    "reference_status": o.get("reference_status"),
                     "main_pass_input": row.get("main_pass_input", "unrecorded"),
                     "cited_sources": j["cited_sources"],
                     "reasoning": j["reasoning"],
@@ -469,16 +515,37 @@ def _pilot_docs(args) -> list[str]:
     return args.docs or DEFAULT_PILOT_DOCS
 
 
+def _pilot_runs(args) -> list[int]:
+    return getattr(args, "runs", None) or [0]
+
+
+def _judgments_path(args) -> Path:
+    return Path(args.judgments) if getattr(args, "judgments", None) else PILOT_JUDGMENTS_PATH
+
+
+def _row_selected(row: dict, args) -> bool:
+    """For `check`/`plan` claim counts: every judgment row unless --docs / --runs narrow it."""
+    docs, runs = getattr(args, "docs", None), getattr(args, "runs", None)
+    return (not docs or row["doc_id"] in docs) and (not runs or row.get("run_idx", 0) in runs)
+
+
 def cmd_plan(args) -> None:
-    docs = _pilot_docs(args)
+    docs, runs = _pilot_docs(args), _pilot_runs(args)
+    judgments_path = _judgments_path(args)
     main_pass_path = resolve_main_input(args.input)
-    retriever = load_index().as_retriever(similarity_top_k=RETRIEVAL_TOP_K)
+    main_rows = _read_jsonl(main_pass_path)
 
     print(f"Main-pass input: {main_pass_path}")
-    print(f"Pilot documents: {docs}")
+    print(f"Judgments file: {judgments_path}")
+    print(f"Pilot documents: {docs}, runs: {runs}")
     print("\nRetrieval-replay spot check vs. cached run-0 price_and_value context:")
+    retriever = None
     for doc_id in docs:
-        cached = _cached_run0(doc_id, main_pass_path)
+        cached = next((r for r in main_rows if r["doc_id"] == doc_id and r["run_idx"] == 0), None)
+        if not cached or "_cached_price_and_value_context" not in cached:
+            print(f"  {doc_id}: no cached run-0 price_and_value context, skipped")
+            continue
+        retriever = retriever or load_index().as_retriever(similarity_top_k=RETRIEVAL_TOP_K)
         replay = replay_sources(retriever, LoanAgreementFields(**cached["_cached_fields"]), "price_and_value")
         cached_src = cached["_cached_price_and_value_context"]["sources"]
         same = [
@@ -488,17 +555,17 @@ def cmd_plan(args) -> None:
         ]
         print(f"  {doc_id}: {sum(same)}/{len(cached_src)} sources identical")
 
-    done = {r["doc_id"] for r in _read_jsonl(PILOT_JUDGMENTS_PATH)}
-    todo = [d for d in docs if d not in done]
+    done = {(r["doc_id"], r.get("run_idx", 0)) for r in _read_jsonl(judgments_path)}
+    todo = [(d, i) for d in docs for i in runs if (d, i) not in done]
     print(
-        f"\nJudgment calls still to make: {len(todo)} docs x {len(OUTCOME_KEYS)} outcomes = "
+        f"\nJudgment calls still to make: {len(todo)} (doc, run) pairs x {len(OUTCOME_KEYS)} outcomes = "
         f"{len(todo) * len(OUTCOME_KEYS)} (nominal; instructor may retry a failed "
         "validation up to 3 times per call)."
     )
 
-    rows = [r for r in _read_jsonl(PILOT_JUDGMENTS_PATH) if r["doc_id"] in docs]
+    rows = [r for r in _read_jsonl(judgments_path) if _row_selected(r, args)]
     if not rows:
-        print("No pilot judgments recorded yet, so the claim-check count is not known until `judge` runs.")
+        print("No judgments recorded yet, so the claim-check count is not known until `judge` or `ingest` runs.")
         return
     results = mechanical_checks(rows, load_corpus())
     n_claims = sum(len(r["regulatory_requirements"]) for r in results)
@@ -507,10 +574,10 @@ def cmd_plan(args) -> None:
         f"  document_facts: {sum(len(r['document_facts']) for r in results)}, "
         f"regulatory_requirements: {n_claims}, absences: {sum(len(r['absences']) for r in results)}"
     )
-    store_path, _, _ = _resolve_check_outputs(args.output)
+    store_path, _, _ = _resolve_check_outputs(args.output, judgments_path)
     stored = {_store_key(rec) for rec in _read_jsonl(store_path)}
     already = sum(
-        _claim_key(r["doc_id"], r["outcome"], i, q["claim"]) in stored
+        _claim_key(r["doc_id"], r["run_idx"], r["outcome"], i, q["claim"]) in stored
         for r in results
         for i, q in enumerate(r["regulatory_requirements"])
     )
@@ -521,24 +588,41 @@ def cmd_plan(args) -> None:
 
 
 def cmd_judge(args) -> None:
-    docs = _pilot_docs(args)
-    done = {r["doc_id"] for r in _read_jsonl(PILOT_JUDGMENTS_PATH)}
-    todo = [d for d in docs if d not in done]
+    docs, runs = _pilot_docs(args), _pilot_runs(args)
+    judgments_path = _judgments_path(args)
     main_pass_path = resolve_main_input(args.input)
+    requested = [(d, i) for d in docs for i in runs]
+    done = {(r["doc_id"], r.get("run_idx", 0)) for r in _read_jsonl(judgments_path)}
+    todo = [p for p in requested if p not in done]
     print(f"Main-pass input: {main_pass_path}")
-    print(f"Judging {len(todo)} docs x {len(OUTCOME_KEYS)} outcomes = {len(todo) * len(OUTCOME_KEYS)} API calls.")
+    print(f"Judgments file: {judgments_path}")
+    _announce_skips(
+        judgments_path, "(doc, run) pairs", len(requested),
+        [f"{d} run {i}" for d, i in requested if (d, i) in done], nothing_left=not todo,
+    )
+    print(f"Judging {len(todo)} (doc, run) pairs x {len(OUTCOME_KEYS)} outcomes = {len(todo) * len(OUTCOME_KEYS)} API calls.")
+    if not todo:
+        return
 
-    retriever = load_index().as_retriever(similarity_top_k=RETRIEVAL_TOP_K)
+    retriever = None
     agent = ComplianceAgent()
-    for doc_id in todo:
-        cached = _cached_run0(doc_id, main_pass_path)
+    for doc_id, run_idx in todo:
+        cached = _cached_run(doc_id, run_idx, main_pass_path)
         fields = LoanAgreementFields(**cached["_cached_fields"])
-        sources = {k: replay_sources(retriever, fields, k) for k in OUTCOME_KEYS}
+        sources = {}
+        for k in OUTCOME_KEYS:
+            saved = cached["outcomes"][k].get("retrieved_sources")
+            if saved:  # item 6: exactly the excerpts that run's judge saw
+                sources[k] = saved
+            else:
+                retriever = retriever or load_index().as_retriever(similarity_top_k=RETRIEVAL_TOP_K)
+                sources[k] = replay_sources(retriever, fields, k)
         contexts = {k: _query_result(QUESTION_BUILDERS[k](fields), sources[k]) for k in OUTCOME_KEYS}
         first_pass = FirstPassResult(
             document_fields=fields, **{CONTEXT_FIELD_BY_OUTCOME[k]: contexts[k] for k in OUTCOME_KEYS}
         )
-        judgments: dict[str, OutcomeJudgment] = agent.evaluate(first_pass)
+        document_text = (DOCS_DIR / _doc_meta(doc_id)["file"]).read_text(encoding="utf-8")
+        judgments: dict[str, OutcomeJudgment] = agent.evaluate(first_pass, document_text)
 
         outcomes = {}
         for k in OUTCOME_KEYS:
@@ -549,24 +633,97 @@ def cmd_judge(args) -> None:
                 "confidence": v.confidence,
                 "resolved_cited_sources": [s.model_dump() for s in v.cited_sources],
                 "sources": sources[k],
-                "cached_run0_llm_status": cached["outcomes"][k]["llm_status"],
-                "cached_run0_status": cached["outcomes"][k]["status"],
+                "reference_llm_status": cached["outcomes"][k]["llm_status"],
+                "reference_status": cached["outcomes"][k]["status"],
             }
         _append_jsonl(
-            PILOT_JUDGMENTS_PATH,
+            judgments_path,
             {
                 "doc_id": doc_id,
-                "run_idx": 0,
-                # Which main-pass file the cached fields and cached_run0_*
-                # statuses came from (Phase 8 or a re-run), for the report.
+                "run_idx": run_idx,
+                "origin": "pilot_judge",
+                # Which main-pass file the fields and reference_* statuses
+                # came from (Phase 8 or a re-run), for the report.
                 "main_pass_input": main_pass_path.name,
                 "ground_truth": _doc_meta(doc_id)["ground_truth"],
                 "fields": fields.model_dump(),
                 "outcomes": outcomes,
             },
         )
-        print(f"{doc_id}: { {k: judgments[k].status for k in OUTCOME_KEYS} }")
-    print(f"\nWrote {PILOT_JUDGMENTS_PATH}")
+        print(f"{doc_id} run {run_idx}: { {k: judgments[k].status for k in OUTCOME_KEYS} }")
+    print(f"\nWrote {judgments_path}")
+
+
+INGEST_NEEDS = ("judgment", "retrieved_sources")
+
+
+def cmd_ingest(args) -> None:
+    """
+    Checklist item 10: copy judgments a main pass already made (any run) into
+    a judgments file for `check`, with no API calls. Needs rows written since
+    checklist items 3/6/7/8/9 (full `judgment`, `retrieved_sources` and
+    `_cached_fields` on every run); older rows are listed and skipped.
+    """
+    main_pass_path = resolve_main_input(args.input)
+    # Default: next to the main-pass input, named after it (same pattern as
+    # `summary` and `variants`), so each judgments file belongs to one pass.
+    judgments_path = (
+        Path(args.judgments) if args.judgments
+        else main_pass_path.with_name(f"{main_pass_path.stem}_claim_judgments.jsonl")
+    )
+    if judgments_path.resolve() in (main_pass_path.resolve(), MAIN_PASS_PATH.resolve()):
+        raise SystemExit(f"Refusing to write ingested judgments to {judgments_path}: it is a main-pass file.")
+    print(f"Main-pass input: {main_pass_path}")
+    print(f"Judgments file: {judgments_path}")
+
+    rows = [r for r in _read_jsonl(main_pass_path) if _row_selected(r, args)]
+    usable, unusable = [], []
+    for r in rows:
+        missing = sorted(
+            {n for o in r["outcomes"].values() for n in INGEST_NEEDS if n not in o}
+            | ({"_cached_fields"} if "_cached_fields" not in r else set())
+        )
+        (unusable if missing else usable).append((r, missing))
+    if unusable:
+        print(f"NOTE: {len(unusable)} main-pass row(s) lack what ingest needs and are skipped:")
+        for r, missing in unusable:
+            print(f"  - {r['doc_id']} run {r['run_idx']}: missing {', '.join(missing)}")
+
+    done = {(j["doc_id"], j.get("run_idx", 0)) for j in _read_jsonl(judgments_path)}
+    new = [r for r, _ in usable if (r["doc_id"], r["run_idx"]) not in done]
+    _announce_skips(
+        judgments_path, "(doc, run) pairs", len(usable),
+        [f"{r['doc_id']} run {r['run_idx']}" for r, _ in usable if (r["doc_id"], r["run_idx"]) in done],
+        nothing_left=not new,
+    )
+    for r in new:
+        _append_jsonl(
+            judgments_path,
+            {
+                "doc_id": r["doc_id"],
+                "run_idx": r["run_idx"],
+                "origin": "main_pass",
+                "main_pass_input": main_pass_path.name,
+                "ground_truth": r["ground_truth"],
+                "fields": r["_cached_fields"],
+                "outcomes": {
+                    k: {
+                        "judgment": o["judgment"],
+                        "validated_status": o["status"],
+                        "confidence": o["confidence"],
+                        "resolved_cited_sources": o["cited_sources"],
+                        "cited_sources_raw": o.get("cited_sources_raw"),
+                        "sources": o["retrieved_sources"],
+                        "reference_llm_status": None,
+                        "reference_status": None,
+                    }
+                    for k, o in r["outcomes"].items()
+                },
+            },
+        )
+    print(f"Ingested {len(new)} (doc, run) pair(s) into {judgments_path} (no API calls).")
+    if new:
+        print(f"Next: python -m src.evaluation.claim_verification plan/check --judgments {judgments_path}")
 
 
 def _check_claim(client, claim: str, chunk_texts: list[str]) -> ClaimCheck:
@@ -580,39 +737,50 @@ def _check_claim(client, claim: str, chunk_texts: list[str]) -> ClaimCheck:
     )
 
 
-def _resolve_check_outputs(output: str | None) -> tuple[Path, Path, Path]:
+def _resolve_check_outputs(output: str | None, judgments_path: Path | None = None) -> tuple[Path, Path, Path]:
     """
     Checklist item 17: `check` output paths. `--output` names the claim-check
-    store (default PILOT_CHECKS_PATH); the full results JSONL and the report
-    are derived from its name: <store stem>_results.jsonl and
-    <store stem>_report.md. The pilot judgments file is refused as a store.
+    store; the default is PILOT_CHECKS_PATH for the pilot judgments file and
+    <judgments stem>_checks.jsonl for any other judgments file (e.g. ingested
+    main-pass judgments), so different judgment sets never share a store. The
+    full results JSONL and the report are derived from the store's name:
+    <store stem>_results.jsonl and <store stem>_report.md. The judgments file
+    itself is refused as a store.
     """
-    store = Path(output) if output else PILOT_CHECKS_PATH
-    if store.resolve() == PILOT_JUDGMENTS_PATH.resolve():
-        raise SystemExit(f"Refusing to use {PILOT_JUDGMENTS_PATH} as the claim-check store: it holds the judgments.")
+    judgments_path = judgments_path or PILOT_JUDGMENTS_PATH
+    if output:
+        store = Path(output)
+    elif judgments_path.resolve() == PILOT_JUDGMENTS_PATH.resolve():
+        store = PILOT_CHECKS_PATH
+    else:
+        store = judgments_path.with_name(f"{judgments_path.stem}_checks.jsonl")
+    if store.resolve() == judgments_path.resolve():
+        raise SystemExit(f"Refusing to use {judgments_path} as the claim-check store: it holds the judgments.")
     return store, store.with_name(f"{store.stem}_results.jsonl"), store.with_name(f"{store.stem}_report.md")
 
 
-def _claim_key(doc_id: str, outcome: str, claim_index: int, claim: str) -> tuple:
-    # The claim text is part of the key, so a re-judged document's new claims
-    # are never matched to an old claim's stored result.
-    return (doc_id, outcome, claim_index, claim)
+def _claim_key(doc_id: str, run_idx: int, outcome: str, claim_index: int, claim: str) -> tuple:
+    # The run and the claim text are part of the key, so the same document's
+    # other runs, or a re-judged document's new claims, are never matched to
+    # another claim's stored result.
+    return (doc_id, run_idx, outcome, claim_index, claim)
 
 
 def _store_key(rec: dict) -> tuple:
-    return _claim_key(rec["doc_id"], rec["outcome"], rec["claim_index"], rec["claim"])
+    return _claim_key(rec["doc_id"], rec.get("run_idx", 0), rec["outcome"], rec["claim_index"], rec["claim"])
 
 
 def cmd_check(args) -> None:
     import instructor
     from anthropic import Anthropic
 
-    store_path, results_path, report_path = _resolve_check_outputs(args.output)
+    judgments_path = _judgments_path(args)
+    store_path, results_path, report_path = _resolve_check_outputs(args.output, judgments_path)
+    print(f"Judgments file: {judgments_path}")
     print(f"Claim-check store: {store_path}")
-    all_rows = _read_jsonl(PILOT_JUDGMENTS_PATH)
+    all_rows = _read_jsonl(judgments_path)
     if not all_rows:
-        raise SystemExit("No pilot judgments recorded — run `judge` first.")
-    docs = _pilot_docs(args)
+        raise SystemExit(f"No judgments in {judgments_path} — run `judge` or `ingest` first.")
 
     # Mechanical checks (zero API cost) for EVERY recorded judgment, not just
     # --docs: the results file and report are rebuilt below from all
@@ -624,11 +792,11 @@ def cmd_check(args) -> None:
     requested = [
         (r, i, req)
         for r in results
-        if r["doc_id"] in docs
+        if _row_selected(r, args)
         for i, req in enumerate(r["regulatory_requirements"])
     ]
-    skipped = [(r, i, req) for r, i, req in requested if _claim_key(r["doc_id"], r["outcome"], i, req["claim"]) in stored]
-    pending = [(r, i, req) for r, i, req in requested if _claim_key(r["doc_id"], r["outcome"], i, req["claim"]) not in stored]
+    skipped = [x for x in requested if _claim_key(x[0]["doc_id"], x[0]["run_idx"], x[0]["outcome"], x[1], x[2]["claim"]) in stored]
+    pending = [x for x in requested if _claim_key(x[0]["doc_id"], x[0]["run_idx"], x[0]["outcome"], x[1], x[2]["claim"]) not in stored]
 
     # Resume (item 18): skips are announced, never silent, matching item 11.
     if skipped:
@@ -637,7 +805,7 @@ def cmd_check(args) -> None:
             f"{len(requested)} requested claims. These will be SKIPPED, not re-checked:"
         )
         for r, i, req in skipped:
-            print(f"  - {r['doc_id']} {r['outcome']} claim #{i}: {req['claim'][:80]}")
+            print(f"  - {r['label']} {r['outcome']} claim #{i}: {req['claim'][:80]}")
         if not pending:
             print(
                 "WARNING: every requested claim already has a result, so this invocation will make "
@@ -646,10 +814,12 @@ def cmd_check(args) -> None:
         print()
     print(f"Running {len(pending)} claim-check calls.")
 
-    sources_by_key = {(row["doc_id"], k): row["outcomes"][k]["sources"] for row in all_rows for k in OUTCOME_KEYS}
+    sources_by_key = {
+        (row["doc_id"], row.get("run_idx", 0), k): row["outcomes"][k]["sources"] for row in all_rows for k in OUTCOME_KEYS
+    }
     client = instructor.from_anthropic(Anthropic()) if pending else None
     for n, (r, i, req) in enumerate(pending, start=1):
-        by_index = {s["index"]: s for s in sources_by_key[(r["doc_id"], r["outcome"])]}
+        by_index = {s["index"]: s for s in sources_by_key[(r["doc_id"], r["run_idx"], r["outcome"])]}
         numbers = list(dict.fromkeys(s["excerpt_number"] for s in req["sources"]))
         chunk_texts = [by_index[x]["text_excerpt"] for x in numbers if x in by_index]
         res = _check_claim(client, req["claim"], chunk_texts)
@@ -660,6 +830,7 @@ def cmd_check(args) -> None:
         )
         rec = {
             "doc_id": r["doc_id"],
+            "run_idx": r["run_idx"],
             "outcome": r["outcome"],
             "claim_index": i,
             "claim": req["claim"],
@@ -675,7 +846,7 @@ def cmd_check(args) -> None:
         _append_jsonl(store_path, rec)
         stored[_store_key(rec)] = rec
         print(
-            f"[{n}/{len(pending)}] {r['doc_id']} {r['outcome']}: llm={res.verdict} "
+            f"[{n}/{len(pending)}] {r['label']} {r['outcome']}: llm={res.verdict} "
             f"quote={[s['quote_location'] + '/' + s['match_type'] for s in req['sources']]} "
             f"sim_min={req['similarity_min']}"
         )
@@ -684,7 +855,7 @@ def cmd_check(args) -> None:
     used = set()
     for r in results:
         for i, req in enumerate(r["regulatory_requirements"]):
-            key = _claim_key(r["doc_id"], r["outcome"], i, req["claim"])
+            key = _claim_key(r["doc_id"], r["run_idx"], r["outcome"], i, req["claim"])
             req["llm_check"] = stored[key]["llm_check"] if key in stored else None
             if key in stored:
                 used.add(key)
@@ -749,15 +920,17 @@ def write_report(
         for r in incomplete:
             n_unchecked = sum(1 for q in r["regulatory_requirements"] if not q["llm_check"])
             L.append(
-                f"- {r['doc_id']} / {r['outcome']}: {n_unchecked} of "
+                f"- {r['label']} / {r['outcome']}: {n_unchecked} of "
                 f"{len(r['regulatory_requirements'])} regulatory claims unchecked"
             )
         L.append("")
     docs = sorted({r["doc_id"] for r in results}, key=lambda d: int(d.rsplit("_", 1)[1]))
+    runs = sorted({r["run_idx"] for r in results})
     L.append(
-        f"**Scope**: {len(docs)} documents ({', '.join(docs)}), run_idx 0, all 4 outcomes = "
-        f"{len(results)} judgments. Cached run-0 extraction, replayed retrieval; only the judgment and "
-        "claim-check calls are new."
+        f"**Scope**: {len(docs)} documents ({', '.join(docs)}), runs {runs}, all 4 outcomes = "
+        f"{len(results)} judgments. Origin: {_dist_line(_count(r['origin'] for r in results), [])} "
+        "(pilot_judge: re-judged from a main pass's saved extraction; main_pass: the main pass's own "
+        "judgments, ingested with no API calls)."
     )
     L.append("")
 
@@ -873,7 +1046,7 @@ def write_report(
         L.append(f"### {title}")
         L.append("")
         for r, q in group:
-            L.append(f"- **{r['doc_id']} / {r['outcome']}** — claim: {q['claim']}")
+            L.append(f"- **{r['label']} / {r['outcome']}** — claim: {q['claim']}")
             for s in q["sources"]:
                 L.append(
                     f"  - excerpt {s['excerpt_number']}: {s['quote_location']} / {s['match_type']}"
@@ -892,7 +1065,7 @@ def write_report(
     if not nf:
         L.append("None.")
     for r, q in nf:
-        L.append(f"### {r['doc_id']} / {r['outcome']}")
+        L.append(f"### {r['label']} / {r['outcome']}")
         L.append("")
         L.append(f"- Claim: {q['claim']}")
         L.append(f"- source_count: {q['source_count']}")
@@ -913,7 +1086,7 @@ def write_report(
         L.append("None.")
     for r, f in nf_facts:
         L.append(
-            f"- **{r['doc_id']} / {r['outcome']}** — claim: {f['claim']} — quote: \"{f['verbatim_quote']}\" "
+            f"- **{r['label']} / {r['outcome']}** — claim: {f['claim']} — quote: \"{f['verbatim_quote']}\" "
             f"(best fuzzy_score {f['document_match']['fuzzy_score']})"
         )
     L.append("")
@@ -924,33 +1097,37 @@ def write_report(
         extra = ""
         if a["kind"] == "absent_from_document":
             extra = f" — fields marked not addressed: {a['field_marked_not_addressed']}"
-        L.append(f"- **{r['doc_id']} / {r['outcome']}** [{a['kind']} -> {a['result']}]{extra} — {a['claim']}")
+        L.append(f"- **{r['label']} / {r['outcome']}** [{a['kind']} -> {a['result']}]{extra} — {a['claim']}")
     if not absn:
         L.append("None.")
     L.append("")
 
-    L.append("## Status vs. cached run-0 status")
+    L.append("## Status vs. reference main-pass status (pilot_judge rows)")
     L.append("")
+    with_ref = [r for r in results if r["reference_llm_status"] is not None]
     L.append(
-        "Cached run-0 values come from: "
-        + ", ".join(sorted({r["main_pass_input"] for r in results}))
-        + f" ({MAIN_PASS_PATH.name} is the Phase 8 data)."
+        "Reference values are the main-pass statuses for the same (doc, run) the pilot judgment's "
+        "extraction came from: "
+        + (", ".join(sorted({r["main_pass_input"] for r in with_ref})) or "(none)")
+        + f" ({MAIN_PASS_PATH.name} is the Phase 8 data). Since checklist item 4 the judge also sees "
+        "the full document, so these are not like-for-like comparisons with Phase 8. Ingested "
+        f"main_pass rows have no reference and are not listed: {len(results) - len(with_ref)}."
     )
     L.append("")
-    L.append("| doc_id | outcome | ground truth | cached llm_status | new llm_status | cached status | new status | confidence |")
-    L.append("|---|---|---|---|---|---|---|---|")
-    for r in results:
+    L.append("| doc_id | run | outcome | ground truth | reference llm_status | new llm_status | reference status | new status | confidence |")
+    L.append("|---|---|---|---|---|---|---|---|---|")
+    for r in with_ref:
         L.append(
-            f"| {r['doc_id']} | {r['outcome']} | {r['ground_truth']} | {r['cached_run0_llm_status']} | "
-            f"{r['llm_status']} | {r['cached_run0_status']} | {r['status']} | {_fmt(r['confidence'])} |"
+            f"| {r['doc_id']} | {r['run_idx']} | {r['outcome']} | {r['ground_truth']} | {r['reference_llm_status']} | "
+            f"{r['llm_status']} | {r['reference_status']} | {r['status']} | {_fmt(r['confidence'])} |"
         )
-    diffs = [r for r in results if r["llm_status"] != r["cached_run0_llm_status"] or r["status"] != r["cached_run0_status"]]
+    diffs = [r for r in with_ref if r["llm_status"] != r["reference_llm_status"] or r["status"] != r["reference_status"]]
     L.append("")
-    L.append(f"Rows where llm_status or status differs from the cached run-0 value: {len(diffs)}")
+    L.append(f"Rows where llm_status or status differs from the reference value: {len(diffs)}")
     for r in diffs:
         L.append(
-            f"- {r['doc_id']} / {r['outcome']}: llm_status {r['cached_run0_llm_status']} -> {r['llm_status']}, "
-            f"status {r['cached_run0_status']} -> {r['status']}"
+            f"- {r['label']} / {r['outcome']}: llm_status {r['reference_llm_status']} -> {r['llm_status']}, "
+            f"status {r['reference_status']} -> {r['status']}"
         )
     L.append("")
 
@@ -958,12 +1135,15 @@ def write_report(
     L.append("")
     L.append("Reasoning-vs-chunk embedding similarity for each cited chunk only. No threshold applied.")
     L.append("")
-    L.append("| doc_id | outcome | cited | per-chunk scores | min | mean |")
-    L.append("|---|---|---|---|---|---|")
+    L.append("| doc_id | run | outcome | cited | per-chunk scores | min | mean |")
+    L.append("|---|---|---|---|---|---|---|")
     for r in results:
         s1 = r["signal1_cited"]
         per = ", ".join(f"[{c['index']}] {c['score']:.4f}" for c in s1["per_chunk"]) or "(none cited)"
-        L.append(f"| {r['doc_id']} | {r['outcome']} | {r['cited_sources']} | {per} | {_fmt(s1['min'])} | {_fmt(s1['mean'])} |")
+        L.append(
+            f"| {r['doc_id']} | {r['run_idx']} | {r['outcome']} | {r['cited_sources']} | {per} | "
+            f"{_fmt(s1['min'])} | {_fmt(s1['mean'])} |"
+        )
     L.append("")
 
     report_path.write_text("\n".join(L), encoding="utf-8")
@@ -974,12 +1154,27 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
     for name, func, help_text in [
         ("plan", cmd_plan, "Zero API cost: replay check, exact call counts, mechanical checks"),
-        ("judge", cmd_judge, "Judgment calls (4 per pilot document)"),
+        ("judge", cmd_judge, "Judgment calls (4 per (doc, run) pair)"),
+        ("ingest", cmd_ingest, "Zero API cost: copy a main pass's own judgments (any run) into a judgments file"),
         ("check", cmd_check, "One narrow LLM claim-check per regulatory claim; writes report"),
     ]:
         p = sub.add_parser(name, help=help_text)
-        p.add_argument("--docs", nargs="+", help=f"Pilot doc ids (default: {DEFAULT_PILOT_DOCS})")
-        if name in ("plan", "judge"):  # `check` reads only the pilot judgments file
+        p.add_argument(
+            "--docs", nargs="+",
+            help=f"Doc ids (judge/plan default: {DEFAULT_PILOT_DOCS}; ingest/check default: all)",
+        )
+        p.add_argument(
+            "--runs", nargs="+", type=int,
+            help="run_idx values (judge/plan default: [0]; ingest/check default: all)",
+        )
+        p.add_argument(
+            "--judgments",
+            help=(
+                f"Judgments file (default: docs/{PILOT_JUDGMENTS_PATH.name}; ingest default: "
+                "<input stem>_claim_judgments.jsonl next to the input)"
+            ),
+        )
+        if name in ("plan", "judge", "ingest"):  # `check` reads only the judgments file
             p.add_argument("--input", help=INPUT_HELP)
         if name in ("plan", "check"):
             p.add_argument(

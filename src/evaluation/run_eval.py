@@ -25,15 +25,20 @@ for the full methodology and findings):
             (no extra extraction/retrieval calls) — only the judgment call
             itself is repeated, --n-runs times per variant per doc. Reads
             the main-pass file given by --input (default
-            docs/eval_raw_main_pass_v2.jsonl; run `main` first).
-            Appends to docs/eval_raw_variant_pass.jsonl.
+            docs/eval_raw_main_pass_v2.jsonl; run `main` first). Appends
+            to <input stem>_variants.jsonl next to the input (or --output),
+            skipping, and announcing, any (doc, variant, run) already there
+            (checklist item 14). Each row saves the same per-outcome fields
+            `main` does (checklist item 12).
 
   summary   Reads the main-pass file given by --input (default
-            docs/eval_raw_main_pass_v2.jsonl), the variant JSONL and the
-            recall@k JSON, and prints/saves computed metrics to
+            docs/eval_raw_main_pass_v2.jsonl), its <input stem>_variants.jsonl
+            and the recall@k JSON, and prints/saves computed metrics to
             <input stem>_summary.json next to the input. Never writes the
             Phase 8 summary, docs/eval_summary.json (eval_results.md cites
-            it). Does not call the API.
+            it). Warns when rows are missing against the expected
+            documents x runs x outcomes (checklist item 15). Does not call
+            the API.
 
   For Phase 8 reference, pass --input docs/eval_raw_main_pass.jsonl.
 
@@ -52,13 +57,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from src.agent.compliance import (  # noqa: E402
     COMPLIANCE_SYSTEM_PROMPT,
     CONTEXT_FIELD_BY_OUTCOME,
+    OUTCOME_DISPLAY_NAMES,
     ComplianceAgent,
     OutcomeJudgment,
     build_compliance_report,
+    build_document_statement,
+    build_judgment_user_message,
 )
+from src.agent.schemas import LoanAgreementFields  # noqa: E402
 from src.agent.first_pass import FirstPassAgent  # noqa: E402
 from src.config import ANTHROPIC_MODEL, CONFIDENCE_THRESHOLD  # noqa: E402
-from src.retrieval.query_engine import load_index  # noqa: E402
+from src.retrieval.query_engine import SourceCitation, load_index  # noqa: E402
 from tests.fixtures.eval_set import (  # noqa: E402
     EVAL_DOCUMENTS,
     OUTCOME_KEYS,
@@ -75,7 +84,10 @@ MAIN_PASS_PATH = DOCS_OUT_DIR / "eval_raw_main_pass.jsonl"
 MAIN_PASS_ERRORS_PATH = DOCS_OUT_DIR / "eval_raw_main_pass_errors.jsonl"
 # Default output for any new `main` pass (checklist item 11).
 MAIN_PASS_V2_PATH = DOCS_OUT_DIR / "eval_raw_main_pass_v2.jsonl"
-VARIANT_PASS_PATH = DOCS_OUT_DIR / "eval_raw_variant_pass.jsonl"
+# Variant-pass output is derived from the main-pass input (checklist item
+# 14, see _variants_output_for), replacing the old fixed
+# docs/eval_raw_variant_pass.jsonl, which was never written (P8-04 has not
+# run).
 RECALL_PATH = DOCS_OUT_DIR / "eval_recall_at_k.json"
 # The Phase 8 summary, cited by docs/eval_results.md. `summary` never writes
 # here any more: its output path is derived from --input (see
@@ -186,6 +198,15 @@ def _summary_output_for(input_path: Path) -> Path:
             "cited by docs/eval_results.md. Rename the input file."
         )
     return out
+
+
+def _variants_output_for(input_path: Path) -> Path:
+    """
+    Checklist item 14: variant rows go next to the main-pass file they were
+    built from, as <input stem>_variants.jsonl, so each variant file belongs
+    to exactly one main pass and `summary` reads the matching one.
+    """
+    return input_path.with_name(f"{input_path.stem}_variants.jsonl")
 
 
 def _read_jsonl(path: Path) -> list[dict]:
@@ -315,7 +336,7 @@ def cmd_main(args) -> None:
                 continue
             try:
                 first_pass = first_pass_agent.run(text)
-                judgments = compliance_agent.evaluate(first_pass)
+                judgments = compliance_agent.evaluate(first_pass, text)
                 report = build_compliance_report(first_pass, judgments)
             except Exception as exc:
                 failed += 1
@@ -396,7 +417,11 @@ def cmd_variants(args) -> None:
 
     n_runs = args.n_runs
     input_path = resolve_main_input(args.input)
+    output_path = Path(args.output) if getattr(args, "output", None) else _variants_output_for(input_path)
+    if output_path.resolve() in (input_path.resolve(), MAIN_PASS_PATH.resolve()):
+        raise SystemExit(f"Refusing to write variant rows to {output_path}: it is a main-pass file.")
     print(f"Main-pass input: {input_path}")
+    print(f"Variant output: {output_path}")
     main_records = _read_jsonl(input_path)
     cached_by_doc = {
         r["doc_id"]: r
@@ -411,12 +436,33 @@ def cmd_variants(args) -> None:
         )
         raise SystemExit(1)
 
-    total_calls = len(EVAL_DOCUMENTS) * len(VARIANTS) * n_runs
+    # Resume (checklist item 14): skip (doc, variant, run) rows already in the
+    # output, and say so, the same pattern as `main` (item 11).
+    requested = [(d["id"], v, i) for d in EVAL_DOCUMENTS for v in VARIANTS for i in range(n_runs)]
+    existing = {(r["doc_id"], r["variant"], r["run_idx"]) for r in _read_jsonl(output_path)}
+    skipped = [k for k in requested if k in existing]
+    if skipped:
+        print(
+            f"\nWARNING: {output_path.name} already has rows for {len(skipped)} of the {len(requested)} "
+            "requested (doc_id, variant, run_idx) combinations. These will be SKIPPED, not re-run:"
+        )
+        for doc_id, variant, run_idx in skipped:
+            print(f"  - {doc_id} {variant} run {run_idx}")
+        if len(skipped) == len(requested):
+            print(
+                "WARNING: every requested combination already exists, so this invocation will make "
+                "NO API calls and write nothing. For a fresh pass, use a different --output."
+            )
+        print()
+
+    total_calls = len(requested) - len(skipped)
     print(
         f"Running variant comparison: {len(EVAL_DOCUMENTS)} docs x {len(VARIANTS)} "
-        f"variants x {n_runs} runs = {total_calls} Claude API calls (no extraction/"
-        f"retrieval calls — reuses cached first-pass context)."
+        f"variants x {n_runs} runs = {len(requested)} combinations; {total_calls} Claude API calls "
+        "(no extraction/retrieval calls — reuses cached first-pass context)."
     )
+    if not total_calls:
+        return
 
     client = instructor.from_anthropic(Anthropic())
     done = 0
@@ -424,20 +470,20 @@ def cmd_variants(args) -> None:
         cached = cached_by_doc[doc["id"]]
         fields = cached["_cached_fields"]
         context = cached["_cached_price_and_value_context"]
-        evidence = "\n\n".join(
-            f"[{s['index']}] (Source: {s['file_name']})\n{s['text_excerpt']}"
-            for s in context["sources"]
-        )
-        user_message = (
-            "Consumer Duty outcome under review: Price and Value\n\n"
-            f'What the loan agreement states for this outcome:\n'
-            f'Stated fees: "{fields["fees"]}"\n'
-            f'Fair value justification: "{fields["fair_value_justification"]}"\n\n'
-            f"Retrieved regulatory excerpts for this outcome:\n{evidence}"
+        # Items 4/12: the same message builder the production judge uses, so
+        # Variant A is the production prompt AND message, full document
+        # included.
+        user_message = build_judgment_user_message(
+            OUTCOME_DISPLAY_NAMES["price_and_value"],
+            build_document_statement("price_and_value", LoanAgreementFields(**fields)),
+            _load_doc_text(doc["file"]),
+            [SourceCitation(**s) for s in context["sources"]],
         )
 
         for variant_name, system_prompt in VARIANTS.items():
             for run_idx in range(n_runs):
+                if (doc["id"], variant_name, run_idx) in existing:
+                    continue
                 judgment = client.messages.create(
                     model=ANTHROPIC_MODEL,
                     max_tokens=4096,  # see compliance.py: P8-06 structured-claim fields
@@ -454,17 +500,28 @@ def cmd_variants(args) -> None:
                     "doc_id": doc["id"],
                     "variant": variant_name,
                     "run_idx": run_idx,
+                    "outcome": "price_and_value",
+                    "main_pass_input": input_path.name,
                     "ground_truth": doc["ground_truth"]["price_and_value"],
                     "llm_status": judgment.status,
                     "status": status,
                     "confidence": confidence,
                     "cited_source_count": len(cited),
+                    # Checklist item 12: the same per-outcome fields `main`
+                    # saves (items 3/8, 6, 9), so variant judgments can be
+                    # checked the same way as main-pass ones.
+                    "cited_sources": cited,
+                    "cited_sources_raw": list(judgment.cited_sources),
+                    "reasoning": judgment.reasoning,
+                    "judgment": judgment.model_dump(),
+                    "retrieved_sources": context["sources"],
+                    "_cached_fields": fields,
                 }
-                _append_jsonl(VARIANT_PASS_PATH, record)
+                _append_jsonl(output_path, record)
                 done += 1
                 print(f"[{done}/{total_calls}] {doc['id']} {variant_name} run {run_idx}: {judgment.status}")
 
-    print(f"\nWrote {VARIANT_PASS_PATH} ({done} judgments)")
+    print(f"\nWrote {output_path} ({done} judgments)")
 
 
 # --- summary metrics (zero API cost, reads JSONL) ---
@@ -508,19 +565,95 @@ def _score_predictions(records: list[dict], status_field: str, outcome_key: str 
     }
 
 
+def _completeness_warnings(
+    input_path: Path, main_records: list[dict], variant_records: list[dict], expected_runs: int | None
+) -> list[str]:
+    """
+    Checklist item 15: compare what was recorded against what a complete pass
+    has, so a run with failed or missing rows doesn't look complete.
+    Expected main rows: every EVAL_DOCUMENTS id x run 0..n_runs-1, each with
+    all 4 outcomes. n_runs is --expected-runs if given, else inferred as
+    (highest run_idx seen + 1); inference can't see a final run that is
+    missing for every document, which is what --expected-runs is for.
+    Variant rows, if any: every document x variant x run. Also reports the
+    main pass's errors file, if it has entries. Returns no warnings for a
+    complete pass.
+    """
+    warnings: list[str] = []
+    doc_ids = [d["id"] for d in EVAL_DOCUMENTS]
+
+    present = {}
+    for r in main_records:
+        present[(r["doc_id"], r["run_idx"])] = present.get((r["doc_id"], r["run_idx"]), 0) + 1
+    n_runs = expected_runs or (max(r["run_idx"] for r in main_records) + 1)
+    expected = {(d, i) for d in doc_ids for i in range(n_runs)}
+    missing = sorted(expected - set(present))
+    if missing:
+        warnings.append(
+            f"main pass: {len(present)} of {len(expected)} expected (doc_id, run_idx) rows present "
+            f"({len(doc_ids)} documents x {n_runs} runs). Missing: "
+            + ", ".join(f"{d} run {i}" for d, i in missing)
+        )
+    duplicates = sorted(k for k, c in present.items() if c > 1)
+    if duplicates:
+        warnings.append("main pass: duplicate rows for " + ", ".join(f"{d} run {i}" for d, i in duplicates))
+    unexpected = sorted(set(present) - expected)
+    if unexpected:
+        warnings.append("main pass: rows outside the expected set: " + ", ".join(f"{d} run {i}" for d, i in unexpected))
+    short_outcomes = [
+        (r["doc_id"], r["run_idx"], sorted(set(OUTCOME_KEYS) - set(r["outcomes"])))
+        for r in main_records
+        if set(OUTCOME_KEYS) - set(r["outcomes"])
+    ]
+    if short_outcomes:
+        warnings.append(
+            f"main pass: {len(short_outcomes)} row(s) missing outcomes: "
+            + "; ".join(f"{d} run {i}: {', '.join(m)}" for d, i, m in short_outcomes)
+        )
+
+    errors_path = input_path.with_name(f"{input_path.stem}_errors.jsonl")
+    errors = _read_jsonl(errors_path)
+    if errors:
+        warnings.append(f"main pass: {len(errors)} failure(s) logged in {errors_path.name}")
+
+    if variant_records:
+        v_present = {(r["doc_id"], r["variant"], r["run_idx"]) for r in variant_records}
+        v_runs = max(r["run_idx"] for r in variant_records) + 1
+        v_expected = {(d, v, i) for d in doc_ids for v in VARIANTS for i in range(v_runs)}
+        v_missing = sorted(v_expected - v_present)
+        if v_missing:
+            warnings.append(
+                f"variants: {len(v_present & v_expected)} of {len(v_expected)} expected (doc, variant, run) rows "
+                f"present. Missing: " + ", ".join(f"{d} {v} run {i}" for d, v, i in v_missing)
+            )
+        if len(variant_records) > len(v_present):
+            warnings.append(f"variants: {len(variant_records) - len(v_present)} duplicate row(s)")
+    return warnings
+
+
 def cmd_summary(args) -> None:
     input_path = resolve_main_input(args.input)
     output_path = _summary_output_for(input_path)
+    variants_path = _variants_output_for(input_path)
     print(f"Main-pass input: {input_path}")
     main_records = _read_jsonl(input_path)
-    variant_records = _read_jsonl(VARIANT_PASS_PATH)
+    variant_records = _read_jsonl(variants_path)
     recall_data = json.loads(RECALL_PATH.read_text(encoding="utf-8")) if RECALL_PATH.exists() else None
 
     if not main_records:
         print(f"No main pass records found in {input_path} — run `main` first, or pass --input.")
         raise SystemExit(1)
 
+    # Checklist item 15: warn, loudly, when the pass is short. Silent when
+    # complete (and the key below is only added then), so a complete pass's
+    # summary is unchanged, e.g. Phase 8's still reproduces eval_summary.json.
+    warnings = _completeness_warnings(input_path, main_records, variant_records, getattr(args, "expected_runs", None))
+    for w in warnings:
+        print(f"WARNING (incomplete pass): {w}")
+
     summary: dict = {"n_main_runs": len(main_records), "n_variant_runs": len(variant_records)}
+    if warnings:
+        summary["completeness_warnings"] = warnings
 
     # Per-outcome, llm_status vs post-threshold status
     summary["by_outcome"] = {}
@@ -611,12 +744,17 @@ def main() -> None:
     p_variants = sub.add_parser("variants", help="price_and_value prompt variant comparison")
     p_variants.add_argument("--n-runs", type=int, default=3)
     p_variants.add_argument("--input", help=INPUT_HELP)
+    p_variants.add_argument("--output", help="Variant JSONL (default: <input stem>_variants.jsonl next to the input)")
     p_variants.set_defaults(func=cmd_variants)
 
     p_summary = sub.add_parser("summary", help="Compute metrics from saved JSONL (zero API cost)")
     p_summary.add_argument(
         "--input",
         help=INPUT_HELP + " Output is written next to it as <input stem>_summary.json.",
+    )
+    p_summary.add_argument(
+        "--expected-runs", type=int,
+        help="Runs a complete pass has (default: highest run_idx seen + 1). Used for the missing-rows warning.",
     )
     p_summary.set_defaults(func=cmd_summary)
 

@@ -75,7 +75,7 @@ def _judgment_row(doc_id, phase8_rows):
                          "document_facts": [], "regulatory_requirements": reqs, "absences": []},
             "validated_status": "compliant", "confidence": 0.7,
             "resolved_cited_sources": [sources[0]], "sources": sources,
-            "cached_run0_llm_status": "compliant", "cached_run0_status": "compliant",
+            "reference_llm_status": "compliant", "reference_status": "compliant",
         }
     return {"doc_id": doc_id, "run_idx": 0, "main_pass_input": "eval_raw_main_pass.jsonl",
             "ground_truth": cached["ground_truth"], "fields": cached["_cached_fields"], "outcomes": outcomes}
@@ -175,7 +175,7 @@ def test_item17_docs_limited_runs_never_drop_other_documents(env):
     assert all(c is None for c in checks["loan_agreement_2"])  # present, not dropped, just unchecked
     report = env["report"].read_text(encoding="utf-8")
     assert "1 documents (loan_agreement_1)" in report
-    assert "loan_agreement_2 / price_and_value: 2 of 2 regulatory claims unchecked" in report
+    assert "loan_agreement_2 run 0 / price_and_value: 2 of 2 regulatory claims unchecked" in report
 
     env["state"]["client"] = _FakeClient()
     _check(["loan_agreement_2"])
@@ -214,7 +214,7 @@ def test_item18_crash_keeps_completed_results_and_resume_skips_them(env, capsys)
     assert env["state"]["client"].calls == TOTAL_CLAIMS - 5
     assert f"5 of the {TOTAL_CLAIMS} requested claims. These will be SKIPPED" in out
     for rec in saved:
-        assert f"{rec['doc_id']} {rec['outcome']} claim #{rec['claim_index']}" in out
+        assert f"{rec['doc_id']} run {rec['run_idx']} {rec['outcome']} claim #{rec['claim_index']}" in out
     keys = [cv._store_key(r) for r in _rows(env["store"])]
     assert len(keys) == TOTAL_CLAIMS and len(set(keys)) == TOTAL_CLAIMS  # nothing re-checked, no duplicates
     assert "NO API calls" not in out

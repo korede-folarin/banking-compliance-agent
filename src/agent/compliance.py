@@ -178,6 +178,44 @@ def _build_evidence_context(sources: list[SourceCitation]) -> str:
     return "\n\n".join(parts)
 
 
+def build_document_statement(outcome_key: str, fields: LoanAgreementFields) -> str:
+    """The extracted-field text for one outcome, as shown to the judge."""
+    if outcome_key == "price_and_value":
+        return (
+            f'Stated fees: "{fields.fees}"\n'
+            f'Fair value justification: "{fields.fair_value_justification}"'
+        )
+    return {
+        "consumer_support": fields.vulnerable_customer_provision,
+        "products_and_services": fields.target_market_suitability_statement,
+        "consumer_understanding": fields.key_terms_summary_provision,
+    }[outcome_key]
+
+
+def build_judgment_user_message(
+    outcome_name: str, document_statement: str, document_text: str, sources: list[SourceCitation]
+) -> str:
+    """
+    The judgment call's user message. Pure string assembly (no API call), so
+    it can be tested directly and reused by run_eval.py's `variants`.
+
+    Checklist item 4 (Session 22): the full loan agreement text is included,
+    not only the extracted statement. Before this, the judge saw only the
+    extraction, which is sometimes a paraphrase, so a `document_facts`
+    verbatim quote could only be copied from that paraphrase and could not
+    be checked against the real document. The extracted statement is kept
+    as well, to point at the part of the document relevant to this outcome.
+    Judgments made with this message are NOT directly comparable to the
+    Phase 8 ones (see ARCHITECTURE.md "Evaluation notes").
+    """
+    return (
+        f"Consumer Duty outcome under review: {outcome_name}\n\n"
+        f'Full text of the loan agreement under review:\n"""\n{document_text}\n"""\n\n'
+        f'What the loan agreement states for this outcome (extracted):\n"{document_statement}"\n\n'
+        f"Retrieved regulatory excerpts for this outcome:\n{_build_evidence_context(sources)}"
+    )
+
+
 class ComplianceAgent:
     """
     P4-01: the LLM reasoning layer. For each Consumer Duty outcome
@@ -192,13 +230,10 @@ class ComplianceAgent:
     def __init__(self):
         self._client = instructor.from_anthropic(Anthropic())
 
-    def _judge(self, outcome_name: str, document_statement: str, context: QueryResult) -> OutcomeJudgment:
-        evidence = _build_evidence_context(context.sources)
-        user_message = (
-            f"Consumer Duty outcome under review: {outcome_name}\n\n"
-            f'What the loan agreement states for this outcome:\n"{document_statement}"\n\n'
-            f"Retrieved regulatory excerpts for this outcome:\n{evidence}"
-        )
+    def _judge(
+        self, outcome_name: str, document_statement: str, document_text: str, context: QueryResult
+    ) -> OutcomeJudgment:
+        user_message = build_judgment_user_message(outcome_name, document_statement, document_text, context.sources)
         return self._client.messages.create(
             model=ANTHROPIC_MODEL,
             # 4096, not 1024: the P8-06 structured-claim fields (verbatim
@@ -210,30 +245,19 @@ class ComplianceAgent:
             response_model=OutcomeJudgment,
         )
 
-    def evaluate(self, first_pass: FirstPassResult) -> dict[str, OutcomeJudgment]:
+    def evaluate(self, first_pass: FirstPassResult, document_text: str) -> dict[str, OutcomeJudgment]:
+        # document_text is required (checklist item 4): every judgment sees the
+        # full loan agreement, so no caller can silently produce summary-only
+        # judgments.
         fields = first_pass.document_fields
         return {
-            "price_and_value": self._judge(
-                OUTCOME_DISPLAY_NAMES["price_and_value"],
-                f'Stated fees: "{fields.fees}"\n'
-                f'Fair value justification: "{fields.fair_value_justification}"',
-                first_pass.price_and_value_context,
-            ),
-            "consumer_support": self._judge(
-                OUTCOME_DISPLAY_NAMES["consumer_support"],
-                fields.vulnerable_customer_provision,
-                first_pass.consumer_support_context,
-            ),
-            "products_and_services": self._judge(
-                OUTCOME_DISPLAY_NAMES["products_and_services"],
-                fields.target_market_suitability_statement,
-                first_pass.products_and_services_context,
-            ),
-            "consumer_understanding": self._judge(
-                OUTCOME_DISPLAY_NAMES["consumer_understanding"],
-                fields.key_terms_summary_provision,
-                first_pass.consumer_understanding_context,
-            ),
+            key: self._judge(
+                OUTCOME_DISPLAY_NAMES[key],
+                build_document_statement(key, fields),
+                document_text,
+                getattr(first_pass, CONTEXT_FIELD_BY_OUTCOME[key]),
+            )
+            for key in ("price_and_value", "consumer_support", "products_and_services", "consumer_understanding")
         }
 
     def judge_price_and_value_with_mcp_context(
@@ -448,7 +472,7 @@ class ComplianceCheckAgent:
 
     def run(self, document_text: str) -> ComplianceReport:
         first_pass = self._first_pass_agent.run(document_text)
-        judgments = self._compliance_agent.evaluate(first_pass)
+        judgments = self._compliance_agent.evaluate(first_pass, document_text)
         return build_compliance_report(first_pass, judgments)
 
 

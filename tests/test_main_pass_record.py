@@ -118,7 +118,7 @@ def main_rows(tmp_path, monkeypatch):
             return FirstPassResult(document_fields=fields, **contexts)
 
     class FakeComplianceAgent:
-        def evaluate(self, first_pass):
+        def evaluate(self, first_pass, document_text):
             doc_id, run = state["doc"]
             js = {k: _judgment(doc_id, k, run) for k in OUTCOME_KEYS}
             for k, j in js.items():

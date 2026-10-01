@@ -151,7 +151,7 @@ def test_run_writes_to_explicit_output(fake_run, capsys):
 
     text = out.read_text(encoding="utf-8")
     assert text.startswith("# Groundedness / Faithfulness Cross-Check (P8-05)")
-    assert "loan_agreement_1 | price_and_value" in text
+    assert "loan_agreement_1 | 0 | price_and_value" in text  # run column added by item 10
     assert fake_run["client"].calls == 2
     assert str(out) in capsys.readouterr().out
 

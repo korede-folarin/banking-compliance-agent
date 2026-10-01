@@ -10,11 +10,15 @@ either trusted alone).
 Runs against an already-recorded main-pass file (--input; default
 docs/eval_raw_main_pass_v2.jsonl, the file `run_eval main` now writes; the
 P8-05 results in docs/eval_groundedness.md came from the Phase 8 file,
-reproducible with --input docs/eval_raw_main_pass.jsonl), restricted
-to run_idx == 0 rows, across all 4 outcomes. That restriction is a real,
-structural data constraint, not a convenience:
+reproducible with --input docs/eval_raw_main_pass.jsonl), across every run
+and all 4 outcomes (checklist item 10). For each judgment, the excerpts it
+saw come from the row's saved `retrieved_sources` (checklist item 6) when
+present; otherwise they are rebuilt by retrieval replay from that run's
+`_cached_fields`; rows with neither are skipped, and the skip is printed.
+In the Phase 8 data that means only run_idx 0 is usable, which is why P8-05
+covered run 0 only:
 
-- The raw log cached `_cached_fields` (the extracted LoanAgreementFields)
+- The Phase 8 log cached `_cached_fields` (the extracted LoanAgreementFields)
   only for run_idx == 0. Reconstructing which regulatory excerpts a
   judgment actually saw requires rebuilding that outcome's exact question
   text from the extracted fields (deterministic string formatting,
@@ -222,27 +226,43 @@ def compute_signal1_cited(reasoning: str, cited_sources: list[dict]) -> dict:
 
 def build_scope(main_records: list[dict]) -> list[dict]:
     """
-    Builds the full in-scope judgment list (run_idx == 0, all 4 outcomes,
-    llm_status != insufficient_evidence) with reconstructed sources, Signal
-    1, and extracted claims. Zero API cost — safe to call from `plan`.
+    Builds the full in-scope judgment list (every run, all 4 outcomes,
+    llm_status != insufficient_evidence) with sources, Signal 1, and
+    extracted claims. Zero API cost — safe to call from `plan`.
+
+    Checklist item 10: any run is in scope. Sources come from the row's saved
+    `retrieved_sources` (item 6; exactly what the judge saw) when present,
+    else retrieval replay from that run's `_cached_fields` (item 7). A row
+    with neither (Phase 8 runs 1 and 2) is skipped and the skip is printed.
+    The retriever is only loaded if some row actually needs replay.
     """
-    retriever = load_index().as_retriever(similarity_top_k=5)
+    retriever = None
+    skipped_rows: list[tuple[str, int]] = []
 
     scope: list[dict] = []
     for r in main_records:
-        if r["run_idx"] != 0:
+        run_idx = r.get("run_idx", 0)
+        needs_replay = any("retrieved_sources" not in o for o in r["outcomes"].values())
+        if needs_replay and "_cached_fields" not in r:
+            skipped_rows.append((r["doc_id"], run_idx))
             continue
-        fields = LoanAgreementFields(**r["_cached_fields"])
+        fields = LoanAgreementFields(**r["_cached_fields"]) if "_cached_fields" in r else None
         for outcome_key in OUTCOME_KEYS:
             o = r["outcomes"][outcome_key]
             if o["llm_status"] == "insufficient_evidence":
                 continue
-            sources = reconstruct_sources(retriever, fields, outcome_key)
+            if "retrieved_sources" in o:
+                sources = o["retrieved_sources"]
+            else:
+                if retriever is None:
+                    retriever = load_index().as_retriever(similarity_top_k=5)
+                sources = reconstruct_sources(retriever, fields, outcome_key)
             signal1 = compute_signal1(o["reasoning"], sources)
             claims = extract_claims(o["reasoning"])
             scope.append(
                 {
                     "doc_id": r["doc_id"],
+                    "run_idx": run_idx,
                     "outcome": outcome_key,
                     "ground_truth": r["ground_truth"][outcome_key],
                     "llm_status": o["llm_status"],
@@ -258,6 +278,12 @@ def build_scope(main_records: list[dict]) -> list[dict]:
                     "claims": claims,
                 }
             )
+    if skipped_rows:
+        print(
+            f"NOTE: skipped {len(skipped_rows)} main-pass row(s) with neither saved retrieved_sources nor "
+            "_cached_fields, so their sources can't be known (in the Phase 8 data: runs 1 and 2): "
+            + ", ".join(f"{d} run {i}" for d, i in skipped_rows)
+        )
     return scope
 
 
@@ -281,7 +307,8 @@ def cmd_plan(args) -> None:
     total_claims = sum(len(j["claims"]) for j in scope)
     zero_claim_judgments = [j for j in scope if not j["claims"]]
 
-    print(f"In-scope judgments (run_idx=0, all 4 outcomes, llm_status != insufficient_evidence): {len(scope)}")
+    runs = sorted({j["run_idx"] for j in scope})
+    print(f"In-scope judgments (runs {runs}, all 4 outcomes, llm_status != insufficient_evidence): {len(scope)}")
     by_outcome: dict[str, int] = {}
     for j in scope:
         by_outcome[j["outcome"]] = by_outcome.get(j["outcome"], 0) + 1
@@ -414,11 +441,11 @@ def _write_report(scope: list[dict], output_path: Path) -> None:
     )
     lines.append("")
     lines.append(
-        "**Scope**: run_idx == 0 rows only, all 4 outcomes, judgments where "
+        f"**Scope**: runs {sorted({j.get('run_idx', 0) for j in scope})}, all 4 outcomes, judgments where "
         "`llm_status` is `compliant` or `potentially_non_compliant` (not "
         "`insufficient_evidence`, which has no cited evidence to check by "
         "design). See this file's generating script, "
-        "`src/evaluation/groundedness.py`, for why run_idx 0 specifically, and "
+        "`src/evaluation/groundedness.py`, for which runs are usable (Phase 8 data: run 0 only), and "
         "why both signals are computed against the full retrieved source set "
         "rather than a reconstructed \"cited-only\" subset — both are real, "
         "structural data-availability constraints from the original eval log, "
@@ -457,7 +484,7 @@ def _write_report(scope: list[dict], output_path: Path) -> None:
     if not disagreements:
         lines.append("None observed in this run.")
     for j in disagreements:
-        lines.append(f"### {j['doc_id']} / {j['outcome']} (llm_status: {j['llm_status']})")
+        lines.append(f"### {j['doc_id']} run {j.get('run_idx', 0)} / {j['outcome']} (llm_status: {j['llm_status']})")
         lines.append("")
         lines.append(f"- Signal 1 (max embedding similarity to retrieved sources): {j['signal1']:.4f}")
         lines.append(f"- Signal 2 bucket: {j['signal2_bucket']}")
@@ -468,11 +495,11 @@ def _write_report(scope: list[dict], output_path: Path) -> None:
         lines.append("")
     lines.append("## All in-scope judgments")
     lines.append("")
-    lines.append("| doc_id | outcome | llm_status | signal1 | signal2 | agreement |")
-    lines.append("|---|---|---|---|---|---|")
+    lines.append("| doc_id | run | outcome | llm_status | signal1 | signal2 | agreement |")
+    lines.append("|---|---|---|---|---|---|---|")
     for j in scope:
         lines.append(
-            f"| {j['doc_id']} | {j['outcome']} | {j['llm_status']} | {j['signal1']:.4f} | "
+            f"| {j['doc_id']} | {j.get('run_idx', 0)} | {j['outcome']} | {j['llm_status']} | {j['signal1']:.4f} | "
             f"{j.get('signal2_bucket', 'n/a')} | {j.get('agreement', 'n/a')} |"
         )
     lines.append("")

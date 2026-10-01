@@ -178,8 +178,9 @@ def fake_llm(monkeypatch):
 
 
 def test_variants_reads_explicit_phase8_file(fake_llm, tmp_path, monkeypatch):
-    monkeypatch.setattr(run_eval, "VARIANT_PASS_PATH", tmp_path / "variants.jsonl")
-    run_eval.cmd_variants(argparse.Namespace(n_runs=1, input=str(REAL_PHASE8_PATH)))
+    run_eval.cmd_variants(
+        argparse.Namespace(n_runs=1, input=str(REAL_PHASE8_PATH), output=str(tmp_path / "variants.jsonl"))
+    )
 
     assert len(fake_llm.user_messages) == len(EVAL_DOCUMENTS) * len(run_eval.VARIANTS)
     joined = "\n".join(fake_llm.user_messages)
@@ -191,8 +192,7 @@ def test_variants_reads_explicit_phase8_file(fake_llm, tmp_path, monkeypatch):
 
 def test_variants_defaults_to_v2_file(fake_llm, v2_file, tmp_path, monkeypatch):
     _write_rows(v2_file, _v2_rows_marked())
-    monkeypatch.setattr(run_eval, "VARIANT_PASS_PATH", tmp_path / "variants.jsonl")
-    run_eval.cmd_variants(argparse.Namespace(n_runs=1, input=None))
+    run_eval.cmd_variants(argparse.Namespace(n_runs=1, input=None, output=str(tmp_path / "variants.jsonl")))
 
     joined = "\n".join(fake_llm.user_messages)
     assert "V2-MARKER-loan_agreement_1-1" in joined
@@ -260,7 +260,7 @@ class _FakeIndex:
 
 
 class _FakeComplianceAgent:
-    def evaluate(self, first_pass):
+    def evaluate(self, first_pass, document_text):
         return {
             k: OutcomeJudgment(
                 status="compliant", reasoning="fake", cited_sources=[1],
@@ -278,8 +278,8 @@ def fake_pilot(tmp_path, monkeypatch):
     return tmp_path / "pilot_judgments.jsonl"
 
 
-def test_claim_verification_cached_run0_reads_explicit_phase8_file():
-    row = cv._cached_run0("loan_agreement_1", REAL_PHASE8_PATH)
+def test_claim_verification_cached_run_reads_explicit_phase8_file():
+    row = cv._cached_run("loan_agreement_1", 0, REAL_PHASE8_PATH)
     expected = next(r for r in _rows(REAL_PHASE8_PATH) if r["doc_id"] == "loan_agreement_1" and r["run_idx"] == 0)
     assert row == expected
 
@@ -287,11 +287,11 @@ def test_claim_verification_cached_run0_reads_explicit_phase8_file():
 def test_claim_verification_judge_explicit_phase8(fake_pilot):
     cv.cmd_judge(argparse.Namespace(docs=["loan_agreement_1"], input=str(REAL_PHASE8_PATH)))
     row = _rows(fake_pilot)[0]
-    phase8 = cv._cached_run0("loan_agreement_1", REAL_PHASE8_PATH)
+    phase8 = cv._cached_run("loan_agreement_1", 0, REAL_PHASE8_PATH)
     assert row["main_pass_input"] == REAL_PHASE8_PATH.name
     assert row["fields"] == phase8["_cached_fields"]
     for k in OUTCOME_KEYS:
-        assert row["outcomes"][k]["cached_run0_llm_status"] == phase8["outcomes"][k]["llm_status"]
+        assert row["outcomes"][k]["reference_llm_status"] == phase8["outcomes"][k]["llm_status"]
 
 
 def test_claim_verification_judge_defaults_to_v2(fake_pilot, v2_file):
@@ -299,4 +299,4 @@ def test_claim_verification_judge_defaults_to_v2(fake_pilot, v2_file):
     cv.cmd_judge(argparse.Namespace(docs=["loan_agreement_1"], input=None))
     row = _rows(fake_pilot)[0]
     assert row["main_pass_input"] == v2_file.name
-    assert all(row["outcomes"][k]["cached_run0_llm_status"] == "insufficient_evidence" for k in OUTCOME_KEYS)
+    assert all(row["outcomes"][k]["reference_llm_status"] == "insufficient_evidence" for k in OUTCOME_KEYS)

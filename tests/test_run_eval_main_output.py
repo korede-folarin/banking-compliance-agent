@@ -107,7 +107,7 @@ def fake_env(tmp_path, monkeypatch):
             return _FakeFirstPass()
 
     class FakeComplianceAgent:
-        def evaluate(self, first_pass):
+        def evaluate(self, first_pass, document_text):
             return {k: _FakeJudgment() for k in OUTCOME_KEYS}
 
     def fake_report(first_pass, judgments):

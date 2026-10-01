@@ -5,6 +5,201 @@ Newest entry at the top.
 
 ---
 
+## Session 22 — 2026-09-29 to 2026-10-01
+**Status:** Six deferred-checklist items built and tested offline: 4, 10,
+12, 14, 15 and 16, built in that order. They are recorded separately below.
+The session was interrupted by a usage limit after items 4, 10 and 16 were
+in code; it resumed on 2026-10-01 to finish items 12, 14 and 15, fix the
+test fakes and add tests. Zero API calls.
+
+**With this batch, all 20 deferred-checklist items (1-20) are built and
+tested offline.** What remains before the comprehensive re-run produces
+results:
+1. A small real pilot (3-4 documents) to confirm everything works together
+   against the live API: extraction, retrieval and the judge with the full
+   document, the new record fields, `claim_verification ingest`/`judge`,
+   `plan` and `check`, `groundedness`, and `summary`'s completeness check.
+   Exact call count to be computed and approved first.
+2. Then the full 15-document, 3-run main pass (405 calls with the current
+   pipeline) to `docs/eval_raw_main_pass_v2.jsonl`, followed by `summary`,
+   claim verification on the main pass's own judgments (`ingest` then
+   `check`), and groundedness. All call counts approved first.
+Before (2), the notes in ARCHITECTURE.md "Evaluation notes" still apply:
+pause OneDrive sync, don't re-ingest the corpus, check `.env`
+(`ANTHROPIC_MODEL`, `CONFIDENCE_THRESHOLD`) and the shell for overrides.
+
+**Done: item 4, the judge sees the full document**
+- `src/agent/compliance.py` has two new pure functions:
+  `build_document_statement(outcome_key, fields)` (the extracted text per
+  outcome, unchanged from before) and `build_judgment_user_message(...)`.
+  The judge's user message now includes the full loan agreement text,
+  then the extracted statement, then the numbered excerpts. The system
+  prompt is unchanged.
+- `ComplianceAgent.evaluate(first_pass, document_text)`: `document_text`
+  is required, so no caller can silently produce summary-only judgments.
+  `ComplianceCheckAgent.run`, `run_eval main` and `claim_verification
+  judge` pass it. The MCP price_and_value path is unchanged.
+- ARCHITECTURE.md now states plainly that judgments made after this are
+  not directly comparable to the cached Phase 8 run-0 statuses, and that
+  this is why #4 was held for the final re-run.
+
+**Done: item 10, groundedness and claim_verification work on any run**
+- `groundedness.build_scope`:
+  - No run-0 filter. Sources come from a row's saved `retrieved_sources`
+    when present, else replay from that run's `_cached_fields`.
+  - Rows with neither (Phase 8 runs 1 and 2) are skipped with a printed
+    note. On the Phase 8 file it still yields P8-05's 51 run-0
+    judgments.
+  - The retriever loads only if replay is needed.
+  - Report tables gain a run column.
+- `claim_verification`:
+  - Judgment rows are keyed by `(doc_id, run_idx)`. `judge --runs` judges
+    any run's saved fields, using its saved `retrieved_sources` when
+    present.
+  - New zero-cost `ingest` subcommand copies a main pass's own judgments
+    (any run) into a judgments file, default
+    `<input stem>_claim_judgments.jsonl` next to the input. Rows lacking
+    what it needs are listed and skipped, and main-pass files are refused
+    as targets.
+  - `--judgments` and `--runs` on every subcommand. `check` defaults to
+    every row in its judgments file. A non-pilot judgments file gets its
+    own store, `<judgments stem>_checks.jsonl`.
+  - Claim-check keys include the run.
+  - `cached_run0_*` became `reference_llm_status` / `reference_status`:
+    the main-pass statuses for the same (doc, run). They are `None` for
+    ingested rows, which are themselves main-pass judgments.
+  - The report shows runs and origins (pilot_judge / main_pass), and
+    states the item 4 comparability caveat.
+
+**Done: item 12, variant rows carry what main rows carry**
+- Each `variants` row now saves `cited_sources`, `cited_sources_raw`,
+  `reasoning`, `judgment`, `retrieved_sources` and `_cached_fields`, plus
+  `outcome` and `main_pass_input`. That is every per-outcome field `main`
+  saves.
+- `variants` builds its message with `build_judgment_user_message`, so
+  Variant A is now the production prompt and message, full document
+  included.
+
+**Done: item 14, variants skip check and run identity**
+- Output is `<input stem>_variants.jsonl` next to the main-pass input (or
+  `--output`), replacing the fixed `docs/eval_raw_variant_pass.jsonl`. That
+  file was never written, so nothing is lost. Each variant file belongs to
+  one main pass, and `summary` reads the matching one. Main-pass files are
+  refused as output.
+- Existing `(doc, variant, run)` rows are skipped with a WARNING listing
+  each, and "NO API calls" is printed if every one is already present.
+
+**Done: item 15, summary flags partial runs**
+- `_completeness_warnings` checks:
+  - main rows against every document x runs, with runs inferred as the
+    highest run_idx + 1, or set with the new `--expected-runs` flag, which
+    catches a final run missing for every document;
+  - all 4 outcomes in each row;
+  - duplicate and unexpected rows;
+  - the input's errors file;
+  - variant rows, checked the same way.
+- Shortfalls print `WARNING (incomplete pass): ...` and add a
+  `completeness_warnings` key to the summary JSON. A complete pass prints
+  nothing and gets no new key, so the Phase 8 summary still reproduces
+  `docs/eval_summary.json` exactly (the existing test still passes).
+
+**Done: item 16, pilot re-runs announce skipped documents**
+- `judge` (and the new `ingest`) skip `(doc, run)` pairs already in the
+  judgments file with a WARNING listing each, plus "NO API calls" when
+  nothing is left. `judge` then builds no agent at all.
+
+**Bug found and fixed during testing**
+- `ingest`'s default output path was first derived inside the real
+  `docs/` directory instead of next to its input. The new test's
+  `docs/`-listing check caught it: one test run had written fake rows to
+  `docs/eval_raw_main_pass_v2_claim_judgments.jsonl`. That untracked file,
+  containing only fake test data from that run, was deleted. The path is
+  now derived next to the input, like `summary` and `variants`.
+
+**Tests (offline: no API calls, no Chroma, no embedding model)**
+- New `tests/test_rerun_final_batch.py`, 24 tests:
+  - Item 4 (4 tests):
+    - the message contains the whole document verbatim, the statement and
+      the excerpts;
+    - every one of the 4 judge calls sends the document with the
+      unchanged system prompt;
+    - `evaluate()` without `document_text` raises;
+    - `ComplianceCheckAgent.run` passes the document through.
+  - Item 10 (7 tests):
+    - groundedness scope covers runs 0-2 from saved sources with no
+      replay;
+    - rows lacking sources and fields are skipped and reported;
+    - the Phase 8 scope is still exactly 51;
+    - `ingest` reads every run and lists old-format rows;
+    - `ingest`'s default path is derived and main files are refused;
+    - `judge --runs 1 2` uses each run's own fields, sources and
+      reference statuses, and sends the full document;
+    - `check` stores and reports runs 0, 1 and 2.
+  - Item 12 (2 tests):
+    - variant rows contain every per-outcome field `main` saves, with the
+      raw `[1, 9]` kept and resolved to `[1]`;
+    - Variant A's call equals the production system prompt and message.
+  - Item 14 (3 tests):
+    - the default output is derived and main files are refused;
+    - a second run makes no calls, leaves the file byte-identical and
+      says "NO API calls";
+    - a partial file resumes and lists every skipped row.
+  - Item 15 (5 tests):
+    - a complete pass is silent with no new key;
+    - a short pass warns and names the missing rows;
+    - `--expected-runs 3` catches missing runs;
+    - missing outcomes, duplicates and logged errors warn (printed before
+      metrics fail on the bad row);
+    - a short variant file warns.
+  - Item 16 (3 tests):
+    - `judge` lists the skipped pair and judges only the new one;
+    - with nothing new it says "NO API calls" and builds no agent;
+    - `ingest` lists skipped pairs.
+- Existing test files updated for the new signatures and names only; what
+  they check is unchanged:
+  - fake `evaluate(first_pass, document_text)` in
+    `tests/test_run_eval_main_output.py`,
+    `tests/test_main_pass_record.py` and
+    `tests/test_eval_readers_input.py`;
+  - `_cached_run0` became `_cached_run` and `cached_run0_*` became
+    `reference_*` in `tests/test_eval_readers_input.py` and
+    `tests/test_claim_check_store.py`;
+  - `VARIANT_PASS_PATH` monkeypatches became `--output` in
+    `tests/test_eval_readers_input.py`;
+  - report labels now include the run (`tests/test_claim_check_store.py`,
+    `tests/test_groundedness_output.py`).
+- All offline re-run tests: 79 passing (55 existing + 24 new). `pytest
+  --collect-only` collects all 131 tests; the API-backed ones were not
+  run.
+- Protected `docs/` hashes identical before and after:
+  - `eval_raw_main_pass.jsonl` `892da01c...`
+  - `eval_summary.json` `cef74c0f...`
+  - `eval_groundedness.md` `c72ccb37...`
+  - `eval_results.md` `5ab997b0...`
+  - `eval_recall_at_k.json` `99742a47...`
+  `docs/` holds only its original files.
+- feature_list.json P8-07 (one clause per item, plus "all 20 built")
+  and ARCHITECTURE.md checklist rows 4, 10, 12, 14, 15 and 16 updated, with
+  the item 4 comparability statement and the "all 20 built" note.
+
+**Next:**
+- The real pilot (3-4 documents), with its exact call count approved
+  first. Then the full 15-document, 3-run pass. P8-06 and P8-07 stay
+  `passes: false` until real output has been produced and checked.
+- Unchanged from earlier: P8-04, the per-outcome-vs-global
+  `CONFIDENCE_THRESHOLD` decision, Phase 7.
+
+**Known issues:**
+- `summary` prints its completeness warnings, but metrics still can't be
+  computed on a row missing an outcome (KeyError); the warning is printed
+  first, so the cause is visible. Not changed: item 15 asked for
+  warnings, not tolerance of malformed rows.
+
+**Notes:**
+- Not committed or pushed by Claude; the user is reviewing and committing.
+
+---
+
 ## Session 21 — 2026-09-29
 **Status:** Five deferred-checklist items built and tested offline in one
 session, all in `run_eval.py main`'s saving logic: 3/8, 6, 7 and 9, built
