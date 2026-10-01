@@ -119,8 +119,10 @@ PILOT_CHECKS_PATH = DOCS_OUT_DIR / "eval_claim_pilot_checks.jsonl"
 DEFAULT_PILOT_DOCS = ["loan_agreement_1", "loan_agreement_2", "loan_agreement_3", "loan_agreement_12"]
 
 RETRIEVAL_TOP_K = 5
-# The excerpt length the judge sees is query_engine.SOURCE_EXCERPT_CHARS,
-# read at call time in replay_sources (checklist item 20), not a copy here.
+# The excerpt length the judge sees is query_engine.SOURCE_EXCERPT_CHARS
+# (checklist item 20; the whole chunk since Session 25). Replay of a
+# recorded row uses that row's own length (query_engine.excerpt_chars_for),
+# never a copy here.
 
 # Classification cutoff for match_type == "fuzzy": the fraction of the
 # quote's words found, in order, in the best-matching window of the target
@@ -328,7 +330,8 @@ def locate_quote(quote: str, excerpt_number: int, sources: list[dict], corpus: l
             **m,
             "found_in": {"chunk_id": label, "file_name": chunk["file_name"]},
             # True means the quote is in a chunk that WAS retrieved, but past
-            # the excerpt (SOURCE_EXCERPT_CHARS) the judge was actually shown.
+            # the excerpt the judge was actually shown (only possible for rows
+            # judged with truncated excerpts, i.e. before Session 25).
             "corpus_chunk_was_retrieved": label in retrieved_ids,
         }
     # fuzzy_score here is the best in-order word match against the NAMED
@@ -338,15 +341,19 @@ def locate_quote(quote: str, excerpt_number: int, sources: list[dict], corpus: l
 
 # --- retrieval replay + corpus ---
 
-def replay_sources(retriever, fields: LoanAgreementFields, outcome_key: str) -> list[dict]:
+_CURRENT = object()  # sentinel: use query_engine.SOURCE_EXCERPT_CHARS at call time
+
+
+def replay_sources(retriever, fields: LoanAgreementFields, outcome_key: str, excerpt_chars=_CURRENT) -> list[dict]:
     nodes = retriever.retrieve(QUESTION_BUILDERS[outcome_key](fields))
+    limit = query_engine.SOURCE_EXCERPT_CHARS if excerpt_chars is _CURRENT else excerpt_chars
     return [
         {
             "index": i,
             "node_id": n.node.node_id,
             "file_name": n.metadata.get("file_name", "unknown"),
             "similarity_score": n.score or 0.0,
-            "text_excerpt": n.text[: query_engine.SOURCE_EXCERPT_CHARS],
+            "text_excerpt": n.text[:limit],
         }
         for i, n in enumerate(nodes, start=1)
     ]
@@ -546,7 +553,10 @@ def cmd_plan(args) -> None:
             print(f"  {doc_id}: no cached run-0 price_and_value context, skipped")
             continue
         retriever = retriever or load_index().as_retriever(similarity_top_k=RETRIEVAL_TOP_K)
-        replay = replay_sources(retriever, LoanAgreementFields(**cached["_cached_fields"]), "price_and_value")
+        replay = replay_sources(
+            retriever, LoanAgreementFields(**cached["_cached_fields"]), "price_and_value",
+            query_engine.excerpt_chars_for(cached),
+        )
         cached_src = cached["_cached_price_and_value_context"]["sources"]
         same = [
             (a["file_name"], round(a["similarity_score"], 6), a["text_excerpt"])
@@ -616,7 +626,7 @@ def cmd_judge(args) -> None:
                 sources[k] = saved
             else:
                 retriever = retriever or load_index().as_retriever(similarity_top_k=RETRIEVAL_TOP_K)
-                sources[k] = replay_sources(retriever, fields, k)
+                sources[k] = replay_sources(retriever, fields, k, query_engine.excerpt_chars_for(cached))
         contexts = {k: _query_result(QUESTION_BUILDERS[k](fields), sources[k]) for k in OUTCOME_KEYS}
         first_pass = FirstPassResult(
             document_fields=fields, **{CONTEXT_FIELD_BY_OUTCOME[k]: contexts[k] for k in OUTCOME_KEYS}
@@ -642,6 +652,7 @@ def cmd_judge(args) -> None:
                 "doc_id": doc_id,
                 "run_idx": run_idx,
                 "origin": "pilot_judge",
+                "source_excerpt_chars": query_engine.excerpt_chars_for(cached),
                 # Which main-pass file the fields and reference_* statuses
                 # came from (Phase 8 or a re-run), for the report.
                 "main_pass_input": main_pass_path.name,
@@ -703,6 +714,7 @@ def cmd_ingest(args) -> None:
                 "doc_id": r["doc_id"],
                 "run_idx": r["run_idx"],
                 "origin": "main_pass",
+                "source_excerpt_chars": query_engine.excerpt_chars_for(r),
                 "main_pass_input": main_pass_path.name,
                 "ground_truth": r["ground_truth"],
                 "fields": r["_cached_fields"],
@@ -972,7 +984,8 @@ def write_report(
     L.append("")
     L.append(
         f"corpus_not_retrieved sources whose corpus chunk was one of the judgment's retrieved chunks "
-        f"(quote lies past the {query_engine.SOURCE_EXCERPT_CHARS}-char excerpt the judge saw): {corpus_retrieved}"
+        f"(quote lies past the truncated excerpt the judge saw; only possible for rows judged before Session 25): "
+        f"{corpus_retrieved}"
     )
     L.append(
         f"Sources naming an excerpt number that was not among the retrieved excerpts: "

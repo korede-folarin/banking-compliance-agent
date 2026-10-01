@@ -67,6 +67,7 @@ from src.agent.compliance import (  # noqa: E402
 from src.agent.schemas import LoanAgreementFields  # noqa: E402
 from src.agent.first_pass import FirstPassAgent  # noqa: E402
 from src.config import ANTHROPIC_MODEL, CONFIDENCE_THRESHOLD  # noqa: E402
+from src.retrieval import query_engine  # noqa: E402  (SOURCE_EXCERPT_CHARS, read at call time)
 from src.retrieval.query_engine import SourceCitation, load_index  # noqa: E402
 from tests.fixtures.eval_set import (  # noqa: E402
     EVAL_DOCUMENTS,
@@ -289,12 +290,23 @@ def _resolve_main_output(output: str | None) -> tuple[Path, Path]:
     return output_path, output_path.with_name(f"{output_path.stem}_errors.jsonl")
 
 
+def _select_docs(doc_ids: list[str] | None) -> list[dict]:
+    """EVAL_DOCUMENTS, or only the given ids (for a pilot), in eval-set order. Unknown ids are refused."""
+    if not doc_ids:
+        return EVAL_DOCUMENTS
+    unknown = sorted(set(doc_ids) - {d["id"] for d in EVAL_DOCUMENTS})
+    if unknown:
+        raise SystemExit(f"Unknown doc id(s): {unknown}")
+    return [d for d in EVAL_DOCUMENTS if d["id"] in doc_ids]
+
+
 def cmd_main(args) -> None:
     n_runs = args.n_runs
     output_path, errors_path = _resolve_main_output(args.output)
-    total_calls = len(EVAL_DOCUMENTS) * n_runs * 9
+    docs = _select_docs(getattr(args, "docs", None))
+    total_calls = len(docs) * n_runs * 9
     print(
-        f"Running main pass: {len(EVAL_DOCUMENTS)} docs x {n_runs} runs x 9 calls/run "
+        f"Running main pass: {len(docs)} docs x {n_runs} runs x 9 calls/run "
         f"= {total_calls} Claude API calls.\nOutput: {output_path}"
     )
 
@@ -305,7 +317,7 @@ def cmd_main(args) -> None:
     # per-run failure, log it to the errors file and continue rather than
     # aborting. Skipping is announced loudly, never silent: a re-run that
     # skips everything is exactly the failure item 11 exists to prevent.
-    requested = {(doc["id"], run_idx) for doc in EVAL_DOCUMENTS for run_idx in range(n_runs)}
+    requested = {(doc["id"], run_idx) for doc in docs for run_idx in range(n_runs)}
     existing = {(r["doc_id"], r["run_idx"]) for r in _read_jsonl(output_path)}
     skipped = requested & existing
     if skipped:
@@ -329,7 +341,7 @@ def cmd_main(args) -> None:
     done = len(skipped)
     failed = 0
     total = len(requested)
-    for doc in EVAL_DOCUMENTS:
+    for doc in docs:
         text = _load_doc_text(doc["file"])
         for run_idx in range(n_runs):
             if (doc["id"], run_idx) in skipped:
@@ -393,6 +405,10 @@ def cmd_main(args) -> None:
             # Extraction is a fresh, non-deterministic LLM call per run, so
             # runs 1 and 2 cannot be reconstructed without this.
             record["_cached_fields"] = first_pass.document_fields.model_dump()
+            # Session 25: the excerpt length this run's judge saw (None = whole
+            # chunk), so replay of this row is pinned to it. Rows without it
+            # (Phase 8, the Session 23 pilot) were judged with 300 characters.
+            record["source_excerpt_chars"] = query_engine.SOURCE_EXCERPT_CHARS
             # Only the price_and_value first_pass context is cached for the
             # variant comparison — that's the only outcome P8-04 varies. Kept
             # run-0-only on purpose: `variants` picks one row per document
@@ -516,6 +532,8 @@ def cmd_variants(args) -> None:
                     "judgment": judgment.model_dump(),
                     "retrieved_sources": context["sources"],
                     "_cached_fields": fields,
+                    # The main-pass row's excerpt length: variants reuse its sources.
+                    "source_excerpt_chars": query_engine.excerpt_chars_for(cached),
                 }
                 _append_jsonl(output_path, record)
                 done += 1
@@ -735,6 +753,11 @@ def main() -> None:
 
     p_main = sub.add_parser("main", help="Full pipeline pass (expensive)")
     p_main.add_argument("--n-runs", type=int, default=3)
+    p_main.add_argument(
+        "--docs", nargs="+",
+        help="Only these doc ids (e.g. for a pilot; default: all EVAL_DOCUMENTS). Use a separate --output "
+        "for a pilot, so the full pass doesn't treat pilot rows as already done.",
+    )
     p_main.add_argument(
         "--output",
         help=f"Output JSONL (default: docs/{MAIN_PASS_V2_PATH.name}). The Phase 8 file is refused.",

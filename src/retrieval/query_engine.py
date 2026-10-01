@@ -27,11 +27,24 @@ NO_ANSWER_MESSAGE = (
 
 # Length of the chunk excerpt stored on each SourceCitation. This is the
 # text a compliance judgment is actually shown for each retrieved source.
-# The single source of truth: groundedness.py and claim_verification.py
-# read it as `query_engine.SOURCE_EXCERPT_CHARS` at call time when they
-# rebuild sources by retrieval replay (checklist item 20), so changing it
-# here changes all three.
-SOURCE_EXCERPT_CHARS = 300
+# None = the whole chunk, no truncation (Session 25, pilot finding 2: with
+# 300 characters the judge reasoned from fragments, and its claims went
+# beyond text it never saw).
+# The single source of truth (checklist item 20): run_eval.py records it on
+# every main-pass row as `source_excerpt_chars`, and groundedness.py and
+# claim_verification.py read it from here at call time.
+SOURCE_EXCERPT_CHARS: int | None = None
+
+# The length every row recorded before Session 25 used: the Phase 8 main
+# pass and the Session 23 pilot. Rows without a recorded
+# `source_excerpt_chars` are treated as this, so retrieval replay of those
+# rows stays pinned to what their judge actually saw.
+PHASE8_SOURCE_EXCERPT_CHARS = 300
+
+
+def excerpt_chars_for(row: dict) -> int | None:
+    """The excerpt length a recorded row's judge saw: its own record, else the pre-Session-25 300."""
+    return row["source_excerpt_chars"] if "source_excerpt_chars" in row else PHASE8_SOURCE_EXCERPT_CHARS
 
 
 def _build_system_prompt(corpus_description: str, no_answer_message: str) -> str:

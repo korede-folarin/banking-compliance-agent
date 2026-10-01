@@ -203,3 +203,14 @@ def test_explicit_output_path_is_honoured(fake_env):
     _run_main(output=str(custom))
     assert len(_rows(custom)) == len(ALL_PAIRS)
     assert not fake_env["v2"].exists()
+
+
+def test_docs_flag_limits_the_pass_to_named_documents(fake_env):
+    # Pilot support (Session 23): `main --docs` runs only the named documents.
+    only = TEST_DOCS[1]["id"]
+    run_eval.cmd_main(argparse.Namespace(n_runs=N_RUNS, output=None, docs=[only]))
+    rows = _rows(fake_env["v2"])
+    assert {r["doc_id"] for r in rows} == {only}
+    assert fake_env["calls"]["n"] == N_RUNS
+    with pytest.raises(SystemExit, match="Unknown doc id"):
+        run_eval.cmd_main(argparse.Namespace(n_runs=1, output=None, docs=["not_a_doc"]))

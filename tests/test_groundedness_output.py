@@ -115,7 +115,7 @@ def fake_run(tmp_path, monkeypatch):
 
     scope_calls = {"n": 0}
 
-    def fake_build_scope(main_records):
+    def fake_build_scope(main_records, **_kwargs):
         scope_calls["n"] += 1
         return [
             {

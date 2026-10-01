@@ -208,7 +208,7 @@ def test_variants_defaults_to_v2_file(fake_llm, v2_file, tmp_path, monkeypatch):
 def captured_scope_input(monkeypatch):
     captured = {}
 
-    def fake_build_scope(main_records):
+    def fake_build_scope(main_records, **_kwargs):
         captured["records"] = main_records
         return []
 

@@ -35,10 +35,15 @@ covered run 0 only:
   that outcome/document (typically 5) — what the compliance judgment
   actually had in front of it — not strictly the cited subset. Documented
   here and in ARCHITECTURE.md, not silently assumed.
-- `insufficient_evidence` judgments are excluded: cited_sources is empty by
-  design for them (OutcomeJudgment's own field description), and their
-  reasoning explains an evidence gap rather than asserting a compliance
-  finding against evidence — there is nothing to fact-check.
+- A judgment is in scope if it cites at least one source, whatever its
+  status (Session 24). P8-05 instead excluded every `insufficient_evidence`
+  judgment on the premise that such judgments cite nothing. The data
+  contradicts that: all 31 Phase 8 `insufficient_evidence` judgments cite
+  sources (9 at run 0), as do both in the Session 23 pilot. Only a judgment
+  that cites nothing is excluded now (there is nothing to check it
+  against). `--p8-05-scope` restores P8-05's status-based exclusion, so its
+  published 51-judgment Phase 8 scope stays reproducible; without it the
+  Phase 8 run-0 scope is 60.
 
 Two signals, neither trusted alone:
 
@@ -153,25 +158,34 @@ def extract_claims(reasoning: str) -> list[str]:
     return [s.strip() for s in sentences if len(s.strip()) >= CLAIM_MIN_LENGTH]
 
 
-def reconstruct_sources(retriever, fields: LoanAgreementFields, outcome_key: str) -> list[dict]:
+_CURRENT = object()  # sentinel: use query_engine.SOURCE_EXCERPT_CHARS at call time
+
+
+def reconstruct_sources(
+    retriever, fields: LoanAgreementFields, outcome_key: str, excerpt_chars=_CURRENT
+) -> list[dict]:
     """
     Replays retrieval (zero API cost, deterministic given the question and
     the persisted index) to reconstruct the set of sources a judgment for
     this outcome/document actually saw. Matches
     src.retrieval.query_engine.QueryEngine.query()'s own source-building
-    exactly (same excerpt truncation, query_engine.SOURCE_EXCERPT_CHARS), since that's what's being
+    exactly, since that's what's being
     reconstructed. Spot-checked against the one outcome/run the raw eval
     log DOES cache verbatim (price_and_value, run_idx 0) and reproduced it
     exactly.
     """
     question = QUESTION_BUILDERS[outcome_key](fields)
     nodes = retriever.retrieve(question)
+    # Callers replaying a recorded row pass that row's own excerpt length
+    # (query_engine.excerpt_chars_for), so Phase 8 replay stays at 300
+    # characters whatever the current setting is.
+    n = query_engine.SOURCE_EXCERPT_CHARS if excerpt_chars is _CURRENT else excerpt_chars
     return [
         {
             "index": i,
             "file_name": node.metadata.get("file_name", "unknown"),
             "similarity_score": node.score or 0.0,
-            "text_excerpt": node.text[: query_engine.SOURCE_EXCERPT_CHARS],
+            "text_excerpt": node.text[:n],
         }
         for i, node in enumerate(nodes, start=1)
     ]
@@ -224,11 +238,36 @@ def compute_signal1_cited(reasoning: str, cited_sources: list[dict]) -> dict:
     return {"per_chunk": per_chunk, "min": min(scores), "mean": sum(scores) / len(scores)}
 
 
-def build_scope(main_records: list[dict]) -> list[dict]:
+def cites_anything(o: dict) -> bool:
     """
-    Builds the full in-scope judgment list (every run, all 4 outcomes,
-    llm_status != insufficient_evidence) with sources, Signal 1, and
-    extracted claims. Zero API cost — safe to call from `plan`.
+    Whether a judgment cites at least one source, from what the row actually
+    recorded: the raw citation list (rows since checklist item 9), else the
+    resolved list (citation logging, item 1), else Phase 8's
+    `cited_source_count`. Raw first: it is what the judge said it relied on,
+    before resolution dropped any out-of-range numbers.
+    """
+    if "cited_sources_raw" in o:
+        return bool(o["cited_sources_raw"])
+    if "cited_sources" in o:
+        return bool(o["cited_sources"])
+    return o.get("cited_source_count", 0) > 0
+
+
+SCOPE_RULE_CITES = "cites_anything"
+SCOPE_RULE_P8_05 = "p8_05_status"
+
+
+def build_scope(main_records: list[dict], p8_05_scope: bool = False) -> list[dict]:
+    """
+    Builds the full in-scope judgment list (every run, all 4 outcomes) with
+    sources, Signal 1, and extracted claims. Zero API cost — safe to call
+    from `plan`.
+
+    Which judgments are in scope (Session 24): every judgment that cites at
+    least one source (`cites_anything`), whatever its status. With
+    p8_05_scope=True, P8-05's original rule instead: every judgment except
+    `insufficient_evidence` ones, by status. Either way the count excluded,
+    and why, is printed.
 
     Checklist item 10: any run is in scope. Sources come from the row's saved
     `retrieved_sources` (item 6; exactly what the judge saw) when present,
@@ -238,6 +277,8 @@ def build_scope(main_records: list[dict]) -> list[dict]:
     """
     retriever = None
     skipped_rows: list[tuple[str, int]] = []
+    excluded: list[str] = []
+    rule = SCOPE_RULE_P8_05 if p8_05_scope else SCOPE_RULE_CITES
 
     scope: list[dict] = []
     for r in main_records:
@@ -249,20 +290,22 @@ def build_scope(main_records: list[dict]) -> list[dict]:
         fields = LoanAgreementFields(**r["_cached_fields"]) if "_cached_fields" in r else None
         for outcome_key in OUTCOME_KEYS:
             o = r["outcomes"][outcome_key]
-            if o["llm_status"] == "insufficient_evidence":
+            if (o["llm_status"] == "insufficient_evidence") if p8_05_scope else not cites_anything(o):
+                excluded.append(f"{r['doc_id']} run {run_idx} {outcome_key} ({o['llm_status']})")
                 continue
             if "retrieved_sources" in o:
                 sources = o["retrieved_sources"]
             else:
                 if retriever is None:
                     retriever = load_index().as_retriever(similarity_top_k=5)
-                sources = reconstruct_sources(retriever, fields, outcome_key)
+                sources = reconstruct_sources(retriever, fields, outcome_key, query_engine.excerpt_chars_for(r))
             signal1 = compute_signal1(o["reasoning"], sources)
             claims = extract_claims(o["reasoning"])
             scope.append(
                 {
                     "doc_id": r["doc_id"],
                     "run_idx": run_idx,
+                    "scope_rule": rule,
                     "outcome": outcome_key,
                     "ground_truth": r["ground_truth"][outcome_key],
                     "llm_status": o["llm_status"],
@@ -278,6 +321,9 @@ def build_scope(main_records: list[dict]) -> list[dict]:
                     "claims": claims,
                 }
             )
+    if excluded:
+        why = "insufficient_evidence, excluded by status (--p8-05-scope)" if p8_05_scope else "cite no sources"
+        print(f"NOTE: {len(excluded)} judgment(s) excluded because they {why}: " + ", ".join(excluded))
     if skipped_rows:
         print(
             f"NOTE: skipped {len(skipped_rows)} main-pass row(s) with neither saved retrieved_sources nor "
@@ -303,12 +349,16 @@ def _load_main_records(args) -> list[dict]:
 def cmd_plan(args) -> None:
     main_records = _load_main_records(args)
 
-    scope = build_scope(main_records)
+    scope = build_scope(main_records, p8_05_scope=getattr(args, "p8_05_scope", False))
     total_claims = sum(len(j["claims"]) for j in scope)
     zero_claim_judgments = [j for j in scope if not j["claims"]]
 
     runs = sorted({j["run_idx"] for j in scope})
-    print(f"In-scope judgments (runs {runs}, all 4 outcomes, llm_status != insufficient_evidence): {len(scope)}")
+    rule = (
+        "llm_status != insufficient_evidence (--p8-05-scope)" if getattr(args, "p8_05_scope", False)
+        else "cites at least one source, any status"
+    )
+    print(f"In-scope judgments (runs {runs}, all 4 outcomes, {rule}): {len(scope)}")
     by_outcome: dict[str, int] = {}
     for j in scope:
         by_outcome[j["outcome"]] = by_outcome.get(j["outcome"], 0) + 1
@@ -401,7 +451,7 @@ def cmd_run(args) -> None:
     print(f"Report output: {output_path}")
     main_records = _load_main_records(args)
 
-    scope = build_scope(main_records)
+    scope = build_scope(main_records, p8_05_scope=getattr(args, "p8_05_scope", False))
     total_claims = sum(len(j["claims"]) for j in scope)
     print(f"Running Signal 2: {total_claims} narrow per-claim LLM calls across {len(scope)} judgments.")
 
@@ -441,10 +491,15 @@ def _write_report(scope: list[dict], output_path: Path) -> None:
     )
     lines.append("")
     lines.append(
-        f"**Scope**: runs {sorted({j.get('run_idx', 0) for j in scope})}, all 4 outcomes, judgments where "
-        "`llm_status` is `compliant` or `potentially_non_compliant` (not "
-        "`insufficient_evidence`, which has no cited evidence to check by "
-        "design). See this file's generating script, "
+        f"**Scope**: runs {sorted({j.get('run_idx', 0) for j in scope})}, all 4 outcomes, "
+        + (
+            "judgments where `llm_status` is `compliant` or `potentially_non_compliant` (P8-05's "
+            "original rule, `--p8-05-scope`: `insufficient_evidence` excluded by status)"
+            if scope and scope[0].get("scope_rule") == SCOPE_RULE_P8_05
+            else "judgments that cite at least one source, whatever their status (`insufficient_evidence` "
+            f"judgments in scope: {sum(1 for j in scope if j['llm_status'] == 'insufficient_evidence')})"
+        )
+        + ". See this file's generating script, "
         "`src/evaluation/groundedness.py`, for which runs are usable (Phase 8 data: run 0 only), and "
         "why both signals are computed against the full retrieved source set "
         "rather than a reconstructed \"cited-only\" subset — both are real, "
@@ -508,16 +563,24 @@ def _write_report(scope: list[dict], output_path: Path) -> None:
     output_path.write_text("\n".join(lines), encoding="utf-8")
 
 
+P8_05_SCOPE_HELP = (
+    "Reproduce P8-05's original scope: exclude every insufficient_evidence judgment by status "
+    "(default: exclude only judgments that cite no sources)."
+)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Groundedness/faithfulness cross-check (P8-05)")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_plan = sub.add_parser("plan", help="Zero-API-cost dry run: reports exact Signal-2 call count")
     p_plan.add_argument("--input", help=INPUT_HELP)
+    p_plan.add_argument("--p8-05-scope", action="store_true", help=P8_05_SCOPE_HELP)
     p_plan.set_defaults(func=cmd_plan)
 
     p_run = sub.add_parser("run", help="Runs Signal 2 (real API calls) and writes a groundedness report")
     p_run.add_argument("--input", help=INPUT_HELP)
+    p_run.add_argument("--p8-05-scope", action="store_true", help=P8_05_SCOPE_HELP)
     p_run.add_argument(
         "--output",
         help=(

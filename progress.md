@@ -5,6 +5,360 @@ Newest entry at the top.
 
 ---
 
+## Session 25 — 2026-10-01
+**Status:** Pilot finding 2 fixed with Option A: the judge and the claim
+checker see each retrieved chunk in full, not its first 300 characters.
+Built and tested offline, then confirmed by an approved 2-document re-pilot
+(18 API requests, exactly as planned, no retries), then its approved claim
+check (27 requests, no retries). 45 API requests this session in total.
+P8-07 stays `passes: false`.
+
+**Done: whole-chunk excerpts, with every row's length recorded and replay
+pinned**
+- `src/retrieval/query_engine.py`:
+  - `SOURCE_EXCERPT_CHARS = None`: no truncation; `node.text[:None]` is
+    the whole chunk.
+  - `PHASE8_SOURCE_EXCERPT_CHARS = 300`: the length every pre-Session-25
+    row used.
+  - New `excerpt_chars_for(row)`: a row's recorded length, else 300.
+  These stay the single source of truth (item 20): no other file holds a
+  length.
+- `run_eval main` records `source_excerpt_chars` on every row (`null` =
+  whole chunk). `variants` and `claim_verification judge`/`ingest` record
+  the length of the row they build on. Rows without it (Phase 8, the
+  Session 23 pilot) count as 300.
+- Every replay of a recorded row uses that row's own length:
+  `groundedness.reconstruct_sources`, `claim_verification.replay_sources`
+  in the `plan` spot check, and the `judge` fallback. Called without a row
+  (tests), they still follow the current constant.
+- The claim-check report sentence that printed the excerpt length no
+  longer assumes a fixed length.
+- A self-inflicted bug was caught before any test ran: in `replay_sources`
+  the length variable shadowed the loop's node variable. Fixed, with the
+  length renamed `limit`.
+
+**Tests (offline: no API calls, no Chroma, no embedding model)**
+- New `tests/test_full_chunk_excerpts.py` (6 tests):
+  - the query engine now saves whole chunks;
+  - `excerpt_chars_for` reads the row, else 300 (no Phase 8 row records
+    a length);
+  - groundedness replay of Phase 8 rows stays at 300, while a new row
+    replays at its own recorded length;
+  - the claim_verification spot-check replay and `judge` fallback on Phase
+    8 input give the re-judge exactly 300-character excerpts and record
+    300;
+  - `main` records `source_excerpt_chars: null` with whole-chunk sources,
+    and `ingest` carries the length forward (`null` for new rows, 300 for
+    an older row without it).
+- `tests/test_excerpt_length_single_source.py` (item 20): updated to the
+  new value. The constant is `None`, the legacy value 300, and all three
+  paths now give the whole chunk; overriding to 40 still changes all
+  three.
+- All offline re-run tests: 91 passing. Protected `docs/` hashes are
+  unchanged, and no new files appeared in `docs/`.
+- Zero-cost real-data check (real Chroma, no API): the
+  `claim_verification plan` replay spot check still reproduces the cached
+  300-character sources 5/5 for all 4 documents, for both the Phase 8 file
+  and the Session 23 pilot file.
+
+**Re-pilot (approved ~18 calls; used exactly 18)**
+- `run_eval main --n-runs 1 --docs loan_agreement_2 loan_agreement_12
+  --output docs/eval_raw_main_pass_repilot.jsonl`: 2/2 runs, 0 failed, 18
+  requests, 9 per document, no retries. These two documents were chosen
+  because they had the most truncated-quote `partially` verdicts in
+  Session 23 (3 each).
+- Checked on the real rows: no problems. `source_excerpt_chars` is `null`
+  on both. Every saved excerpt equals its full corpus chunk (874-2,420
+  characters, mean about 2,100). Every judgment round-trips.
+- **0 of 28 regulatory quotes now end at the end of their excerpt** (18 of
+  39 did in Session 23).
+- Zero cost: `claim_verification ingest` copied 2 pairs into
+  `docs/eval_raw_main_pass_repilot_claim_judgments.jsonl`, and the `plan`
+  spot check matched 5/5 at the rows' recorded full length. The mechanical
+  checks found:
+  - regulatory quotes: 26 `named_chunk/normalised`, 1
+    `named_chunk/fuzzy`, 1 `not_found`;
+  - the first live multi-source claim (26 single-source, 1 two-source);
+  - document facts: 3 exact, 15 normalised, 2 not found;
+  - 4 `absent_from_document` absences.
+- **The one `not_found` regulatory quote is a splice, not an invention.**
+  The judge joined two non-adjacent passages of the named chunk with "...".
+  Both halves are in the chunk, but the in-order word match scored 0.87,
+  just under the 0.9 fuzzy cut-off. This is documented in ARCHITECTURE.md
+  as a limitation; the cut-off was not changed.
+- **Finding 3 recurred.** Both `document_facts` not found are again the
+  extractor's placeholder `"Not addressed in this document."`.
+- Statuses: the judge's own `llm_status` was 2 `potentially_non_compliant`
+  and 6 `compliant`. 5 of the 8 were overridden to `insufficient_evidence`
+  by the 0.65 threshold. Not compared with Phase 8 or the Session 23 pilot:
+  the judge's input differs from both.
+
+**Re-pilot claim check (approved 27; used exactly 27, no retries).**
+Outputs: `docs/eval_raw_main_pass_repilot_claim_judgments_checks.jsonl`,
+`..._checks_results.jsonl`, `..._checks_report.md`.
+
+| Run | Docs | Claims | yes | partially | no |
+|---|---|---|---|---|---|
+| Session 23 (300 chars) | all 4 | 39 | 29 | 10 (26%) | 0 |
+| Session 23 (300 chars) | `_2` + `_12` | 21 | 13 | 8 (38%) | 0 |
+| Session 25 (whole chunks) | `_2` + `_12` | 27 | 21 | 6 (22%) | 0 |
+
+- On the same two documents, the `partially` rate went from 38% to 22%.
+- The mechanism changed. In Session 23, 7 of 10 `partially` claims quoted
+  text ending at the 300-character cut-off. In the re-pilot, 0 of 6 did.
+  The 6 remaining `partially` claims each go beyond a fully visible source:
+  - one claim bundles several obligations;
+  - three add an inference ("so firms should ensure clear access points",
+    "alongside ... ability to exit", "including the cost of providing
+    credit");
+  - one overstates ("can be technical" becomes "may not be sufficient");
+  - one is the spliced-quote claim.
+- 0 quote-vs-LLM disagreements, 0 `no` verdicts.
+- Caveats: very small samples (21 vs. 27 claims, 2 documents, 1 run each);
+  the re-pilot re-judged from scratch, so the claims themselves differ and
+  LLM run-to-run variance is mixed in; per-outcome changes go both ways.
+  The truncation mechanism's removal is confirmed; the size of the rate
+  drop is an observation, not a measured effect. The full pass will give a
+  usable sample.
+
+**Next:**
+- The full 15-document, 3-run pass, with call counts approved first.
+  Each judge call is now about 2x the input tokens (see ARCHITECTURE.md).
+
+**Known issues:**
+- Session 23/24 items unchanged, plus the spliced-quote limitation above.
+
+**Notes:**
+- Not committed or pushed by Claude; the user is reviewing and committing.
+
+---
+
+## Session 24 — 2026-10-01
+**Status:** Follow-ups from the Session 23 pilot, before the full pass.
+P8-07 reverted to `passes: false`. Pilot finding 4 fixed (groundedness
+scope) and tested offline. Findings 3 and 5 documented. A proposal for
+finding 2 (excerpt truncation) was made, NOT implemented, pending a
+decision. Zero API calls.
+
+**P8-07 back to `passes: false`: mechanism validated vs. re-run done.**
+The Session 23 pilot validated the pipeline *mechanism*: all 20 checklist
+items working together end to end on real documents and the live API.
+P8-07 is about the comprehensive re-run itself, which hasn't happened yet.
+It stays `false` until the full 15-document, 3-run pass has run and been
+checked. P8-06 (the verifier) stays `true`: it was run end to end on real
+data with checked output, which is its own acceptance bar.
+
+**Finding 4 fixed: groundedness scope follows citations, not status**
+- The premise was wrong more widely than the pilot showed. All 31 Phase 8
+  `insufficient_evidence` judgments cite sources (9 at run 0), not just the
+  pilot's 2. P8-05's exclusion had silently dropped judgments that did
+  cite evidence.
+- `groundedness.py`:
+  - New `cites_anything(o)`: raw citations (item 9) if recorded, else the
+    resolved list, else Phase 8's `cited_source_count`.
+  - `build_scope` now excludes only judgments that cite nothing, whatever
+    their status, and prints each exclusion. Scope entries record which
+    rule was used, and the report's scope line states it, including how
+    many `insufficient_evidence` judgments are in scope.
+  - `--p8-05-scope` (on `plan` and `run`) restores the old status-based
+    exclusion, so P8-05's published 51-judgment Phase 8 scope stays
+    reproducible. Without it, the Phase 8 run-0 scope is 60 and the pilot
+    scope is 16 (was 14).
+- Tests:
+  - New `tests/test_groundedness_scope.py` (5 tests):
+    - `cites_anything` across all three row formats, including an
+      out-of-range raw citation counting as a citation;
+    - an `insufficient_evidence` judgment with citations is in scope, and
+      uncited judgments of any status are excluded and listed;
+    - `--p8-05-scope` restores status-based exclusion;
+    - on the real pilot file (read-only), the old rule gives 14 judgments
+      and the new rule 16, the extra two being exactly `loan_agreement_1`
+      and `_12` consumer_support;
+    - the CLI flag reaches `build_scope`.
+  - `tests/test_rerun_final_batch.py`: the Phase 8 scope test now asserts
+    both 51 (`--p8-05-scope`) and 60 (default, including the 9
+    `insufficient_evidence` judgments).
+  - Two `build_scope` fakes now accept the new keyword. Nothing they
+    check changed.
+  - 85 offline tests pass. Protected `docs/` hashes are unchanged, and no
+    new files appeared in `docs/`.
+
+**Findings 3 and 5 documented** as known limitations in ARCHITECTURE.md:
+the judge quoting the extraction's sentinel as a "document fact", and the
+`absent_from_document` label being coarse for two-field outcomes. No code
+change.
+
+**Finding 2 (truncated excerpts): proposal only, awaiting a decision.**
+See this session's chat for the full recommendation. In short:
+- The data says the issue is not "false partially" verdicts in the
+  checker. In the 7 truncated `partially` cases, the judge's claims go
+  beyond the 300 characters it saw; sometimes the text after the cut-off
+  supports them, sometimes it doesn't. The checker is correctly reporting
+  that the visible text doesn't fully support the claim.
+- Recommended: show the judge (and the claim checker) the full chunk
+  instead of 300 characters. Measured on the pilot, that roughly doubles
+  the judge's input, from about 2,300 to about 4,600 tokens per call, and
+  adds about 410k input tokens over the full pass's 180 judgments.
+- Not recommended: making the quote check tolerant of truncation. The
+  quote check already finds every quote (39/39 in the named excerpt), so
+  that option would change nothing about the verdicts.
+
+**Next:**
+- Decide on finding 2. If the excerpt is extended, it's another
+  judge-input change: build it offline (including keeping Phase 8 replay
+  at 300 characters), then a small re-pilot before the full pass.
+- Then the full 15-document, 3-run pass, with call counts approved first.
+
+**Known issues:**
+- Unchanged from Session 23, except finding 4 (fixed) and findings 3 and 5
+  (now documented in ARCHITECTURE.md).
+
+**Notes:**
+- Not committed or pushed by Claude; the user is reviewing and committing.
+
+---
+
+## Session 23 — 2026-10-01
+**Status:** Real pilot run on the fully rebuilt pipeline (all 20 checklist
+items). 4 documents (`loan_agreement_1`, `_2`, `_3`, `_12`), run 0 only,
+all 4 outcomes. Both stages were approved beforehand with exact call
+counts. 141 real API requests in total; 0 failed runs. The pipeline worked
+end to end. This pilot confirms the pipeline works; it does NOT produce
+results comparable to Phase 8 (item 4 changed the judge's input, see
+ARCHITECTURE.md "Evaluation notes"). No better/worse conclusions are drawn
+here.
+
+**Code change (offline, before any calls)**
+- `run_eval main` had no way to limit a run to some documents. Added
+  `--docs`, which restricts the pass to the named eval-set documents and
+  refuses unknown ids. One new offline test in
+  `tests/test_run_eval_main_output.py`. All 80 offline tests pass.
+- The pilot wrote to its own file (`--output
+  docs/eval_raw_main_pass_pilot.jsonl`), so the full pass's default file
+  (`eval_raw_main_pass_v2.jsonl`) stays empty. Otherwise item 11's resume
+  would make the full pass skip these 4 documents.
+
+**Stage 1: main pass (approved 36 nominal, 96 ceiling; used 39)**
+- `run_eval main --n-runs 1 --docs ... --output
+  docs/eval_raw_main_pass_pilot.jsonl`: 4/4 runs recorded, 0 failed.
+- 39 requests instead of 36, all `200 OK`, nothing logged. Per document:
+  `loan_agreement_1` 9, `_2` 11, `_3` 10, `_12` 9. Almost certainly
+  instructor's silent validation retries (a response failed schema
+  validation and was re-requested). This could only be inferred, not
+  confirmed (see Known issues).
+- **Step 1, checked on the real records:** every one of the 16 judgments
+  saved correctly, with no problems found.
+  - all per-outcome fields are present;
+  - the full `judgment` round-trips through `OutcomeJudgment`, including
+    `document_facts` (34), `regulatory_requirements` (39) and `absences`
+    (7: 4 about the document, 3 about the regulation);
+  - `retrieved_sources` has 5 per outcome, all with node IDs;
+  - `cited_sources_raw` equals the judgment's own list;
+  - `_cached_fields` is present, and `_cached_price_and_value_context`
+    appears on run 0 only.
+
+**Stage 2: checking on live output (approved 102 exact; used 102)**
+- Zero cost:
+  - `summary --input` the pilot file worked. It warned "4 of 15 expected
+    rows", which is item 15 behaving correctly on a deliberate pilot.
+  - `claim_verification ingest` copied the 4 real pairs.
+  - `claim_verification plan` replay spot check: 5/5 sources identical for
+    all 4 documents.
+  - `groundedness plan` found 14 in-scope judgments and 63 claims.
+- `claim_verification check`: exactly 39 requests, no retries. Outputs:
+  - store `docs/eval_raw_main_pass_pilot_claim_judgments_checks.jsonl`;
+  - full records `..._checks_results.jsonl`;
+  - report `..._checks_report.md`.
+- `groundedness run`: exactly 63 requests, no retries. Report:
+  `docs/eval_groundedness_eval_raw_main_pass_pilot.md`.
+- The Phase 8 files' hashes are unchanged: `eval_raw_main_pass.jsonl`,
+  `eval_summary.json`, `eval_groundedness.md`, `eval_results.md` and
+  `eval_recall_at_k.json`. Item 19's refusal held on a live run.
+
+**Step 3: where live output differed from what the offline tests
+predicted, or looked notable (reported as facts, not judged)**
+1. **Three silent retries in stage 1** (above). The offline fakes never
+   produce a validation failure, so this is new.
+2. **Most regulatory quotes match "normalised", not "exact"**: 7 exact,
+   31 normalised, 1 fuzzy, 0 not found. This comes from line breaks and
+   curly quotes in the PDF-derived excerpts, which normalisation exists to
+   handle; the offline tests mostly used clean text.
+3. **18 of 39 regulatory quotes end exactly at the 300-character excerpt
+   cut-off**, some mid-word (e.g. "...for whom they were not d"). The judge
+   quotes up to the end of what it was shown. Of the 10 claims the LLM
+   check marked `partially`, 7 have a quote ending at the cut-off; 11 of
+   the 29 `yes` claims do too.
+4. **The one `document_facts` quote not found is the extraction's
+   placeholder.** For `loan_agreement_12` / consumer_understanding the
+   judge "quoted" `"Not addressed in this document."`. That is the
+   extractor's sentinel value, not text in the agreement. Even with the
+   full document in its input (item 4), the judge quoted the extracted
+   statement in this one case.
+5. **Two `insufficient_evidence` judgments cite sources.**
+   `loan_agreement_1` and `_12` consumer_support each cite 3 excerpts.
+   `groundedness.py` still excludes `insufficient_evidence` judgments on
+   the stated premise that their cited sources are empty by design (from
+   P8-05, Phase 8 data). In this live data that premise does not hold.
+   They were excluded from groundedness (14 of 16 in scope) but included
+   in the claim check.
+6. **The absence check is coarse.** `loan_agreement_1` price_and_value
+   has the claim "No specific amount for ... charges is stated", about
+   fees. It was labelled `extracted_field_marked_not_addressed` because
+   the other price_and_value field (`fair_value_justification`) is the
+   sentinel, while `fees` itself is not. The rule ("any of the outcome's
+   fields is marked not addressed") can attach the label to a claim about
+   a different field.
+7. **Parts of the verifier were not exercised by live data:**
+   - 0 multi-source claims (the description asks for single-source
+     wherever possible);
+   - 0 quotes found outside the named excerpt, so the
+     `other_retrieved_chunk`, `corpus_not_retrieved` and `not_found`
+     tiers were not reached;
+   - 0 out-of-range citations, so item 9's raw-vs-resolved difference
+     never showed;
+   - 0 excerpts named outside `cited_sources`.
+   Those paths remain tested offline only.
+8. **The claim check had 0 disagreements between the quote check and the
+   LLM check** (all 39 quotes in the named excerpt; LLM 29 `yes`, 10
+   `partially`, 0 `no`). The groundedness run (P8-05 method) again had 0
+   `clean` judgments (2 `agree_flagged`, 12 `disagreement`), the same
+   pattern P8-05 documented for the regex splitter on Phase 8 data.
+9. **8 of the 16 judgments had their status overridden to
+   `insufficient_evidence` by `CONFIDENCE_THRESHOLD` (0.65)**: the minimum
+   cited-source similarity was below 0.65. This is existing P4-02
+   behaviour, previously documented on Phase 8 data.
+10. **No errors and no workarounds were needed.** Every command ran first
+    time on live output; nothing had to be patched mid-run.
+
+**Step 4: no comparison with Phase 8.** Statuses differ from Phase 8 for
+some of these documents, but this run's judge saw a different input (item
+4), so no better/worse reading is made or implied.
+
+- feature_list.json: P8-06 set `passes: true` (run end to end on real
+  documents with checked output). P8-07 set `passes: true` (all 20
+  prerequisites confirmed working together live). The full 15-document,
+  3-run pass is a separate next step, not part of either item.
+
+**Next:**
+- The full 15-document, 3-run main pass (405 calls nominal) to
+  `docs/eval_raw_main_pass_v2.jsonl`, then `summary`, `ingest` + `check`,
+  and groundedness, each with call counts approved first. Before it:
+  pause OneDrive sync, don't re-ingest the corpus, re-check `.env`
+  (`claude-sonnet-5`, `0.65` as of this session) and the shell.
+- Findings 3-6 above are candidates to decide on before or after the full
+  pass; none is built or changed here.
+
+**Known issues:**
+- Instructor retry attempts aren't logged, which is why stage 1's 39 vs.
+  36 call discrepancy could only be inferred, not confirmed. Known
+  limitation, not a new checklist item.
+- Findings 3-6 under Step 3.
+
+**Notes:**
+- Not committed or pushed by Claude; the user is reviewing and committing.
+
+---
+
 ## Session 22 — 2026-09-29 to 2026-10-01
 **Status:** Six deferred-checklist items built and tested offline: 4, 10,
 12, 14, 15 and 16, built in that order. They are recorded separately below.

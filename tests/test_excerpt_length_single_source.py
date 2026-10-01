@@ -74,7 +74,10 @@ def _all_excerpt_lengths(fields):
 
 
 def test_single_constant_is_defined_in_the_query_engine():
-    assert query_engine.SOURCE_EXCERPT_CHARS == 300
+    # Session 25 (Option A): None = the whole chunk. 300 is kept only as the
+    # pre-Session-25 value for pinning replay of older rows.
+    assert query_engine.SOURCE_EXCERPT_CHARS is None
+    assert query_engine.PHASE8_SOURCE_EXCERPT_CHARS == 300
     assert "node.text[:SOURCE_EXCERPT_CHARS]" in inspect.getsource(query_engine.QueryEngine.query)
 
 
@@ -87,8 +90,9 @@ def test_neither_evaluation_file_hardcodes_the_length():
 
 
 def test_all_three_use_the_current_value(fields):
+    full = len(LONG_TEXT)  # SOURCE_EXCERPT_CHARS is None: whole chunk, no truncation
     assert _all_excerpt_lengths(fields) == {
-        "query_engine": {300}, "groundedness": {300}, "claim_verification": {300},
+        "query_engine": {full}, "groundedness": {full}, "claim_verification": {full},
     }
 
 

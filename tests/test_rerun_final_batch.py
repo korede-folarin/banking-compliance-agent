@@ -241,9 +241,15 @@ def test_item10_groundedness_phase8_scope_unchanged(no_embeddings, monkeypatch):
             return []
 
     monkeypatch.setattr(groundedness, "load_index", lambda: _Retriever())
-    scope = groundedness.build_scope(PHASE8_ROWS)
-    assert {j["run_idx"] for j in scope} == {0}
-    assert len(scope) == 51  # the P8-05 scope, reproduced
+    # P8-05's published scope stays reproducible with its original rule...
+    legacy = groundedness.build_scope(PHASE8_ROWS, p8_05_scope=True)
+    assert {j["run_idx"] for j in legacy} == {0}
+    assert len(legacy) == 51
+    # ...while the default (Session 24) also keeps the 9 run-0 insufficient_evidence
+    # judgments, all of which cite sources.
+    default = groundedness.build_scope(PHASE8_ROWS)
+    assert len(default) == 60
+    assert sum(1 for j in default if j["llm_status"] == "insufficient_evidence") == 9
 
 
 @pytest.fixture

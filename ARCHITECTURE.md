@@ -526,6 +526,18 @@ disagreement counts and specific disagreement cases) and its own scope
 caveat (checked against the full retrieved source set, not a verified
 cited-only subset — see "Evaluation notes" below for why).
 
+**Scope rule corrected (Session 24).** P8-05 excluded every
+`insufficient_evidence` judgment, on the premise that such judgments cite
+nothing. The data contradicts that premise: all 31 Phase 8
+`insufficient_evidence` judgments cite sources (9 of them at run 0), and so
+did both in the Session 23 pilot. `groundedness.py` now decides scope per
+judgment from what it actually cited (`cites_anything`: raw citations, else
+resolved citations, else Phase 8's `cited_source_count`). Only judgments
+that cite nothing are excluded, and the exclusions are printed.
+`--p8-05-scope` restores the original status-based rule, so P8-05's
+published 51-judgment scope stays reproducible. Under the new rule the
+Phase 8 run-0 scope would be 60.
+
 ## Structured-claim verification (P8-06)
 Replaces P8-05's Signal 2 Part A (the regex sentence splitter). P8-05 found
 that splitting free-text reasoning into sentences produced claims of mixed
@@ -627,11 +639,71 @@ against the full retrieved set; see that file's correction.
 **This is this project's own method**, built for this pipeline. It is not
 a published or validated evaluation protocol, and is not presented as one.
 
-Pilot: built, not yet run; deferred to the comprehensive re-run (see
-"Evaluation notes" below). When run, `check` appends each claim-check
-result to `docs/eval_claim_pilot_checks.jsonl` and writes raw facts only to
-`docs/eval_claim_pilot_checks_report.md` (full per-judgment records in
-`docs/eval_claim_pilot_checks_results.jsonl`).
+**Known limitations found in the Session 23 real pilot** (documented, not
+changed in code):
+- **The judge can quote the extraction instead of the document.** For
+  `loan_agreement_12` / consumer_understanding the judge gave the
+  `document_facts` quote `"Not addressed in this document."`. That is the
+  extractor's sentinel value, which appears in the extracted statement but
+  not in the agreement. This happened even though, since item #4, the judge
+  sees the full document. The quote check reports it correctly as not
+  found in the document. It is a real miss, not a checker error. But a
+  reader should know a `document_facts` "not found" can mean "quoted the
+  extracted statement", not only "invented a quote". With the extracted
+  statement still in the judge's message, this can recur.
+- **The `absent_from_document` check is coarse for multi-field outcomes.**
+  It labels an absence `extracted_field_marked_not_addressed` if ANY of
+  the outcome's extracted fields is the sentinel. Price and Value has two
+  (`fees`, `fair_value_justification`). In the pilot, a claim that "no
+  specific amount for ... charges is stated" (about `fees`) got that label
+  because `fair_value_justification` was the sentinel, while `fees` itself
+  was not. The label records a fact about the outcome's fields, not
+  confirmation of the specific claimed absence. Read it as "an extracted
+  field for this outcome is marked not addressed", nothing more.
+- **Spliced quotes can read as `not_found`** (found in the Session 25
+  re-pilot). The judge sometimes joins two non-adjacent passages of the same
+  excerpt with "...". Both parts are verbatim in the chunk, but the joined
+  string is not contiguous text. The in-order word match then scores below
+  its 0.9 "fuzzy" cut-off (0.87 in the one live case), and the quote is
+  labelled `not_found` although nothing was invented. A `not_found` with a
+  high best fuzzy score should be read with this in mind. The cut-off was
+  not lowered: it would also admit genuinely altered quotes.
+- **Placeholder quotes recur.** In the Session 25 re-pilot the judge again
+  gave `"Not addressed in this document."` as a `document_facts` quote,
+  twice (see the first limitation above).
+
+**Excerpt length: the whole chunk, since Session 25 (pilot finding 2).**
+In the Session 23 pilot the judge saw only the first 300 characters of each
+retrieved chunk. 18 of 39 regulatory quotes ended exactly at that cut-off,
+some mid-word, and the judge's claims went beyond text it never saw. The
+claim checker's `partially` verdicts on those were accurate relative to
+the visible text. So `query_engine.SOURCE_EXCERPT_CHARS` is now `None`: the
+judge, and the claim checker, see each retrieved chunk in full. This
+roughly doubles the judge's input (measured on the pilot: about 2,300 to
+about 4,600 tokens per call).
+- **Comparability.** This is a second change to the judge's input, after
+  item #4, so post-Session-25 judgments are not comparable to the Session
+  23 pilot's either, let alone Phase 8.
+- **Every row records its own length.** Each main-pass, variant and
+  ingested row records `source_excerpt_chars` (`null` = whole chunk). Rows
+  without it (Phase 8, the Session 23 pilot) were judged with 300
+  characters.
+- **Replay is pinned.** Every retrieval replay of a recorded row
+  (`groundedness.reconstruct_sources`, `claim_verification.replay_sources`
+  in the `plan` spot check and the `judge` fallback) uses that row's length
+  via `query_engine.excerpt_chars_for`, never the current setting. So
+  Phase 8 replay stays exactly 300 characters, verified on real data: the
+  spot check still reproduces Phase 8's and the pilot's cached sources 5/5.
+- **The re-pilot confirmed the effect.** In the Session 25 re-pilot (2
+  documents), 0 of 28 regulatory quotes ended at their excerpt's end, and
+  every saved excerpt equalled its full corpus chunk.
+
+Pilot: run for real in Session 23 (4 documents, run 0) on a separate main
+pass (`docs/eval_raw_main_pass_pilot.jsonl`). Its own judgments were
+ingested and checked: claim-check report
+`docs/eval_raw_main_pass_pilot_claim_judgments_checks_report.md`, raw facts
+only. The pilot validated the mechanism. It is not the comprehensive
+re-run, and its results are not comparable to Phase 8 (item #4).
 
 ## Decision trade-offs (fill in as built; this is the judgement section)
 | Decision | Chosen | Rejected | Why |
