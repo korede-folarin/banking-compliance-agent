@@ -7,7 +7,9 @@ from anthropic import Anthropic
 from pydantic import BaseModel, Field
 
 from src.agent.first_pass import FirstPassAgent, FirstPassResult
+from src.agent import retry_log
 from src.agent.schemas import LoanAgreementFields
+from src.agent.structured_output import single_tool_choice
 from src.config import ANTHROPIC_MODEL, CONFIDENCE_THRESHOLD
 from src.mcp_server.client import call_tools
 from src.retrieval.query_engine import QueryResult, SourceCitation
@@ -228,12 +230,13 @@ class ComplianceAgent:
     """
 
     def __init__(self):
-        self._client = instructor.from_anthropic(Anthropic())
+        self._client = retry_log.attach(instructor.from_anthropic(Anthropic()), "judge")
 
     def _judge(
         self, outcome_name: str, document_statement: str, document_text: str, context: QueryResult
     ) -> OutcomeJudgment:
         user_message = build_judgment_user_message(outcome_name, document_statement, document_text, context.sources)
+        retry_log.update_context(outcome=outcome_name)  # observe-only: labels any retry record
         return self._client.messages.create(
             model=ANTHROPIC_MODEL,
             # 4096, not 1024: the P8-06 structured-claim fields (verbatim
@@ -243,6 +246,7 @@ class ComplianceAgent:
             system=COMPLIANCE_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
             response_model=OutcomeJudgment,
+            tool_choice=single_tool_choice(OutcomeJudgment),
         )
 
     def evaluate(self, first_pass: FirstPassResult, document_text: str) -> dict[str, OutcomeJudgment]:
@@ -351,6 +355,7 @@ class ComplianceAgent:
             system=MCP_ENRICHED_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
             response_model=OutcomeJudgment,
+            tool_choice=single_tool_choice(OutcomeJudgment),
         )
         return judgment, combined_sources
 

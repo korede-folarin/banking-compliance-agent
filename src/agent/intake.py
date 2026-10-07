@@ -3,7 +3,9 @@ import logging
 import instructor
 from anthropic import Anthropic
 
+from src.agent import retry_log
 from src.agent.schemas import LoanAgreementFields
+from src.agent.structured_output import single_tool_choice
 from src.config import ANTHROPIC_MODEL
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -26,7 +28,7 @@ SYSTEM_PROMPT = (
 
 class IntakeAgent:
     def __init__(self):
-        self._client = instructor.from_anthropic(Anthropic())
+        self._client = retry_log.attach(instructor.from_anthropic(Anthropic()), "extraction")
 
     def extract(self, document_text: str) -> LoanAgreementFields:
         return self._client.messages.create(
@@ -35,6 +37,7 @@ class IntakeAgent:
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": document_text}],
             response_model=LoanAgreementFields,
+            tool_choice=single_tool_choice(LoanAgreementFields),
         )
 
 

@@ -538,6 +538,32 @@ that cite nothing are excluded, and the exclusions are printed.
 published 51-judgment scope stays reproducible. Under the new rule the
 Phase 8 run-0 scope would be 60.
 
+**Superseded for the full pass: Signal 2 is not re-run (Session 26
+decision).** For claim-level faithfulness, the comprehensive 15-document,
+3-run pass relies on the structured-claim verifier (P8-06, next section).
+Only `groundedness.py plan` is run, which costs nothing and still gives
+Signal 1. `groundedness.py run`, P8-05's regex sentence-splitter plus a
+per-sentence LLM check, is not re-run at scale. The pilot evidence for this:
+- **P8-05's Signal 2 never produced a usable result.** It returned zero
+  `clean` judgments on the Phase 8 data (51 judgments) and on the Session
+  23 pilot (14). Its "flagged" verdicts are dominated by a category error
+  documented in `docs/eval_groundedness.md`: sentences about the loan
+  document, or asserting an absence, are checked against regulatory text
+  they can never appear in.
+- **P8-06 gives a more precise and actionable signal.** Each claim arrives
+  already typed (document fact, regulatory requirement, absence) with a
+  verbatim quote. The quote is checked mechanically against its named
+  excerpt, then an LLM check sees only that excerpt. In the Session 23 and
+  25 pilots every `partially` verdict could be traced to a specific claim
+  and quote: first to truncation, which was fixed in Session 25, then to
+  specific overreach.
+- **Signal 2 would also have been the most expensive step.** About 920
+  calls at about 2,700 input tokens each (all 5 whole chunks per call),
+  for the least precise signal.
+
+`groundedness.py run` still works and can be run on any main-pass file
+later if wanted. This is a scope decision for the full pass, not a removal.
+
 ## Structured-claim verification (P8-06)
 Replaces P8-05's Signal 2 Part A (the regex sentence splitter). P8-05 found
 that splitting free-text reasoning into sentences produced claims of mixed
@@ -854,6 +880,46 @@ itself):
   file makes `json.loads` fail on the next read. This fails loudly, not
   silently. Recovery step: fix or delete the truncated last line by hand,
   then re-invoke.
+
+**Known limitation: placeholder-wrapped judge tool calls (Session 26). No
+fix applied.** In the full 15-document, 3-run pass, all 49 logged
+judge-call retries had the same cause:
+- **The failure.** The model's single `OutcomeJudgment` tool call arrived
+  with its arguments wrapped in literal placeholder keys (`$PARAMETER_NAME`
+  33, `$PARAMETER_VALUE` 14, `$PARAMETER_VALUE_PLACEHOLDER` 1,
+  `$PARAMETER_name` 1), so every real field was missing and validation
+  failed.
+- **What it wasn't.** All 49 had `stop_reason: tool_use` and exactly one
+  tool call, so this is neither truncation (instructor does not retry
+  truncation anyway) nor parallel tool use (already prevented by
+  `disable_parallel_tool_use`).
+- **Shape.** 30 were short stubs; 19 were complete judgments nested inside
+  the wrapper.
+- **Spread and outcome.** It affected all four outcomes and no extraction
+  call. All 49 recovered on re-ask: 46 on attempt 2, 3 on attempt 3; none
+  became a hard failure.
+- **Cost.** 49 extra judge calls (about 15%) on top of the 288 nominal in
+  that resume. In total the main pass used 492 requests.
+- **Not fixed.** One option is unwrapping a single placeholder key whose
+  value is a complete, valid judgment, which would save the 19 full-wrapper
+  retries. It was considered and not applied: it means accepting a
+  malformed envelope, and it would not help the stub cases. Records:
+  `docs/eval_raw_main_pass_v2_retries.jsonl`, from the observe-only hooks
+  in `src/agent/retry_log.py`.
+- **Not reflected in the judgments.** A retried judgment is the model's
+  re-asked answer, not its first one, but every saved judgment passed the
+  same schema. Nothing in the saved rows marks which judgments were
+  retried; the retry log does.
+- This is the same family as Session 13's single malformed generation
+  (parameter-tag text bleeding into a field).
+
+**Evaluation outputs added in Session 26.**
+- `groundedness.py plan` now saves per-judgment Signal 1 to
+  `<input stem>_signal1.jsonl`: P8-05's max over the retrieved set, plus the
+  cited-chunk per-chunk scores with min and mean, no threshold. It refuses
+  the input itself and the protected Phase 8 files.
+- `claim_verification check` writes observe-only retry records to
+  `<store stem>_retries.jsonl`.
 
 **All 20 items are now built and tested offline (Sessions 17-22).** What
 remains before the comprehensive re-run produces results is running it: a

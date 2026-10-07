@@ -64,7 +64,9 @@ from src.agent.compliance import (  # noqa: E402
     build_document_statement,
     build_judgment_user_message,
 )
+from src.agent import retry_log  # noqa: E402
 from src.agent.schemas import LoanAgreementFields  # noqa: E402
+from src.agent.structured_output import single_tool_choice  # noqa: E402
 from src.agent.first_pass import FirstPassAgent  # noqa: E402
 from src.config import ANTHROPIC_MODEL, CONFIDENCE_THRESHOLD  # noqa: E402
 from src.retrieval import query_engine  # noqa: E402  (SOURCE_EXCERPT_CHARS, read at call time)
@@ -304,10 +306,13 @@ def cmd_main(args) -> None:
     n_runs = args.n_runs
     output_path, errors_path = _resolve_main_output(args.output)
     docs = _select_docs(getattr(args, "docs", None))
+    # Observe-only record of why structured calls retry (src/agent/retry_log.py).
+    retries_path = output_path.with_name(f"{output_path.stem}_retries.jsonl")
+    retry_log.set_path(retries_path)
     total_calls = len(docs) * n_runs * 9
     print(
         f"Running main pass: {len(docs)} docs x {n_runs} runs x 9 calls/run "
-        f"= {total_calls} Claude API calls.\nOutput: {output_path}"
+        f"= {total_calls} Claude API calls.\nOutput: {output_path}\nRetry log: {retries_path}"
     )
 
     # Resume support: a single malformed generation (observed once, see
@@ -346,6 +351,7 @@ def cmd_main(args) -> None:
         for run_idx in range(n_runs):
             if (doc["id"], run_idx) in skipped:
                 continue
+            retry_log.set_context(doc_id=doc["id"], run_idx=run_idx)
             try:
                 first_pass = first_pass_agent.run(text)
                 judgments = compliance_agent.evaluate(first_pass, text)
@@ -480,7 +486,7 @@ def cmd_variants(args) -> None:
     if not total_calls:
         return
 
-    client = instructor.from_anthropic(Anthropic())
+    client = retry_log.attach(instructor.from_anthropic(Anthropic()), "variants")
     done = 0
     for doc in EVAL_DOCUMENTS:
         cached = cached_by_doc[doc["id"]]
@@ -506,6 +512,7 @@ def cmd_variants(args) -> None:
                     system=system_prompt,
                     messages=[{"role": "user", "content": user_message}],
                     response_model=OutcomeJudgment,
+                    tool_choice=single_tool_choice(OutcomeJudgment),
                 )
                 sources_by_index = {s["index"]: s for s in context["sources"]}
                 cited = [sources_by_index[i] for i in judgment.cited_sources if i in sources_by_index]

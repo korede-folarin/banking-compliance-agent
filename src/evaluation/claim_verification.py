@@ -92,7 +92,9 @@ from src.agent.compliance import (  # noqa: E402
     validate_outcome,
 )
 from src.agent.first_pass import QUESTION_BUILDERS, FirstPassResult  # noqa: E402
+from src.agent import retry_log  # noqa: E402
 from src.agent.schemas import LoanAgreementFields  # noqa: E402
+from src.agent.structured_output import single_tool_choice  # noqa: E402
 from src.agent.uncertainty import NOT_ADDRESSED, _cosine_similarity, _get_embed_model, _splitter  # noqa: E402
 from src.config import ANTHROPIC_MODEL, CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR  # noqa: E402
 from src.evaluation.groundedness import compute_signal1_cited  # noqa: E402
@@ -746,6 +748,7 @@ def _check_claim(client, claim: str, chunk_texts: list[str]) -> ClaimCheck:
         system=CLAIM_CHECK_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": f"SOURCE TEXT:\n{source}\n\nCLAIM:\n{claim}"}],
         response_model=ClaimCheck,
+        tool_choice=single_tool_choice(ClaimCheck),
     )
 
 
@@ -825,15 +828,21 @@ def cmd_check(args) -> None:
             )
         print()
     print(f"Running {len(pending)} claim-check calls.")
+    # Observe-only record of why claim-check calls retry (src/agent/retry_log.py),
+    # next to the store, the same as `run_eval main` does for its output.
+    retries_path = store_path.with_name(f"{store_path.stem}_retries.jsonl")
+    retry_log.set_path(retries_path)
+    print(f"Retry log: {retries_path}")
 
     sources_by_key = {
         (row["doc_id"], row.get("run_idx", 0), k): row["outcomes"][k]["sources"] for row in all_rows for k in OUTCOME_KEYS
     }
-    client = instructor.from_anthropic(Anthropic()) if pending else None
+    client = retry_log.attach(instructor.from_anthropic(Anthropic()), "claim_check") if pending else None
     for n, (r, i, req) in enumerate(pending, start=1):
         by_index = {s["index"]: s for s in sources_by_key[(r["doc_id"], r["run_idx"], r["outcome"])]}
         numbers = list(dict.fromkeys(s["excerpt_number"] for s in req["sources"]))
         chunk_texts = [by_index[x]["text_excerpt"] for x in numbers if x in by_index]
+        retry_log.set_context(doc_id=r["doc_id"], run_idx=r["run_idx"], outcome=r["outcome"], claim_index=i)
         res = _check_claim(client, req["claim"], chunk_texts)
         support_match = (
             _best_in(res.supporting_sentence, [(str(x), by_index[x]["text_excerpt"]) for x in numbers if x in by_index])[1]

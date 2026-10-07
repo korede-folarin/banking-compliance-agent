@@ -219,8 +219,9 @@ def captured_scope_input(monkeypatch):
     return captured
 
 
-def test_groundedness_plan_reads_explicit_phase8_file_unchanged(captured_scope_input):
-    groundedness.cmd_plan(argparse.Namespace(input=str(REAL_PHASE8_PATH)))
+def test_groundedness_plan_reads_explicit_phase8_file_unchanged(captured_scope_input, tmp_path):
+    # Session 26: `plan` saves Signal 1 next to its input by default; keep it out of docs/.
+    groundedness.cmd_plan(argparse.Namespace(input=str(REAL_PHASE8_PATH), signal1_output=str(tmp_path / "s1.jsonl")))
     assert captured_scope_input["records"] == _rows(REAL_PHASE8_PATH)
 
 

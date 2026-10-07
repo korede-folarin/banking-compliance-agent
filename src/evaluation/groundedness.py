@@ -90,10 +90,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from src.agent.first_pass import QUESTION_BUILDERS  # noqa: E402
+from src.agent import retry_log  # noqa: E402
 from src.agent.schemas import LoanAgreementFields  # noqa: E402
+from src.agent.structured_output import single_tool_choice  # noqa: E402
 from src.agent.uncertainty import _cosine_similarity, _get_embed_model  # noqa: E402
 from src.config import ANTHROPIC_MODEL  # noqa: E402
-from src.evaluation.run_eval import INPUT_HELP, resolve_main_input  # noqa: E402
+from src.evaluation.run_eval import INPUT_HELP, MAIN_PASS_PATH, SUMMARY_PATH, resolve_main_input  # noqa: E402
 from src.retrieval import query_engine  # noqa: E402  (SOURCE_EXCERPT_CHARS, read at call time)
 from src.retrieval.query_engine import load_index  # noqa: E402
 from tests.fixtures.eval_set import OUTCOME_KEYS  # noqa: E402
@@ -346,7 +348,50 @@ def _load_main_records(args) -> list[dict]:
     return main_records
 
 
+def _resolve_signal1_output(output: str | None, input_path: Path) -> Path:
+    """
+    Where `plan` saves per-judgment Signal 1 (Session 26). Default:
+    <input stem>_signal1.jsonl next to the input. Refused, by absolute or
+    relative path: the input itself and the protected Phase 8 files (the
+    Phase 8 main-pass JSONL, docs/eval_summary.json, docs/eval_groundedness.md),
+    the same protection as the other evaluation outputs. Its own derived file
+    is rewritten on each run; it is a free, deterministic recomputation.
+    """
+    out = Path(output) if output else input_path.with_name(f"{input_path.stem}_signal1.jsonl")
+    protected = {p.resolve() for p in (input_path, MAIN_PASS_PATH, SUMMARY_PATH, GROUNDEDNESS_OUT_PATH)}
+    if out.resolve() in protected:
+        raise SystemExit(
+            f"Refusing to write Signal 1 to {out}: it is the input or a protected Phase 8 file. "
+            "Omit --signal1-output to use the derived filename, or pass a different path."
+        )
+    return out
+
+
+def _write_signal1(scope: list[dict], path: Path) -> None:
+    """
+    One JSON line per in-scope judgment: both Signal 1 measures, no threshold.
+    `signal1_full_retrieved_max` is P8-05's measure (max over the whole
+    retrieved set); `signal1_cited` is per cited chunk, with min and mean
+    (None for rows recorded before citation logging, e.g. Phase 8).
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        for j in scope:
+            f.write(json.dumps({
+                "doc_id": j["doc_id"],
+                "run_idx": j.get("run_idx", 0),
+                "outcome": j["outcome"],
+                "ground_truth": j["ground_truth"],
+                "llm_status": j["llm_status"],
+                "scope_rule": j.get("scope_rule"),
+                "signal1_full_retrieved_max": j["signal1"],
+                "signal1_cited": j["signal1_cited"],
+            }) + "\n")
+
+
 def cmd_plan(args) -> None:
+    # Resolved before any work, so a refused path costs nothing.
+    signal1_path = _resolve_signal1_output(getattr(args, "signal1_output", None), resolve_main_input(args.input))
     main_records = _load_main_records(args)
 
     scope = build_scope(main_records, p8_05_scope=getattr(args, "p8_05_scope", False))
@@ -371,7 +416,11 @@ def cmd_plan(args) -> None:
             f"{CLAIM_MIN_LENGTH}-char length filter (short reasoning text) — these "
             "will be reported with signal2 = 'no_claims', not silently dropped."
         )
-    print(f"\nSignal 1 (embedding similarity) computed for all {len(scope)} judgments — zero API cost.")
+    _write_signal1(scope, signal1_path)
+    print(
+        f"\nSignal 1 (embedding similarity) computed for all {len(scope)} judgments — zero API cost. "
+        f"Saved to {signal1_path}"
+    )
     print(
         f"\n=> Running `run` would make exactly {total_claims} additional Claude API "
         "calls (one per extracted claim, Signal 2 only). No extraction or compliance-"
@@ -397,6 +446,7 @@ def check_claim(client, claim: str, source_text: str) -> str:
             }
         ],
         response_model=ClaimVerdict,
+        tool_choice=single_tool_choice(ClaimVerdict),
     )
     return result.verdict
 
@@ -455,7 +505,7 @@ def cmd_run(args) -> None:
     total_claims = sum(len(j["claims"]) for j in scope)
     print(f"Running Signal 2: {total_claims} narrow per-claim LLM calls across {len(scope)} judgments.")
 
-    client = instructor.from_anthropic(Anthropic())
+    client = retry_log.attach(instructor.from_anthropic(Anthropic()), "groundedness_check")
     done = 0
     for j in scope:
         source_text = "\n\n".join(s["text_excerpt"] for s in j["sources"])
@@ -576,6 +626,11 @@ def main() -> None:
     p_plan = sub.add_parser("plan", help="Zero-API-cost dry run: reports exact Signal-2 call count")
     p_plan.add_argument("--input", help=INPUT_HELP)
     p_plan.add_argument("--p8-05-scope", action="store_true", help=P8_05_SCOPE_HELP)
+    p_plan.add_argument(
+        "--signal1-output",
+        help="Per-judgment Signal 1 JSONL (default: <input stem>_signal1.jsonl next to the input). "
+        "The input and protected Phase 8 files are refused.",
+    )
     p_plan.set_defaults(func=cmd_plan)
 
     p_run = sub.add_parser("run", help="Runs Signal 2 (real API calls) and writes a groundedness report")

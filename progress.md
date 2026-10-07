@@ -121,8 +121,184 @@ Outputs: `docs/eval_raw_main_pass_repilot_claim_judgments_checks.jsonl`,
   drop is an observation, not a measured effect. The full pass will give a
   usable sample.
 
+**Full-pass plan (decided at the end of this session, Session 26
+heading):**
+- The main pass is approved: 405 calls nominal, about 430 expected,
+  1,080 ceiling. Not yet started: OneDrive is running and its pause state
+  can't be verified programmatically (no pause value is exposed; it shows
+  only in the tray icon). Waiting for the user to confirm the pause, or to
+  choose writing the output outside the synced folder.
+- `groundedness.py run` is skipped for the full pass; only `groundedness
+  plan` (free, Signal 1). Claim-level faithfulness comes from P8-06
+  (`ingest`, then `plan`, then `check`). Rationale in ARCHITECTURE.md,
+  "Groundedness cross-check (P8-05)", under "Superseded for the full pass".
+
+**Full pass started and STOPPED early (2026-10-01).** It ran outside
+OneDrive (`C:\\Users\\folar\\eval_runs\\eval_raw_main_pass_v2.jsonl`, user's
+option 2).
+- **Saved:** 5 of 45 rows (`loan_agreement_1` runs 0-2, `loan_agreement_2`
+  runs 1-2); all parse, all `source_excerpt_chars: null`.
+- **Failed and logged** to `..._errors.jsonl`: 2 runs (`loan_agreement_2`
+  run 0, `loan_agreement_3` run 0).
+- **Cost:** 72 API requests in total; the run in progress at the stop lost
+  only its own calls.
+- **Cause, an instructor retry bug:** a judgment response came back as 5
+  parallel `tool_use` blocks and failed validation. Instructor's re-ask then
+  sent those tool calls back without `tool_result` blocks, the API rejected
+  it (400), and the whole `(doc, run)` was lost. It hit different judgment
+  calls in the two failures, so it's the judge calls in general, not one
+  outcome.
+- **Why stopped before the agreed 3-more-failures threshold:** the
+  successful runs also showed 6 silent retries in 5 runs, about 13% of
+  calls, versus 3 in 54 in the Session 23 pilot and 0 in 18 in the re-pilot.
+  At this rate (plus about 29% hard failures) the pass would cost about 580
+  calls rather than the approved ~430, and resumed pairs would fail at the
+  same rate.
+- Not yet fixed. Proposal: `disable_parallel_tool_use` on the structured
+  calls. Awaiting a decision.
+
+**Fix built, tested offline, then resumed and paused at a checkpoint
+(2026-10-01/02).**
+- New `src/agent/structured_output.single_tool_choice(model)`: forces the
+  response model's tool, with `disable_parallel_tool_use: True`. Applied to
+  all 6 instructor structured calls (judge, MCP judge, extraction,
+  `variants`, claim check, groundedness check).
+- New `tests/test_single_tool_choice.py` (9 tests):
+  - every call site, run against a recording fake client, passes the
+    setting;
+  - instructor's real Anthropic request preparation keeps our
+    `tool_choice` unchanged and names an existing tool;
+  - every `response_model=` in `src/` is followed by the setting.
+  100 offline tests pass; protected hashes unchanged.
+- Resumed into the same output, writing to a new log
+  (`main_pass_v2_resume.log`). The 5 saved rows were skipped with the item
+  11 warning.
+- Paused after 8 resumed runs to report, as asked:
+  - **0 hard failures and 0 HTTP 400s** (was 2 failures in 7 runs). Both
+    previously failed pairs succeeded.
+  - **Silent retries remain:** 11 in 8 runs (about 15% of calls, 10.4
+    requests per run).
+  - Now 13 of 45 rows saved; 155 main-pass requests so far (72 + 83); none
+    wasted at the pause.
+  - Projected total at the current rate: about 490 (approved about 430;
+    ceiling 1,080).
+- Retry causes are still not logged (instructor limitation, see Session
+  23).
+
+**Retry-cause logging built; testing BLOCKED by Windows (2026-10-02).**
+- **Built:**
+  - `src/agent/retry_log.py`: observe-only instructor hooks
+    (`completion:response` and `parse:error`), one JSON line per failed
+    attempt (call site, doc/run/outcome context, error, `stop_reason`,
+    output tokens, content-block types). Off unless a path is set.
+  - Attached at all 5 client constructions.
+  - `run_eval main` writes `<output stem>_retries.jsonl` and sets the
+    doc/run context per run.
+  - `tests/test_retry_log.py` (6 tests; drives instructor's real retry loop
+    with a local fake `messages.create`, with vs. without logging) is
+    written but has NOT run.
+- **Blocker:** Smart App Control (enforcing, state 1) blocks
+  `.venv\...\pyarrow\_compute.cp311-win_amd64.pyd`. Code Integrity events
+  3077/3033 at 15:07 on 2026-10-02. The file is unsigned and is now a
+  OneDrive reparse point (Files-On-Demand placeholder); its contents are
+  unchanged since Aug 20. Every module importing the query engine loads it,
+  so all tests and the main pass are blocked. Not touched by Claude:
+  security settings stay the user's.
+
+**Unblocked, tested, and the full main pass COMPLETED (2026-10-07).**
+- **Unblocked:** the user set `.venv` to "Always keep on this device";
+  pyarrow imports again.
+- **Retry-log tests:** 3 failed at first, all test bugs, now fixed.
+  - The result equality check now compares `model_dump()`; instructor
+    attaches a private raw-response attribute.
+  - The truncation test was wrong and taught something real: instructor
+    does NOT retry a response cut off at `max_tokens`. It raises
+    `IncompleteOutputException` at once, so truncation can't cause silent
+    retries; it would surface as a hard failure in the errors file.
+  - 106 offline tests pass. With logging attached, instructor's real retry
+    loop sends byte-identical requests and returns the same result.
+- **Resumed and completed:** 45/45 rows, 0 hard failures since the
+  parallel-tool fix. Requests: 72 (first attempt) + 83 (first resume) +
+  337 (second resume) = **492 in total**. Approved: about 430 expected,
+  1,080 ceiling.
+- **Every extra call is accounted for.** In the second resume, 337 - 288
+  nominal = 49, exactly the 49 retry records.
+- **Retry cause (49 records):**
+  - All are **judge** calls whose tool arguments arrived wrapped in literal
+    placeholder keys (`$PARAMETER_NAME` 33, `$PARAMETER_VALUE` 14,
+    `$PARAMETER_VALUE_PLACEHOLDER` 1, lowercase `$PARAMETER_name` 1), so
+    every real field was missing.
+  - All had `stop_reason: tool_use` and exactly 1 tool call.
+  - 30 were short stubs (<200 output tokens); 19 were full judgments
+    nested inside the wrapper.
+  - By outcome: Consumer Support 19, Consumer Understanding 13, Price and
+    Value 10, Products and Services 7.
+  - 46 recovered on attempt 2 and 3 on attempt 3; none hard-failed.
+  - No extraction call ever retried; claim checks are not logged (see
+    below).
+- **Checked:** every row is complete (all fields, round-trip, 5 sources
+  with node IDs, `source_excerpt_chars: null`); no duplicates; no
+  out-of-range citations in the 180 judgments.
+- **Copied byte-identical into `docs/`:**
+  `eval_raw_main_pass_v2.jsonl`, `_retries.jsonl`, `_errors.jsonl` (the 2
+  pre-fix failures; both pairs were later redone successfully).
+- **Zero-cost steps:**
+  - `summary --expected-runs 3` wrote
+    `docs/eval_raw_main_pass_v2_summary.json`. Its only warning is the 2
+    logged pre-fix failures.
+  - `ingest` wrote 45 pairs to
+    `docs/eval_raw_main_pass_v2_claim_judgments.jsonl`.
+  - `plan`: replay spot check 5/5 for all 15 documents; 424 document
+    facts, **536 regulatory claims**, 112 absences.
+  - `groundedness plan`: 180 judgments in scope (882 regex claims; `run`
+    skipped as decided).
+- **Phase 8 files untouched** (hashes unchanged).
+- **Gap found:** `groundedness plan` computes Signal 1 but only prints a
+  count; it doesn't save the per-judgment values. Not yet fixed.
+- **Not logged for claim checks:** retry logging is only switched on by
+  `run_eval main`, so `claim_verification check` doesn't record retries.
+
+**Both gaps fixed offline (2026-10-07, no API calls).**
+1. `groundedness plan` saves per-judgment Signal 1 to
+   `<input stem>_signal1.jsonl` next to its input (or `--signal1-output`):
+   - fields: doc, run, outcome, ground truth, `llm_status`, scope rule,
+     `signal1_full_retrieved_max`, and `signal1_cited` (per-chunk scores,
+     min, mean; no threshold);
+   - refused, before any work: the input itself and the protected Phase 8
+     files (main-pass JSONL, `eval_summary.json`, `eval_groundedness.md`),
+     by absolute or relative path;
+   - its own derived file is rewritten on each run (a free, deterministic
+     recomputation).
+2. `claim_verification check` turns on the observe-only retry log at
+   `<store stem>_retries.jsonl` and labels each claim check with doc, run,
+   outcome and claim index.
+- **Tests.** New `tests/test_signal1_and_check_retries.py` (10 tests):
+  - the Signal 1 default path, refusals (including relative paths and the
+    input itself), file contents, rewriting, and no work done on a
+    refused path;
+  - `check` run through a REAL instructor client (only `messages.create`
+    is a local fake; the first check fails validation once), with vs.
+    without hooks: identical requests (including the re-ask), identical
+    stored results, and one correctly labelled retry record.
+- **One existing test file updated.** A test in
+  `tests/test_eval_readers_input.py` ran `plan` on the real Phase 8 file
+  and so wrote an (empty) `docs/eval_raw_main_pass_signal1.jsonl`; the
+  `docs/`-listing guard caught it. The empty test artifact was deleted, and
+  the test now sends its Signal 1 output to a temp directory.
+- 116 offline tests pass (168 collected). Protected `docs/` hashes
+  identical before and after: the Phase 8 files and the new full-pass
+  `eval_raw_main_pass_v2.jsonl` (`2180728a...`). The `docs/` listing is
+  unchanged.
+- **Known limitation, no fix applied:** all 49 judge-call retries in the
+  full pass were placeholder-wrapped tool calls; all recovered (46 on
+  attempt 2, 3 on attempt 3). Details in ARCHITECTURE.md "Evaluation
+  notes".
+
 **Next:**
-- The full 15-document, 3-run pass, with call counts approved first.
+- Approve `claim_verification check` on the full pass: exactly 536 calls
+  nominal (worst case 2,144).
+- Run `groundedness plan --input docs/eval_raw_main_pass_v2.jsonl` again
+  (free) to save the full pass's Signal 1 file.
   Each judge call is now about 2x the input tokens (see ARCHITECTURE.md).
 
 **Known issues:**
