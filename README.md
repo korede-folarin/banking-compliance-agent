@@ -1,8 +1,9 @@
 # Banking Compliance & Customer Intelligence Agent
 
-Reads a loan agreement, checks it against real UK financial regulation, and
-tells you where it falls short, citing exactly which regulatory text it's
-relying on, and refusing to guess when it isn't sure.
+Reads a loan agreement, checks it against real UK financial regulation (the
+FCA Consumer Duty), and reports where it falls short, citing the regulatory
+text each finding relies on. It routes uncertain or flagged cases to human
+review instead of guessing.
 
 ## Why this needs to exist
 
@@ -12,150 +13,183 @@ whether the two line up. That's slow, and it's inconsistent: two
 reviewers can reasonably disagree, and the same reviewer can miss the same
 kind of issue twice.
 
-The obvious shortcut (pointing an LLM at the document and asking "is this
-compliant?") creates a worse problem than it solves. A model that isn't
-grounded in the actual regulatory text will confidently answer regardless
-of whether it actually knows, and a *confident wrong answer about
-regulatory compliance* is a genuinely dangerous failure mode in a
-regulated industry, not a quirky bug. The core design problem this project
-is about is making the "I don't know" case work as reliably as the "yes,
-compliant" case.
+The obvious shortcut is pointing an LLM at the document and asking "is this
+compliant?". That creates a worse problem than it solves. A model that isn't
+grounded in the actual regulatory text will answer confidently whether or
+not it knows, and a *confident wrong answer about regulatory compliance* is a
+dangerous failure mode in a regulated industry. The core design problem here
+is making the "I don't know" case work as reliably as the "compliant" case.
 
-## What it does right now
+## What it does (as built, 2026-10-13)
 
-The system does all three steps a compliance review needs, end to end:
+The evaluated system is a **fixed workflow**. The code calls each step in
+order; the model does not choose tools or steps. For one loan agreement:
 
-1. **It reads the regulation.** The FCA's Consumer Duty corpus (the
-   Handbook's PRIN 2A, the FG22/5 guidance, and the PS22/9 policy
-   statement, 344 pages total) is chunked, embedded, and indexed, and a
-   query engine can answer natural-language questions about it with
-   inline citations back to the source text.
-2. **It reads the loan agreement.** An Intake Agent pulls structured
-   fields out of a loan document (lender, borrower, amount, APR, term,
-   repayment schedule, fees, and other notable clauses) into a validated
-   schema, rather than leaving them as unstructured prose.
-3. **It compares the two.** A Compliance Agent reasons over each
-   extracted field against the regulation retrieved for it and produces
-   a judgment per outcome (compliant, potentially non-compliant, or
-   insufficient evidence). A separate, deterministic layer then computes
-   a confidence score from retrieval quality alone, never the model's
-   self-report, and can override that judgment to "insufficient
-   evidence" when confidence is too low. Either way, an uncertain or
-   flagged case gets routed to human review, never silently approved.
+1. **Extraction.** One structured LLM call extracts the loan terms (lender,
+   borrower, amount, APR, term, repayment schedule, fees) plus one field per
+   Consumer Duty outcome. A field the document doesn't address is recorded
+   as "Not addressed in this document.", never left blank.
+2. **Retrieval.** One query per outcome against the indexed FCA corpus:
+   - the corpus is PRIN 2A, FG22/5 and PS22/9: 344 pages, 558 chunks;
+   - embeddings are local (`BAAI/bge-small-en-v1.5`), stored in Chroma;
+   - top 5 chunks per query.
+3. **Judgment.** One structured LLM call per outcome. It sees the full
+   document, its extracted field and the 5 retrieved chunks, and returns:
+   - a status: compliant, potentially non-compliant, or insufficient
+     evidence;
+   - reasoning;
+   - the excerpts it cites;
+   - claims with verbatim quotes.
+4. **Deterministic validation (no LLM).**
+   - **Confidence** is the minimum retrieval similarity of the cited
+     excerpts, never the model's own self-report.
+   - **Below 0.65,** the status becomes `insufficient_evidence`.
+   - **Any non-compliant or insufficient outcome** sets
+     `needs_human_review`.
 
-## How I know it actually works
+Entry points: `python -m src.agent.compliance <document>` for one
+document, and `python -m src.evaluation.run_eval main` for the evaluation
+pass.
 
-Four things happened during development that are better told as what
-happened than summarized as a feature list:
+**MCP is built, but not on the evaluated path.** `src/mcp_server/` is a
+real MCP server with three tools, called over stdio:
+- regulation lookup;
+- mock account lookup;
+- internal policy query.
 
-**It said "I don't know" instead of making something up.** I asked the
-query engine an off-topic control question ("What is the capital of
-France?") against an index that only contains Consumer Duty regulation.
-It didn't answer. It returned the fixed refusal message, and the
-underlying retrieval similarity scores for that question (0.36–0.39) were
-visibly lower than for genuine Consumer Duty questions (0.65–0.70), a
-real, measurable signal, not just a prompt instruction the model happened
-to follow that one time.
+One added method (`ComplianceAgent.judge_price_and_value_with_mcp_context`)
+calls all three, and only tests call that method. In it, **the code chooses
+which tools to call and with what arguments**, and the model only reads the
+results. It is not agentic tool use. An agentic version, where the model
+chooses its tools inside a bounded loop, is designed in
+`docs/agent_tool_use_design.md` and is the next build.
 
-**It reported a vague fee as vague, not as a number.** One of the three
-synthetic test loan agreements deliberately buries its fee disclosure: it
-only references "the Lender's standard tariff of charges" in a general
-provisions clause, with no amount ever stated anywhere in the document.
-Fed to the Intake Agent, it didn't invent a figure to fill the field. It
-reported that the fee is referenced but never quantified. The other two
-test documents state exact fees (£150, £200) in dedicated clauses, and
-those were extracted as exact figures, so the difference in the output
-reflects a real difference in the source text, not extraction noise.
+## Results (full pass, 15 documents × 3 runs)
 
-**It reported a missing clause as missing, not filled it in.** A second
-synthetic test document has no vulnerable-customer identification or
-support process at all, just a generic customer-service phone number.
-The Intake Agent's extracted clause list for that document contains no
-mention of vulnerability, correctly, because there's nothing there to
-find. The other two test documents do have explicit vulnerable-customer
-provisions, and those were extracted correctly too.
+**Judge accuracy** (judge verdict, before the confidence override;
+positive = non-compliant):
 
-**A "successful" run was actually silently broken.** The first ingestion
-run reported success (5,540 chunks indexed, no errors), but a missing
-dependency (`llama-index-readers-file`) meant the PDF reader had silently
-fallen back to treating raw PDF bytes as plain text. Every chunk was
-binary garbage (`'%PDF-1.4\n...'`), and nothing about the exit code or
-the logs said so. It was only caught by opening a few chunks and actually
-reading them. Installing the missing dependency and re-running produced
-558 real, readable chunks. Nothing after that point trusts a clean exit
-code as proof of correctness; checking actual content became a habit for
-the rest of the build.
+| Outcome | Accuracy | False positives | False negatives | Abstained |
+|---|---|---|---|---|
+| Price and value | 0.978 | 1 | 0 | 0 |
+| Consumer support | 0.933 | 3 | 0 | 0 |
+| Products and services | 1.000 | 0 | 0 | 0 |
+| Consumer understanding | 0.907 | 4 | 0 | 2 |
 
-**It caught its own occasional mistake before it could matter.** Testing
-the Compliance Agent's reasoning against a document written to be fully
-compliant, one outcome's own judgment came back "potentially
-non-compliant" once in five live runs: a real, if infrequent, false read
-from the model itself, not just cautious hedging. It traced to weak
-retrieval grounding for that one outcome, borderline-relevant regulatory
-text, not enough to reliably judge either way. But the deterministic
-layer sitting on top of that reasoning never once let an uncertain case
-through unreviewed: every flagged or low-confidence outcome, on every
-document, in every run, got routed to human review. The reasoning layer
-isn't perfectly reliable yet on two specific outcomes. The safety net
-around it has been, so far.
+**The confidence score does not separate right from wrong verdicts in this
+pass.** The mean confidence of correct and incorrect verdicts differs by at
+most 0.0123 per outcome. At the 0.65 threshold, half the correct verdicts are
+overridden to `insufficient_evidence`, and 62.5% of the incorrect ones are
+caught. Those caught cases are routed to review, which is the safety
+property; the threshold is not a correctness detector.
+
+**Claim checks.** Every regulatory claim was checked twice:
+- **Quote location (deterministic).** 513 of 542 cited quotes were found
+  in the excerpt they named. 27 of the 29 not found are "..."-spliced
+  quotes, whose parts are verbatim but not contiguous.
+- **A narrow LLM check, run per claim.** It returned yes for 484 of 536
+  claims, partially for 52, and no for none.
+
+Full detail is in `docs/eval_raw_main_pass_v2_summary.json` and
+`docs/eval_raw_main_pass_v2_claim_judgments_checks_report.md`.
+
+## What went wrong during the build, and what changed
+
+**A "successful" ingestion run was silently broken.** The first ingestion
+reported 5,540 chunks and no error. A missing dependency
+(`llama-index-readers-file`) had made the PDF reader fall back to reading
+raw PDF bytes as text, so every chunk was binary garbage (`'%PDF-1.4\n...'`).
+- **How it was found:** by opening sample chunks and reading them.
+- **The records:** that run was not logged. The only records are the
+  session note in `progress.md` and commit `cb3a7dd`.
+- **The second bug, found at the same time:** one PDF (FG22/5) is
+  encrypted and needed the `cryptography` package to open at all.
+- **The fix:** both dependencies installed, and a re-run produced 558 real
+  chunks.
+- **The guard since 2026-10-13:** ingestion runs content checks before
+  embedding (PDF reader used, no raw-PDF markers, bad characters, chunks
+  per page, pages with text) and a retrieval smoke test, and replaces the
+  live index only if they pass.
+
+**Parallel tool calls broke structured output.** Two runs failed with HTTP
+400s because the model returned several tool calls at once. Structured
+calls now force a single tool call (`disable_parallel_tool_use`), and there
+have been no failures since.
+
+**Known limitation, not fixed:** in the full pass, 49 judge calls came back
+with their arguments wrapped in a literal placeholder key
+(`$PARAMETER_NAME`, `$PARAMETER_VALUE`). All recovered on an automatic
+retry. The details are in ARCHITECTURE.md.
 
 ## What this does and doesn't prove
 
-The 32 automated tests behind these results are real (they hit the
-actual Claude API and the actual indexed corpus, not mocks), but they
-prove correctness on a small set of known, controlled cases: 3 real
-regulatory documents and 3 hand-written synthetic loan agreements with
-known ground truth. That's enough to catch real bugs (see the PDF-bytes
-story above) and to demonstrate the intended behavior clearly. It is
-**not** the same as evidence about how well this generalizes to a wider
-regulatory corpus or to arbitrary real-world documents. That's a
-separate, deliberately deferred piece of work (a labelled test set,
-retrieval recall@k, and a measured faithfulness/hallucination rate), and
-it's Phase 8, not done yet.
+**The test suite has 205 tests.** 165 run offline. 40 are live tests that
+call the Claude API and are skipped without a key.
 
-## What's still to come
-- **Phase 5**: an MCP tools layer (regulation lookup, mock account/
-  transaction lookup, policy rulebook query) as separate tools.
-- **Phase 7**: a human-in-the-loop UI: an actual approval gate for
-  flagged issues, not just the `needs_human_review` flag the pipeline
-  already produces.
-- **Phase 8**: the evaluation harness described above, including tuning
-  `CONFIDENCE_THRESHOLD` against real data and improving retrieval for
-  the two outcomes documented as weaker in `ARCHITECTURE.md`.
-- **Phase 9**: monitoring: every run logged, a dashboard of failure/flag
-  rates and latency.
-- **Phase 10**: Dockerization and deployment.
-- **Phase 11**: a business impact model and final documentation polish.
+The evaluation covers 15 synthetic loan agreements with planted, known
+defects, against a Consumer-Duty-only corpus. That catches real bugs and
+measures the pipeline on controlled cases. It is **not** evidence about
+arbitrary real-world agreements or a wider regulatory corpus.
+- **No CONC:** the consumer credit sourcebook, which holds the
+  affordability and arrears rules, is not indexed.
+- **No affordability judgment:** the project doesn't attempt one.
+
+## Not built yet
+
+- **Agentic tool use: built and tested offline, not yet run live.** The
+  model chooses MCP tools in a bounded loop on a new 19-document fixture
+  set; a deterministic layer checks every call and quote (ARCHITECTURE.md,
+  "Agentic tool loop"). The live evaluation needs approval of its API cost.
+- **Human approval gate (P7-01):** today `needs_human_review` is a flag;
+  there's no review screen.
+- **Monitoring dashboard (P9-02).** Audit logging (P9-01) is built and
+  tested offline, but not yet verified on a live run.
+- **Deployment and business framing:** Docker and deployment (P10); the
+  business impact model (P11).
 
 ## On the architecture doc
-`ARCHITECTURE.md` isn't a diagram kept for its own sake. It's where each
-non-obvious build decision gets written down at the time it's made,
-including what was rejected and why: RAG over fine-tuning, MCP over plain
-function calls, one orchestrating agent over a five-agent swarm, a static
-API key over cloud identity federation (and specifically why that's the
-right call for local development but wouldn't be for a production
-deployment). Read it for the reasoning behind the shape of the system,
-not just the shape itself.
+
+`ARCHITECTURE.md` records each non-obvious decision when it was made,
+including what was rejected and why:
+- RAG over fine-tuning;
+- one workflow plus a deterministic validation layer, over a multi-agent
+  swarm;
+- MCP for separate data domains;
+- a static API key over cloud identity federation, for local development.
+
+Its "As built" section describes the system as the code runs it.
 
 ## Stack
-Claude API (Anthropic SDK) · LlamaIndex · ChromaDB · `BAAI/bge-small-en-v1.5`
-(local embeddings) · Pydantic + `instructor` (validated structured
-extraction) · Streamlit · MCP · Ragas
+
+Claude API (Anthropic SDK) · `instructor` + Pydantic (validated structured
+output) · LlamaIndex · ChromaDB · `BAAI/bge-small-en-v1.5` (local
+embeddings) · MCP (`mcp` 1.29.0, side path).
 
 ## Setup
+
 ```bash
 bash init.sh
-# then add your ANTHROPIC_API_KEY to .env (copied from .env.example)
-
-python -m src.ingestion.ingest   # builds the Chroma index from data/regulatory_corpus/
-python -m pytest tests/          # runs the full test suite (32 tests)
 ```
-The Streamlit UI (`streamlit run src/app.py`) isn't built yet; that
-lands in a later phase (see "What's still to come" above).
+
+Then add your `ANTHROPIC_API_KEY` to `.env`, copied from `.env.example`.
+
+```bash
+python -m src.ingestion.ingest
+```
+
+This builds the Chroma index, gated by the sanity checks. Add
+`--check-only` to check the existing index without rebuilding it.
+
+```bash
+python -m pytest tests/
+```
+
+The live tests run only when an API key is set.
 
 ## Honest scope note
+
 This is a portfolio project, not a production banking system. Data is
-public regulatory text plus synthetic documents/queries; no real
-customer data is used anywhere. Where a real deployment would need
-additional work (scale, security review, access control depth), that is
-noted explicitly rather than implied.
+public regulatory text plus synthetic documents and accounts; no real
+customer data is used anywhere. Where a real deployment would need more
+(scale, security review, access control), that is stated rather than
+implied.

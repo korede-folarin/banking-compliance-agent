@@ -1,9 +1,11 @@
 import logging
+import time
 
 from pydantic import BaseModel
 
 from src.agent.intake import extract_fields
 from src.agent.schemas import LoanAgreementFields
+from src.monitoring import pipeline_events
 from src.retrieval.query_engine import QueryEngine, QueryResult
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -87,23 +89,22 @@ class FirstPassAgent:
         self._query_engine = QueryEngine()
 
     def run(self, document_text: str) -> FirstPassResult:
+        t0 = time.time()
         fields = extract_fields(document_text)
+        pipeline_events.extraction(fields, document_text, int((time.time() - t0) * 1000))
 
-        price_and_value_context = self._query_engine.query(build_price_and_value_question(fields))
-        consumer_support_context = self._query_engine.query(build_consumer_support_question(fields))
-        products_and_services_context = self._query_engine.query(
-            build_products_and_services_question(fields)
-        )
-        consumer_understanding_context = self._query_engine.query(
-            build_consumer_understanding_question(fields)
-        )
+        contexts = {}
+        for key, build_question in QUESTION_BUILDERS.items():
+            t0 = time.time()
+            contexts[key] = self._query_engine.query(build_question(fields))
+            pipeline_events.retrieval(key, contexts[key], int((time.time() - t0) * 1000))
 
         return FirstPassResult(
             document_fields=fields,
-            price_and_value_context=price_and_value_context,
-            consumer_support_context=consumer_support_context,
-            products_and_services_context=products_and_services_context,
-            consumer_understanding_context=consumer_understanding_context,
+            price_and_value_context=contexts["price_and_value"],
+            consumer_support_context=contexts["consumer_support"],
+            products_and_services_context=contexts["products_and_services"],
+            consumer_understanding_context=contexts["consumer_understanding"],
         )
 
 

@@ -65,6 +65,7 @@ from src.agent.compliance import (  # noqa: E402
     build_judgment_user_message,
 )
 from src.agent import retry_log  # noqa: E402
+from src.monitoring import audit  # noqa: E402
 from src.agent.schemas import LoanAgreementFields  # noqa: E402
 from src.agent.structured_output import single_tool_choice  # noqa: E402
 from src.agent.first_pass import FirstPassAgent  # noqa: E402
@@ -302,7 +303,51 @@ def _select_docs(doc_ids: list[str] | None) -> list[dict]:
     return [d for d in EVAL_DOCUMENTS if d["id"] in doc_ids]
 
 
+# Files the audit log hashes before and after a main pass: a pass must never change them.
+AUDIT_PROTECTED_NAMES = (
+    "eval_raw_main_pass.jsonl", "eval_summary.json", "eval_groundedness.md", "eval_results.md",
+    "eval_recall_at_k.json", "eval_raw_main_pass_v2.jsonl", "negative_control_pairs.jsonl",
+)
+
+
+def _protected_hashes(output_path: Path) -> dict[str, str]:
+    import hashlib
+
+    out = {}
+    for name in AUDIT_PROTECTED_NAMES:
+        path = DOCS_OUT_DIR / name
+        if path.exists() and path.resolve() != output_path.resolve():
+            out[name] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return out
+
+
+def _corpus_info() -> dict:
+    try:
+        import chromadb
+
+        from src.config import CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR
+
+        count = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR).get_collection(CHROMA_COLLECTION_NAME).count()
+        return {"collection": CHROMA_COLLECTION_NAME, "chunks": count}
+    except Exception as exc:
+        return {"error": repr(exc)}
+
+
 def cmd_main(args) -> None:
+    output_path, _ = _resolve_main_output(args.output)
+    audit.start_run(
+        "run_eval main",
+        settings={"n_runs": args.n_runs, "docs": getattr(args, "docs", None), "output": str(output_path)},
+        corpus=_corpus_info(), log_payloads=getattr(args, "log_payloads", False),
+    )
+    status = "failed"
+    try:
+        status = _cmd_main(args)
+    finally:
+        audit.end_run(status)
+
+
+def _cmd_main(args) -> str:
     n_runs = args.n_runs
     output_path, errors_path = _resolve_main_output(args.output)
     docs = _select_docs(getattr(args, "docs", None))
@@ -340,6 +385,7 @@ def cmd_main(args) -> None:
             )
         print()
 
+    hashes_before = _protected_hashes(output_path)
     first_pass_agent = FirstPassAgent()
     compliance_agent = ComplianceAgent()
 
@@ -352,6 +398,7 @@ def cmd_main(args) -> None:
             if (doc["id"], run_idx) in skipped:
                 continue
             retry_log.set_context(doc_id=doc["id"], run_idx=run_idx)
+            audit.set_context(doc_id=doc["id"], run_idx=run_idx)
             try:
                 first_pass = first_pass_agent.run(text)
                 judgments = compliance_agent.evaluate(first_pass, text)
@@ -363,6 +410,7 @@ def cmd_main(args) -> None:
                     {"doc_id": doc["id"], "run_idx": run_idx, "error": repr(exc)},
                 )
                 print(f"[FAILED] {doc['id']} run {run_idx}: {exc!r} (logged to {errors_path}, continuing)")
+                audit.event("evaluation", "error", level="error", data={"error": repr(exc), "errors_file": errors_path})
                 continue
 
             record = {
@@ -422,13 +470,23 @@ def cmd_main(args) -> None:
             # P8-04's fixed input from run 0 to run 2.
             if run_idx == 0:
                 record["_cached_price_and_value_context"] = first_pass.price_and_value_context.model_dump()
+            # Audit log: links this row to the run's log (LOG_DIR/<date>/<run_id>.jsonl).
+            record["run_id"] = audit.run_id()
 
             _append_jsonl(output_path, record)
+            audit.event("evaluation", "success", data={"step": "row_written", "output": output_path})
             done += 1
             print(f"[{done}/{total}] {doc['id']} run {run_idx}: "
                   f"{ {k: record['outcomes'][k]['llm_status'] for k in OUTCOME_KEYS} }")
 
     print(f"\nWrote {output_path} ({done}/{total} runs, {failed} failed)")
+    audit.set_context()
+    audit.check("evaluation", "rows_complete", done == total, metric=f"{done}/{total}", threshold=total,
+                action="warn", data={"failed": failed, "skipped_existing": len(skipped), "output": output_path})
+    changed = sorted(k for k, v in _protected_hashes(output_path).items() if hashes_before.get(k) != v)
+    audit.check("evaluation", "protected_files_unchanged", not changed, metric=changed,
+                threshold="no protected file changes", action="block", data={"checked": sorted(hashes_before)})
+    return "completed" if failed == 0 and done == total else "completed_with_failures"
 
 
 # --- prompt variant comparison for price_and_value (P8-04) ---
@@ -768,6 +826,10 @@ def main() -> None:
     p_main.add_argument(
         "--output",
         help=f"Output JSONL (default: docs/{MAIN_PASS_V2_PATH.name}). The Phase 8 file is refused.",
+    )
+    p_main.add_argument(
+        "--log-payloads", action="store_true",
+        help="Also write full prompt and response text to the audit log's *_payloads.jsonl (off by default).",
     )
     p_main.set_defaults(func=cmd_main)
 

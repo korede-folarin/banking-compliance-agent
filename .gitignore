@@ -7,3 +7,6 @@ chroma_db/
 *.log
 .pytest_cache/
 CLAUDE.local.md
+
+# Audit logs (docs/audit_logging_design.md)
+logs/

@@ -1,0 +1,579 @@
+{
+  "_disclaimer": "SYNTHETIC TEST DATA. Fictional customers of a fictional lender (Northbridge Consumer Lending). Not real people or accounts.",
+  "review_date": "2026-10-01",
+  "accounts": [
+    {
+      "customer_id": "CUST-69917",
+      "account_holder_name": "Tomasz Nowak",
+      "customer_since": "2018-02-11",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "current_account",
+          "reference": "NBK-69221",
+          "opened": "2018-02-11",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-36335",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [
+        {
+          "type": "missed_payment",
+          "due_date": "2026-03-14",
+          "product_reference": "NBK-69221"
+        },
+        {
+          "type": "missed_payment",
+          "due_date": "2026-07-14",
+          "product_reference": "NBK-69221"
+        }
+      ],
+      "markers": [],
+      "notes": [
+        {
+          "date": "2025-12-09",
+          "text": "Customer asked for a copy of their annual statement; sent by post."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-72079",
+      "account_holder_name": "Fatima Hassan",
+      "customer_since": "2022-06-15",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "current_account",
+          "reference": "NBK-33636",
+          "opened": "2022-06-15",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-39396",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [],
+      "markers": [],
+      "notes": [
+        {
+          "date": "2025-12-09",
+          "text": "Customer asked for a copy of their annual statement; sent by post."
+        },
+        {
+          "date": "2026-07-30",
+          "text": "Customer said they have separated from their partner and moved out of the joint home; correspondence address updated."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-19654",
+      "account_holder_name": "Zainab Abubakar",
+      "customer_since": "2017-06-15",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "credit_card",
+          "reference": "NBK-11357",
+          "opened": "2017-06-15",
+          "status": "open"
+        }
+      ],
+      "payment_events": [],
+      "markers": [],
+      "notes": [
+        {
+          "date": "2026-04-22",
+          "text": "Customer called to check the date of their next direct debit."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-86954",
+      "account_holder_name": "Patricia O'Neill",
+      "customer_since": "2023-05-14",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "current_account",
+          "reference": "NBK-41992",
+          "opened": "2023-05-14",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-61844",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [],
+      "markers": [],
+      "notes": [
+        {
+          "date": "2025-12-09",
+          "text": "Customer asked for a copy of their annual statement; sent by post."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-42758",
+      "account_holder_name": "Grace Whitfield",
+      "customer_since": "2021-03-08",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "credit_card",
+          "reference": "NBK-55501",
+          "opened": "2021-03-08",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-19212",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [],
+      "markers": [],
+      "notes": [
+        {
+          "date": "2026-04-22",
+          "text": "Customer called to check the date of their next direct debit."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-85253",
+      "account_holder_name": "Ewan MacLeod",
+      "customer_since": "2020-09-18",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "current_account",
+          "reference": "NBK-94405",
+          "opened": "2020-09-18",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-88930",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [],
+      "markers": [],
+      "notes": [
+        {
+          "date": "2025-12-09",
+          "text": "Customer asked for a copy of their annual statement; sent by post."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-22711",
+      "account_holder_name": "Gareth Llewellyn",
+      "customer_since": "2023-07-16",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "credit_card",
+          "reference": "NBK-89765",
+          "opened": "2023-07-16",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-86776",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [
+        {
+          "type": "missed_payment",
+          "due_date": "2026-05-02",
+          "product_reference": "NBK-89765"
+        }
+      ],
+      "markers": [],
+      "notes": [
+        {
+          "date": "2026-04-22",
+          "text": "Customer called to check the date of their next direct debit."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-87899",
+      "account_holder_name": "Yusuf Demir",
+      "customer_since": "2020-02-11",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "credit_card",
+          "reference": "NBK-83521",
+          "opened": "2020-02-11",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-87500",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [],
+      "markers": [],
+      "notes": [
+        {
+          "date": "2026-04-22",
+          "text": "Customer called to check the date of their next direct debit."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-64391",
+      "account_holder_name": "Lucia Fernandes",
+      "customer_since": "2017-08-17",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "current_account",
+          "reference": "NBK-62022",
+          "opened": "2017-08-17",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-52663",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [
+        {
+          "type": "missed_payment",
+          "due_date": "2025-06-20",
+          "product_reference": "NBK-62022"
+        },
+        {
+          "type": "missed_payment",
+          "due_date": "2026-02-20",
+          "product_reference": "NBK-62022"
+        }
+      ],
+      "markers": [],
+      "notes": [
+        {
+          "date": "2026-01-15",
+          "text": "Online banking password reset at the customer's request."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-91642",
+      "account_holder_name": "Kwame Asante",
+      "customer_since": "2018-09-18",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "credit_card",
+          "reference": "NBK-98176",
+          "opened": "2018-09-18",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-64698",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [],
+      "markers": [
+        {
+          "type": "financial_hardship",
+          "opened": "2025-11-10",
+          "closed": "2026-02-28"
+        }
+      ],
+      "notes": [
+        {
+          "date": "2026-02-03",
+          "text": "Customer updated their preferred contact method to email."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-23695",
+      "account_holder_name": "Daniel Price",
+      "customer_since": "2019-05-17",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "current_account",
+          "reference": "NBK-97670",
+          "opened": "2019-05-17",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-68715",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [],
+      "markers": [
+        {
+          "type": "financial_hardship",
+          "opened": "2026-08-03",
+          "closed": null
+        }
+      ],
+      "notes": [
+        {
+          "date": "2026-01-15",
+          "text": "Online banking password reset at the customer's request."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-52981",
+      "account_holder_name": "Chen Wei",
+      "customer_since": "2021-05-14",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "credit_card",
+          "reference": "NBK-98754",
+          "opened": "2021-05-14",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-98175",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [],
+      "markers": [],
+      "notes": [
+        {
+          "date": "2026-02-03",
+          "text": "Customer updated their preferred contact method to email."
+        },
+        {
+          "date": "2026-08-19",
+          "text": "Customer called to say their spouse died in July and asked for all post to be sent in their name only."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-85351",
+      "account_holder_name": "Rahul Mehta",
+      "customer_since": "2020-04-13",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "current_account",
+          "reference": "NBK-28247",
+          "opened": "2020-04-13",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-16119",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [],
+      "markers": [
+        {
+          "type": "financial_hardship",
+          "opened": "2026-08-03",
+          "closed": null
+        }
+      ],
+      "notes": [
+        {
+          "date": "2026-01-15",
+          "text": "Online banking password reset at the customer's request."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-89997",
+      "account_holder_name": "Amara Okafor",
+      "customer_since": "2017-01-10",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "credit_card",
+          "reference": "NBK-26898",
+          "opened": "2017-01-10",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-88644",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [
+        {
+          "type": "missed_payment",
+          "due_date": "2026-03-14",
+          "product_reference": "NBK-26898"
+        },
+        {
+          "type": "missed_payment",
+          "due_date": "2026-07-14",
+          "product_reference": "NBK-26898"
+        }
+      ],
+      "markers": [],
+      "notes": [
+        {
+          "date": "2026-02-03",
+          "text": "Customer updated their preferred contact method to email."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-16999",
+      "account_holder_name": "Mei Lin Tan",
+      "customer_since": "2021-03-12",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "current_account",
+          "reference": "NBK-72289",
+          "opened": "2021-03-12",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-72241",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [],
+      "markers": [],
+      "notes": [
+        {
+          "date": "2026-01-15",
+          "text": "Online banking password reset at the customer's request."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-91039",
+      "account_holder_name": "Hannah Becker",
+      "customer_since": "2019-01-10",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "current_account",
+          "reference": "NBK-71609",
+          "opened": "2019-01-10",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-54495",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [],
+      "markers": [],
+      "notes": [
+        {
+          "date": "2025-12-09",
+          "text": "Customer asked for a copy of their annual statement; sent by post."
+        },
+        {
+          "date": "2026-06-12",
+          "text": "Customer has moved to a new address in Leeds for work; correspondence address updated."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-35345",
+      "account_holder_name": "Siobhan Gallagher",
+      "customer_since": "2019-03-12",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "credit_card",
+          "reference": "NBK-30066",
+          "opened": "2019-03-12",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-74148",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [],
+      "markers": [
+        {
+          "type": "financial_hardship",
+          "opened": "2026-08-03",
+          "closed": null
+        }
+      ],
+      "notes": [
+        {
+          "date": "2026-04-22",
+          "text": "Customer called to check the date of their next direct debit."
+        }
+      ]
+    },
+    {
+      "customer_id": "CUST-82872",
+      "account_holder_name": "Nadia Kowalski",
+      "customer_since": "2021-01-10",
+      "account_status": "active",
+      "products": [
+        {
+          "type": "credit_card",
+          "reference": "NBK-94368",
+          "opened": "2021-01-10",
+          "status": "open"
+        },
+        {
+          "type": "personal_loan",
+          "reference": "NCL-2026-16038",
+          "opened": "2026-09-01",
+          "status": "open"
+        }
+      ],
+      "payment_events": [],
+      "markers": [],
+      "notes": [
+        {
+          "date": "2026-04-22",
+          "text": "Customer called to check the date of their next direct debit."
+        }
+      ]
+    }
+  ]
+}

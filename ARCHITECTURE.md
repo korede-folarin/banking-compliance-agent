@@ -1,14 +1,71 @@
 # Architecture: Banking Compliance & Customer Intelligence Agent
 
 ## Purpose
-A RAG + MCP + agentic system that reviews banking documents (loan
-agreements, compliance queries) against regulatory guidance (FCA/PRA),
-flags issues with a confidence score, and routes uncertain or high-risk
-cases to human review. Built to demonstrate: RAG, agentic workflows,
-MCP/tool design, evaluation, deployment, monitoring, and, critically,
-judgement (documented trade-offs, uncertainty handling, business framing).
+A RAG system with a deterministic validation layer that reviews loan
+agreements against FCA Consumer Duty guidance, flags issues with a
+confidence score grounded in retrieval, and routes uncertain or flagged
+cases to human review. An MCP tools layer exists alongside it. Agentic tool
+use, where the model chooses MCP tools, is designed and is the next build.
+Built to demonstrate RAG, tool and MCP design, evaluation and monitoring,
+and, critically, judgement: documented trade-offs, uncertainty handling
+and business framing.
 
-## Data flow
+## As built (2026-10-13, commit `7f63d32` plus uncommitted Session 27 changes)
+
+The evaluated path is a **fixed workflow**. The code calls each step in
+order; the model does not choose tools or steps. Every line below names the
+file that does it.
+
+```
+loan agreement text
+  -> 1. Extraction: src/agent/intake.py extract_fields (1 LLM call, instructor, single forced tool)
+  -> 2. Retrieval x4, one per Consumer Duty outcome:
+        src/agent/first_pass.py FirstPassAgent.run -> src/retrieval/query_engine.py QueryEngine.query
+        (local Chroma "regulatory_corpus", 558 chunks, bge-small-en-v1.5, top 5;
+         plus 1 LLM synthesis call per query whose answer the judge does NOT use)
+  -> 3. Judgment x4: src/agent/compliance.py ComplianceAgent.evaluate
+        (full document + that outcome's field + 5 whole chunks; 1 LLM call each)
+  -> 4. Deterministic validation: compliance.build_compliance_report
+        (confidence = min similarity of cited chunks; < 0.65 -> insufficient_evidence;
+         needs_human_review if any outcome is non-compliant or insufficient)
+  -> ComplianceReport
+```
+
+- **Entry points:** `python -m src.evaluation.run_eval main` (the
+  evaluation pass) and `python -m src.agent.compliance <doc>`.
+- **No UI:** `src/app.py` does not exist yet.
+- **Audit logging:** every stage logs to `LOG_DIR` when a run is started
+  (see "Audit logging" below).
+
+**Side paths, not on the evaluated path:**
+- **MCP:** the server is `src/mcp_server/server.py` (`lookup_regulation`,
+  `lookup_account`, `query_policy`) and the stdio client is
+  `src/mcp_server/client.py`. Its only caller is
+  `ComplianceAgent.judge_price_and_value_with_mcp_context`, and only tests
+  call that. The code chooses all three tools and their arguments; the
+  model reads the results and never chooses a tool. See "MCP tools layer"
+  below.
+- **Extraction confidence:** `src/agent/uncertainty.py` is called by tests
+  only.
+
+**Not built:**
+- the human approval gate (P7-01);
+- the monitoring dashboard (P9-02);
+- Docker and deployment (P10);
+- a live run of the agentic tool loop: it is built and tested offline (see "Agentic tool loop");
+- CONC, which is deferred.
+
+## Original data-flow plan (August 2026; kept as the plan, not as built)
+
+The block below is the original plan. Where it differs from the code, the
+"As built" section above is correct:
+- **No customer queries or complaints:** there are no synthetic customer
+  queries or complaints. The input is a loan agreement, not a
+  natural-language question.
+- **MCP isn't on the evaluated path,** and retrieval doesn't go through
+  MCP tools.
+- **Planned, not built:** the human approval gate, deployment and
+  monitoring.
 
 ```
 COMPANY DATA
@@ -148,7 +205,10 @@ as a hard override differs by design, not oversight: compliance enforces
 it (P4-02, already tested and caveated), extraction enforces it (new,
 `needs_human_review` reflects a real override-equivalent decision since
 there's no existing answer to preserve), and the query engine exposes it
-without enforcing it, for the reason above. Full enforcement everywhere
+without enforcing it, for the reason above. *(Note, 2026-10-13:
+`extract_fields_with_confidence` is called only by tests. The evaluated
+path calls `extract_fields` directly, so in the running system extraction
+confidence is neither computed nor enforced.)* Full enforcement everywhere
 is contingent on Phase 8 actually validating `CONFIDENCE_THRESHOLD`
 against real data, not something to force now for the sake of
 appearing uniform.
@@ -324,7 +384,11 @@ Critically, this instability is not uniform across outcomes.
 `consumer_support` and `products_and_services` retrieve consistently
 strongly (~0.68-0.71 similarity) across every document tested, and have
 never, across every sample collected building this feature, produced a
-false `potentially_non_compliant` verdict. `price_and_value` and
+false `potentially_non_compliant` verdict. *(Superseded, 2026-10-13: the
+full v2 pass, with 15 documents x 3 runs, has 3 false
+`potentially_non_compliant` verdicts on `consumer_support`. Only
+`products_and_services` has none. See
+`docs/eval_raw_main_pass_v2_summary.json`.)* `price_and_value` and
 `consumer_understanding` consistently retrieve weaker (~0.61-0.68) and
 are the only two outcomes where this has been observed.
 `tests/test_compliance.py` reflects this precisely rather than
@@ -383,9 +447,10 @@ rather than asserted:
   against the public FCA corpus. In a real bank this is external,
   published data, likely sourced from a GRC (governance/risk/compliance)
   system.
-- **Account lookup** is mock customer/transaction data. In a real bank
-  this sits in the core banking system, is actual customer PII, and is
-  access-controlled per customer, nothing like the other two domains.
+- **Account lookup** is mock customer account data: status, products,
+  payment-history flags and notes. There are no transactions. In a real
+  bank this sits in the core banking system, is actual customer PII, and
+  is access-controlled per customer, nothing like the other two domains.
 - **Policy query** is Northbridge Consumer Lending's internal
   underwriting and escalation policy (`data/internal_policy/`,
   synthetic, distinct from the public FCA corpus). In a real bank this
@@ -423,8 +488,9 @@ cross a process boundary rather than being direct Python calls dressed
 up as MCP.
 
 **Where MCP is actually wired in.** `ComplianceAgent.evaluate()` (P4-01,
-already tested end-to-end against all 3 synthetic documents) is
-untouched: rewriting its whole four-outcome pipeline to route through
+already tested end-to-end against all 3 synthetic documents) was left
+untouched by Phase 5. It changed later, for its own reason: item #4 gave
+the judge the full document text. rewriting its whole four-outcome pipeline to route through
 MCP would have meant touching already-passing, already-audited code for
 no functional gain. Instead,
 `ComplianceAgent.judge_price_and_value_with_mcp_context()` is a new,
@@ -441,6 +507,21 @@ missed-payment history, content the baseline pipeline has no access to
 and never mentions. This is deliberately scoped as one real
 demonstration of the wiring working, not a claim that every outcome
 now routes through MCP.
+
+**What P5-04 does and does not show (note, 2026-10-13).** P5-04 ("Agent
+calls all three MCP tools correctly during a real run") is about the
+protocol:
+- the tools are called through a real MCP client session over stdio, not
+  as direct Python calls;
+- the run that exercised it is a live test, not the evaluation pass.
+
+**The calls are fixed in code.** `compliance.py` calls all three tools, in
+a fixed order, with arguments it builds itself; `list_tools` is never
+called; the model sees only the results, pasted into its prompt. So P5-04
+is not "the agent uses tools". In standard agentic tool use, the model
+sees the tool descriptions and decides which tool to call and with what
+arguments. That is designed in `docs/agent_tool_use_design.md` and is not
+built.
 
 ## Groundedness cross-check (P8-05)
 New scope, added after Phase 8's original evaluation plan (recall@k,
@@ -615,7 +696,8 @@ logged; no step is gated on a threshold.
   judge (`named_chunk`), the judgment's other retrieved excerpts
   (`other_retrieved_chunk`), the full text of every corpus chunk
   (`corpus_not_retrieved`, with a flag when the chunk was retrieved but
-  the quote lies past the 300-character excerpt the judge saw), else
+  the quote lies past the excerpt the judge saw: 300 characters for
+  Phase 8 rows; the whole chunk since Session 25), else
   `not_found`. Also logged: embedding similarity between the claim and
   each named excerpt (every score plus the minimum, not an average),
   `source_count`, and whether each named excerpt is in `cited_sources`.
@@ -731,11 +813,217 @@ ingested and checked: claim-check report
 only. The pilot validated the mechanism. It is not the comprehensive
 re-run, and its results are not comparable to Phase 8 (item #4).
 
+## Agentic tool loop (built and tested offline 2026-10-14; not yet run live)
+Design and decisions: `docs/agent_tool_use_design.md`. The fixed workflow
+above is unchanged and stays the baseline.
+
+**How it connects.**
+- **The tools.** `src/mcp_server/agent_server.py` is a separate MCP server
+  with three tools that return raw evidence, with no model call inside:
+  - `search_regulation(query)`: the FCA corpus;
+  - `get_account(customer_id)`: the v2 accounts, by customer number only,
+    with `found: false` when there's no record;
+  - `search_policy(query)`: Northbridge's internal policy.
+
+  The P5 server (`server.py`) is untouched.
+- **The loop.** `src/agent/tool_agent.py` starts the server over stdio and
+  takes the tools from its `list_tools`. It passes them to the model with
+  `tool_choice: auto`, plus a local `submit_assessment` output tool. The
+  **model chooses** which tools to call, with what arguments, and in what
+  order. Parallel calls are allowed, with all results returned in one
+  message.
+- **Evidence.** Every returned passage or record is numbered (E1, E2, …),
+  and the model must cite those numbers.
+- **Output.** `src/agent/agent_schemas.py` defines what the model submits:
+  - document scope;
+  - the four outcome judgments;
+  - escalation, with exact policy quotes and dated note quotes.
+
+**Enforced in code during the run:**
+- **Limits** (`src/config.py`): 8 tool calls in total; `search_regulation`
+  at most 4, one per Consumer Duty outcome, each call naming its outcome in
+  a required `outcome` argument; the other tools at most 3 each; 6 turns.
+  Hitting one stops the run; every outcome becomes `insufficient_evidence`
+  and the case goes to review.
+- **Repeats:** an identical repeated call returns the cached result and
+  still counts.
+- **Malformed calls:** arguments wrapped in `$PARAMETER…` are not
+  executed.
+- **Invalid submissions:** returned to the model with the schema error.
+
+**Validated after the run** (`src/agent/agent_validation.py`,
+deterministic):
+1. **Necessary calls, from the document's own facts.** Regulation search is
+   needed for any credit agreement. Policy search is needed for every
+   Northbridge agreement. An account lookup, with the document's own
+   customer number, is needed when the agreement has one. A missing
+   necessary call routes the case to review.
+2. **Unnecessary calls, flagged and counted:**
+   - account or policy calls for another lender's agreement, or account
+     calls when no lender is named;
+   - any call for a document that isn't a credit agreement;
+   - a second account lookup, or a lookup of another customer;
+   - any repeated call.
+3. **Outcomes only from their own cited passages.** Every regulatory quote
+   must be in the exact passage it names, and that passage must be in the
+   outcome's own citations. A cited regulation passage must come from that
+   outcome's **own** search, and each outcome must have had one. A decided
+   outcome needs at least one such quote and at least one cited regulation
+   passage. Otherwise it is
+   **forced to `insufficient_evidence`**. "..."-spliced quotes are checked
+   part by part. Confidence is the minimum similarity of the cited
+   passages, against the 0.65 threshold.
+4. **Escalation:**
+   - the decision must fit the document: `not_applicable` for another
+     lender or a non-agreement, `cannot_determine` with no lender or
+     customer;
+   - a decision must quote the procedure, and each quote must be in the
+     policy passage it names;
+   - trigger 2.1(a) must match "2+ missed payments in the trailing 12
+     months", and 2.1(b) "an open hardship marker";
+   - 2.1(c) needs a quoted note that is in the record and dated inside the
+     window. "Recent" means the 12 months before the review date (user decision, 2026-10-14; the agent is told it),
+     because the procedure doesn't define it;
+   - an in-window bereavement, separation or health note that 2.1(c)
+     doesn't claim is flagged.
+
+**Fixtures v2:**
+- **Data:** `data/fixtures_v2/` (19 documents, 18 accounts), built by
+  `build_fixtures.py` with seed 20261013.
+- **Labels:** in `tests/fixtures/eval_set_v2.json`. The agent never sees
+  them.
+- **Checks:** `python -m src.evaluation.fixtures_v2_check` checks the set
+  and writes `docs/fixtures_v2_coverage.md` and `docs/fixtures_v2_labels.md`
+  before any run:
+  - every customer number resolves or is a declared mismatch;
+  - every coverage cell has a positive and a negative;
+  - the blind-read leak check, fairness and policy echo.
+
+**Two evaluation sets** (`--set`):
+- **v2** (default): the 19 fixture documents with accounts. It tests
+  escalation and tool use.
+- **v1**: the 15 hand-written baseline documents (decision 2026-10-14).
+  They come from other lenders and have no customer numbers, so escalation
+  should be `not_applicable` and account and policy calls are unnecessary.
+  Their outcome results are reported next to the baseline's full pass on
+  the same documents.
+  - **Labels:** `tests/fixtures/eval_set_v1_agent.json` and
+    `docs/agent_v1_labels.md`, written by `agent_eval labels-v1` from the
+    baseline's own ground truth before any run.
+
+**One server per evaluation run.** `ToolAgent.run_many` sends every document
+through one MCP server, which loads the embedding model once. Each document
+is still its own run: its own messages, evidence numbers, call counts,
+limits and cache. One document's failure doesn't end the batch.
+
+**Lender reading.** The lender counts as "not stated" only when the party
+clause names no one ("The Lender" or a blank placeholder); any named lender
+is read as named. The first rule required "Ltd", "plc" and similar, and
+misread two v1 lenders ("Bridgeport Lending Group", "Elmsworth Credit
+Union") as not stated. Found before any run.
+
+**Evaluation:** `python -m src.evaluation.agent_eval` has these commands:
+- `plan`: free;
+- `run`: API;
+- `claimcheck`: API, using the same checker as the baseline;
+- `score`: free;
+- `labels-v1`: free.
+
+**Tests (offline):**
+- `tests/test_tool_agent.py` (24): scripted model and fake MCP session,
+  covering every rule above.
+- `tests/test_tool_agent_mcp_integration.py` (2): scripted model, but the
+  real MCP server subprocess, the real local index and the real accounts.
+- `tests/test_agent_eval.py` (3): scoring.
+
+**Two bugs the integration test caught, both fixed:**
+- **The server's error output went to an unread pipe.** It now goes to
+  `LOG_DIR/agent_server_stderr.log`. A pipe nobody reads can fill and
+  block the server.
+- **On Windows, loading the embedding model inside the first tool call
+  hung.** The server froze before the model started loading. The same load
+  works from a shell, a plain subprocess, and a console-less subprocess.
+  The server now loads the model and both indexes before it starts
+  serving (`agent_server.warm_up`), and every tool call then returns at
+  once.
+
+**No auto-approval; confidence is reported, not applied (decision 2026-10-14).**
+`AGENT_AUTO_APPROVAL_ENABLED = False`, so every agent case goes to a human, each with `review_reasons`.
+The agent's verdict is replaced only by the quote and citation rules. Confidence (minimum similarity of
+the cited passages) is reported, with a flag for "below the uncalibrated 0.65 reference", but never
+changes a verdict. Why: in the baseline, one 0.65 threshold acted as an on/off switch by category. 0%
+of compliant price-and-value and consumer-understanding verdicts passed it; 100% of consumer-support
+and products-and-services verdicts did, including all 3 wrong consumer-support verdicts. On today's
+data, no category can meet a risk target, because 0 misses across 15 documents bounds nothing useful.
+Auto-approval returns only after a per-category gate is calibrated on the design split against a
+stated risk target and frozen before held-out testing. The baseline pipeline is unchanged.
+
+**Known limits:**
+- an outcome may cite only regulation passages from its own search. This
+  rules out "off-copy" support but also legitimate reuse of a passage found
+  for another outcome, which then has to come back through that outcome's
+  own search;
+- 2.1(c) is checked only by quote, date and a word list, not by meaning;
+- the fixtures are template-generated, with two wordings per clause.
+
+## Audit logging (built offline 2026-10-13; not yet run end to end)
+The standard, with the decisions behind it, is in
+`docs/audit_logging_design.md`.
+
+**What exists:**
+- **Logging module:** `src/monitoring/audit.py`. One JSON line per event,
+  one file per run (`LOG_DIR/<date>/<run_id>.jsonl`, default `./logs/`,
+  gitignored), plus `LOG_DIR/index.jsonl` with one line per run.
+- **Off until a run starts:** an entry point starts a run (`run_eval
+  main`, `python -m src.ingestion.ingest`, `python -m
+  src.agent.compliance`), so library use and tests write nothing.
+- **Tests never write to `LOG_DIR`:** `tests/conftest.py` sends their
+  runs to a temp directory.
+- **Run header:** commit, a dirty-tree flag, allowlisted settings, corpus
+  chunk count, package versions and any overrides. Each main-pass row
+  gains `run_id`, linking it to its log.
+- **Stage events:** `src/monitoring/pipeline_events.py` logs extraction,
+  retrieval, judgment and validation. Checks are logged whether they pass
+  or fail, and none changes a result.
+- **Model calls:** every model request and every instructor retry is
+  logged through the existing observe-only hooks in
+  `src/agent/retry_log.py`; the query engine logs its synthesis call
+  directly. The old `*_retries.jsonl` file is still written as before.
+- **Redaction:** no keys, and no dump of the environment. Paths are
+  relative or `<USER_HOME>`; documents and chunks are logged as hashes and
+  IDs. Prompt text is written only with `--log-payloads`. All logs are
+  kept: there is no pruning.
+
+**Ingestion is gated.** `src/ingestion/ingest.py` runs the content checks
+in `src/ingestion/checks.py` on the parsed pages and chunks before
+anything is embedded:
+- the PDF reader was used;
+- no raw-PDF markers;
+- bad characters under 1%;
+- 0.5–5 chunks per page;
+- at least 90% of pages yield text;
+- file coverage, which warns only.
+
+It then embeds into a staging collection and runs a 3-question retrieval
+smoke test. It swaps the staging collection in only if every blocking
+check passed.
+- **On a failed blocking check:** the live collection stays unchanged
+  and the command exits 1, unless `--allow-failed-checks` is given. An
+  override is logged at `warn` and recorded in the run header.
+- **Thresholds:** in `src/config.py`.
+- **Read-only mode:** `--check-only` runs every check against the live
+  collection without building anything. The current index passes all 7
+  checks: 0.022% bad characters, 1.62 chunks per page, 344/344 pages with
+  text, smoke test 3/3.
+
+The checks would have flagged the 5,540-chunk run: the offline tests feed
+them chunks shaped like it. That run itself was not reproduced.
+
 ## Decision trade-offs (fill in as built; this is the judgement section)
 | Decision | Chosen | Rejected | Why |
 |---|---|---|---|
 | RAG vs fine-tuning | RAG | Fine-tuning | Auditability: traceable sources required for compliance; cheaper to update as regulation changes |
-| MCP vs plain function calling | MCP | Plain functions | Three genuinely separate tool/data domains with different real-world ownership |
+| MCP vs plain function calling | MCP for the three tool domains | Plain functions | Three genuinely separate tool/data domains with different real-world ownership. **As built:** the evaluated path calls the query engine directly (a plain function call); MCP is used only by a test-only side path (see "As built") |
 | Single orchestrating agent vs multi-agent | Single + validation layer | 5-agent swarm | Lower cost/latency; no clear boundary justified multiple LLM calls |
 | Vector store | Chroma (local) | Managed vector DB | Zero infra cost/setup for a portfolio-scale corpus; document if this wouldn't scale to production volume |
 | API authentication | Static API key in `.env` (gitignored) | Identity federation (short-lived tokens via AWS/GCP IAM, Azure, or GitHub Actions OIDC) | Local dev on a personal machine has no cloud/CI platform to federate identity through, so a static key is the correct approach at this stage. A real production deployment on AWS/GCP/Azure would eliminate the static key entirely: the cloud provider issues short-lived tokens automatically, nothing to store or rotate manually, and tokens expire in minutes even if exposed. Documented here as the production-hardening step this project intentionally does not implement, given its local-dev scope. |
@@ -799,7 +1087,12 @@ clear checklist of what it needs to validate, rather than being decided on
 an ad hoc basis when it happens.
 
 **Deferred-changes checklist for the comprehensive re-run** (as of Session
-16):
+16). *(Note, 2026-10-13: every item has since been built, and the
+comprehensive re-run has run: 45/45 rows, 2026-10-07. The "State" column
+is kept as a record of the checklist. Item 2's "no real judgment yet" and
+item 5's "not run" are out of date: the Session 23 pilot and the full pass
+both ran. Item 20's 300 characters became `None` (whole chunk) in Session
+25.)*
 
 | # | Change | State | Why it waits for the re-run |
 |---|---|---|---|
@@ -921,11 +1214,10 @@ judge-call retries had the same cause:
 - `claim_verification check` writes observe-only retry records to
   `<store stem>_retries.jsonl`.
 
-**All 20 items are now built and tested offline (Sessions 17-22).** What
-remains before the comprehensive re-run produces results is running it: a
-small real pilot (3-4 documents) to confirm everything works together
-against the live API, then the full 15-document, 3-run main pass, both with
-their API call counts approved first.
+**All 20 items are now built and tested offline (Sessions 17-22).** *(Done
+since: the Session 23 pilot and the full 15-document, 3-run pass, completed
+2026-10-07, ran with their call counts approved first. Results are in
+`docs/eval_raw_main_pass_v2_summary.json` and the claim-check report.)*
 
 **Item #4 breaks comparability with Phase 8, deliberately.** Since Session
 22 the judge's user message includes the full loan agreement text (see
@@ -960,12 +1252,15 @@ main pass's own judgments since item #10), and cited-chunk Signal 1.
 The quote normaliser and matcher were tested against real corpus text.
 A hand-built judgment exercised every bucket, search tier and report
 section. Retrieval replay reproduced the cached run-0 sources for all 4
-pilot documents. No verifier result on a real model judgment exists yet.
+pilot documents. *(Since then, the verifier has run on real judgments:
+the Session 23 and 25 pilots, and the full pass's 536 claims, 2026-10-08.)*
 
 ## Explicitly out of scope (for this project)
 - Multimodal / image-based document verification (KYC photo/ID checks):
   noted as a future extension, not built here.
 - Kafka / PyFlink / Spark / Delta Lake / Databricks: belongs to the
   separate, larger data-engineering platform project, not this one.
-- LangGraph: using Claude's own agent loop + MCP directly; revisit only
-  if orchestration complexity genuinely requires it.
+- LangGraph: the plan is a hand-written loop over the Claude API with MCP
+  tools (`docs/agent_tool_use_design.md`); there is no agent loop yet.
+  Revisit LangGraph only if orchestration complexity genuinely requires
+  it.

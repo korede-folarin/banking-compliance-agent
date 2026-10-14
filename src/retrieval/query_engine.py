@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 
 import anthropic
 import chromadb
@@ -16,6 +17,7 @@ from src.config import (
     EMBED_MODEL_NAME,
     QUERY_SIMILARITY_TOP_K,
 )
+from src.monitoring import audit
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -157,12 +159,12 @@ class QueryEngine:
         context = _build_context(nodes)
         user_message = f"Context:\n{context}\n\nQuestion: {question}"
 
-        response = self._client.messages.create(
-            model=ANTHROPIC_MODEL,
-            max_tokens=1024,
-            system=self._system_prompt,
-            messages=[{"role": "user", "content": user_message}],
-        )
+        request = {"system": self._system_prompt, "messages": [{"role": "user", "content": user_message}]}
+        t0 = time.time()
+        response = self._client.messages.create(model=ANTHROPIC_MODEL, max_tokens=1024, **request)
+        # Audit log (no-op unless a run is active): the synthesis answer is an LLM call too.
+        audit.llm_call("retrieval", "synthesis", response, kwargs=request, attempt=1,
+                       duration_ms=int((time.time() - t0) * 1000))
         answer_text = "".join(
             block.text for block in response.content if getattr(block, "type", None) == "text"
         )

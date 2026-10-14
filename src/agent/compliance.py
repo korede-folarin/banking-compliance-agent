@@ -12,6 +12,7 @@ from src.agent.schemas import LoanAgreementFields
 from src.agent.structured_output import single_tool_choice
 from src.config import ANTHROPIC_MODEL, CONFIDENCE_THRESHOLD
 from src.mcp_server.client import call_tools
+from src.monitoring import audit, pipeline_events
 from src.retrieval.query_engine import QueryResult, SourceCitation
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -254,15 +255,16 @@ class ComplianceAgent:
         # full loan agreement, so no caller can silently produce summary-only
         # judgments.
         fields = first_pass.document_fields
-        return {
-            key: self._judge(
-                OUTCOME_DISPLAY_NAMES[key],
-                build_document_statement(key, fields),
-                document_text,
-                getattr(first_pass, CONTEXT_FIELD_BY_OUTCOME[key]),
+        judgments = {}
+        for key in ("price_and_value", "consumer_support", "products_and_services", "consumer_understanding"):
+            context = getattr(first_pass, CONTEXT_FIELD_BY_OUTCOME[key])
+            audit.update_context(outcome=key)
+            judgments[key] = self._judge(
+                OUTCOME_DISPLAY_NAMES[key], build_document_statement(key, fields), document_text, context
             )
-            for key in ("price_and_value", "consumer_support", "products_and_services", "consumer_understanding")
-        }
+            pipeline_events.judgment(key, judgments[key], context, document_text)
+        audit.update_context(outcome=None)
+        return judgments
 
     def judge_price_and_value_with_mcp_context(
         self, fields: LoanAgreementFields, borrower_name: str
@@ -431,7 +433,7 @@ def validate_outcome(
     if confidence < threshold:
         status = "insufficient_evidence"
 
-    return ValidatedOutcome(
+    validated = ValidatedOutcome(
         outcome=OUTCOME_DISPLAY_NAMES[outcome_key],
         status=status,
         llm_status=judgment.status,
@@ -439,6 +441,8 @@ def validate_outcome(
         cited_sources=cited_sources,
         confidence=confidence,
     )
+    pipeline_events.validation(outcome_key, validated, threshold)
+    return validated
 
 
 def build_compliance_report(
@@ -451,6 +455,7 @@ def build_compliance_report(
     needs_human_review = any(
         v.status in ("potentially_non_compliant", "insufficient_evidence") for v in validated.values()
     )
+    pipeline_events.report(needs_human_review, {k: v.status for k, v in validated.items()})
     return ComplianceReport(
         document_fields=first_pass.document_fields,
         price_and_value=validated["price_and_value"],
@@ -496,5 +501,13 @@ if __name__ == "__main__":
         raise SystemExit(1)
 
     text = Path(sys.argv[1]).read_text(encoding="utf-8")
-    report = run_compliance_check(text)
+    audit.start_run("compliance check", settings={"document": sys.argv[1]},
+                    log_payloads="--log-payloads" in sys.argv[2:])
+    audit.set_context(doc_id=Path(sys.argv[1]).stem)
+    status = "failed"
+    try:
+        report = run_compliance_check(text)
+        status = "completed"
+    finally:
+        audit.end_run(status)
     print(report.model_dump_json(indent=2))

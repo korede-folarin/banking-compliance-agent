@@ -1,0 +1,682 @@
+{
+  "_disclaimer": "Labels for graders only. Never passed to the agent or to any tool.",
+  "review_date": "2026-10-01",
+  "source": "tests/fixtures/eval_set.py EVAL_DOCUMENTS",
+  "documents": [
+    {
+      "doc_id": "loan_agreement_1",
+      "split": "v1",
+      "file": "data/synthetic_docs/loan_agreement_1.txt",
+      "customer_id": null,
+      "loan_reference": null,
+      "ground_truth": {
+        "price_and_value": "non_compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "planted_defect": "price_and_value",
+      "account_scenario": "other_lender",
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": null
+      },
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender (Northfield Consumer Finance Ltd); no customer number. Planted issue: Fee referenced only via an unquantified 'tariff of charges' cross-reference; no amount ever stated in the agreement."
+    },
+    {
+      "doc_id": "loan_agreement_2",
+      "split": "v1",
+      "file": "data/synthetic_docs/loan_agreement_2.txt",
+      "customer_id": null,
+      "loan_reference": null,
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "non_compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "planted_defect": "consumer_support",
+      "account_scenario": "other_lender",
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": null
+      },
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender (Bridgeport Lending Group); no customer number. Planted issue: No vulnerable-customer clause at all; generic customer-service clause only."
+    },
+    {
+      "doc_id": "loan_agreement_3",
+      "split": "v1",
+      "file": "data/synthetic_docs/loan_agreement_3.txt",
+      "customer_id": null,
+      "loan_reference": null,
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "planted_defect": null,
+      "account_scenario": "other_lender",
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": null
+      },
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender (Thornebury Finance Ltd); no customer number. Planted issue: Control: all 4 outcomes addressed properly."
+    },
+    {
+      "doc_id": "loan_agreement_4",
+      "split": "v1",
+      "file": "data/synthetic_docs/loan_agreement_4.txt",
+      "customer_id": null,
+      "loan_reference": null,
+      "ground_truth": {
+        "price_and_value": "non_compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "planted_defect": "price_and_value",
+      "account_scenario": "other_lender",
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": null
+      },
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender (Meridian Credit Solutions Ltd); no customer number. Planted issue: Fee is clearly disclosed as a specific figure, but there is no fair-value justification clause at all (total silence, not a vague reference)."
+    },
+    {
+      "doc_id": "loan_agreement_5",
+      "split": "v1",
+      "file": "data/synthetic_docs/loan_agreement_5.txt",
+      "customer_id": null,
+      "loan_reference": null,
+      "ground_truth": {
+        "price_and_value": "non_compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "planted_defect": "price_and_value",
+      "account_scenario": "other_lender",
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": null
+      },
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender (Oakstone Finance Ltd); no customer number. Planted issue: Fair-value justification clause self-contradicts: claims 'no fees are charged' while the Key Facts box and clause 4.1 clearly charge a £220 fee."
+    },
+    {
+      "doc_id": "loan_agreement_6",
+      "split": "v1",
+      "file": "data/synthetic_docs/loan_agreement_6.txt",
+      "customer_id": null,
+      "loan_reference": null,
+      "ground_truth": {
+        "price_and_value": "non_compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "planted_defect": "price_and_value",
+      "account_scenario": "other_lender",
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": null
+      },
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender (Fernbridge Lending Ltd); no customer number. Planted issue: Fee is disclosed only as a wide range (£120-£350, confirmed at underwriting) with no fair-value justification of the variable pricing."
+    },
+    {
+      "doc_id": "loan_agreement_7",
+      "split": "v1",
+      "file": "data/synthetic_docs/loan_agreement_7.txt",
+      "customer_id": null,
+      "loan_reference": null,
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "non_compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "planted_defect": "consumer_support",
+      "account_scenario": "other_lender",
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": null
+      },
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender (Kestrel Personal Finance Ltd); no customer number. Planted issue: Vulnerable-customer clause omitted entirely, no substitute of any kind."
+    },
+    {
+      "doc_id": "loan_agreement_8",
+      "split": "v1",
+      "file": "data/synthetic_docs/loan_agreement_8.txt",
+      "customer_id": null,
+      "loan_reference": null,
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "non_compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "planted_defect": "consumer_support",
+      "account_scenario": "other_lender",
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": null
+      },
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender (Amberley Loans Ltd); no customer number. Planted issue: One-line perfunctory clause ('customers experiencing financial difficulty may contact us') with no process, no vulnerability categories, no support options."
+    },
+    {
+      "doc_id": "loan_agreement_9",
+      "split": "v1",
+      "file": "data/synthetic_docs/loan_agreement_9.txt",
+      "customer_id": null,
+      "loan_reference": null,
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "non_compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "planted_defect": "consumer_support",
+      "account_scenario": "other_lender",
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": null
+      },
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender (Thistledown Credit Ltd); no customer number. Planted issue: Clause present but explicitly scoped to financial hardship only, expressly excluding health, bereavement, and capability circumstances."
+    },
+    {
+      "doc_id": "loan_agreement_10",
+      "split": "v1",
+      "file": "data/synthetic_docs/loan_agreement_10.txt",
+      "customer_id": null,
+      "loan_reference": null,
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "non_compliant",
+        "consumer_understanding": "compliant"
+      },
+      "planted_defect": "products_and_services",
+      "account_scenario": "other_lender",
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": null
+      },
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender (Ravensworth Finance Ltd); no customer number. Planted issue: No target market / suitability statement anywhere in the document."
+    },
+    {
+      "doc_id": "loan_agreement_11",
+      "split": "v1",
+      "file": "data/synthetic_docs/loan_agreement_11.txt",
+      "customer_id": null,
+      "loan_reference": null,
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "non_compliant",
+        "consumer_understanding": "compliant"
+      },
+      "planted_defect": "products_and_services",
+      "account_scenario": "other_lender",
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": null
+      },
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender (Silverline Consumer Credit Ltd); no customer number. Planted issue: Target market statement present but describes a mismatched market (flexible revolving credit) for what is actually a fixed-term, fixed-instalment loan."
+    },
+    {
+      "doc_id": "loan_agreement_12",
+      "split": "v1",
+      "file": "data/synthetic_docs/loan_agreement_12.txt",
+      "customer_id": null,
+      "loan_reference": null,
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "non_compliant"
+      },
+      "planted_defect": "consumer_understanding",
+      "account_scenario": "other_lender",
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": null
+      },
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender (Hartwell Lending Ltd); no customer number. Planted issue: No Key Facts / upfront summary at all; terms only inside numbered clauses."
+    },
+    {
+      "doc_id": "loan_agreement_13",
+      "split": "v1",
+      "file": "data/synthetic_docs/loan_agreement_13.txt",
+      "customer_id": null,
+      "loan_reference": null,
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "non_compliant"
+      },
+      "planted_defect": "consumer_understanding",
+      "account_scenario": "other_lender",
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": null
+      },
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender (Willowmere Finance Ltd); no customer number. Planted issue: Has a 'KEY INFORMATION' heading, but its content is just defined-terms boilerplate — never restates the actual amount/APR/term/cost."
+    },
+    {
+      "doc_id": "loan_agreement_14",
+      "split": "v1",
+      "file": "data/synthetic_docs/loan_agreement_14.txt",
+      "customer_id": null,
+      "loan_reference": null,
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "planted_defect": null,
+      "account_scenario": "other_lender",
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": null
+      },
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender (Copperfield Trust Lending Ltd); no customer number. Planted issue: Control #2: all 4 outcomes addressed properly, same phrasing style as doc3."
+    },
+    {
+      "doc_id": "loan_agreement_15",
+      "split": "v1",
+      "file": "data/synthetic_docs/loan_agreement_15.txt",
+      "customer_id": null,
+      "loan_reference": null,
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "planted_defect": null,
+      "account_scenario": "other_lender",
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": null
+      },
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender (Elmsworth Credit Union); no customer number. Planted issue: Control #3: all 4 outcomes addressed properly, deliberately different phrasing register (plain-language 'Your loan at a glance', credit-union voice) to test generalization beyond one house style."
+    }
+  ]
+}

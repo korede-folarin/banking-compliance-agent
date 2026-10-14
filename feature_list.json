@@ -64,7 +64,8 @@
       "id": "P5-04",
       "phase": "Phase 5: MCP tools layer",
       "description": "Agent calls all three MCP tools correctly during a real run (not hardcoded function calls)",
-      "passes": true
+      "passes": true,
+      "note": "2026-10-13: 'not hardcoded function calls' means the calls go through a real MCP client session over stdio, not direct Python calls. Which tools are called, in what order, and with what arguments is hardcoded in compliance.judge_price_and_value_with_mcp_context; the model only reads the results and never chooses a tool. This method is called only by tests, not by the evaluated pipeline. Agentic tool use (model-chosen tools) is a separate, later feature: see docs/agent_tool_use_design.md."
     },
     {
       "id": "P6-01",

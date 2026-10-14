@@ -5,6 +5,273 @@ Newest entry at the top.
 
 ---
 
+## Session 27 — 2026-10-13
+**Status:** Audit logging (P9-01 groundwork) built and tested offline. Zero
+API calls. P9-01 stays `passes: false` until a real run is logged end to
+end.
+
+**Done:**
+- **Design approved first:** `docs/audit_logging_design.md`, with the
+  decisions:
+  - `./logs/`, gitignored, with no pruning;
+  - failed ingestion checks warn and block unless `--allow-failed-checks`;
+  - prompt text only with `--log-payloads`;
+  - thresholds in config.
+- **Built:**
+  - `src/monitoring/audit.py`: the envelope, run header, checks logged
+    when they pass, redaction, the per-run file plus index, the docs/
+    guard, and never raising into the caller.
+  - `src/monitoring/pipeline_events.py`: stage events and checks.
+  - `src/ingestion/checks.py`.
+  - In `src/ingestion/ingest.py`: the checks run before embedding, the
+    build goes into a staging collection with a smoke test and a swap,
+    and `--check-only` checks read-only.
+  - Wiring:
+    - `retry_log.py`: `completion:kwargs` hook, `llm_call` and `retry`
+      events. The retries file is unchanged.
+    - `query_engine.py`: the synthesis call is logged.
+    - `first_pass.py` and `compliance.py`: stage events, with the same
+      call order and the same results.
+    - `run_eval main`: run header, `run_id` on each row, completeness
+      and protected-hash checks, `--log-payloads`.
+    - The compliance CLI starts and ends a run.
+  - `src/config.py`: `LOG_DIR`, `PRICE_PER_MTOK`,
+    `RETRIEVAL_OFF_TOPIC_SCORE`, `INGEST_*` thresholds.
+  - `.gitignore`: `logs/`.
+- **Tests:**
+  - `tests/test_audit_log.py` (11), `tests/test_ingestion_checks.py` (10)
+    and `tests/test_pipeline_events.py` (5).
+  - `tests/conftest.py` sends every test's logs to a temp directory.
+  - Full suite: 165 passed, 40 skipped (live tests, API key blanked),
+    0 failed. Protected `docs/` hashes unchanged.
+- **Checked on the real index, read-only:** `python -m src.ingestion.ingest
+  --check-only` passes all 7 checks on `regulatory_corpus`. On
+  `internal_policy`, the PDF-only checks and the smoke test are logged
+  as not applicable.
+- **Also written (design only):** `docs/agent_tool_use_design.md`. It
+  records the agentic tool-use decisions: limits of 8 calls, 3 per tool
+  and 6 turns, and the cost estimate.
+
+**Next:**
+- Approve one real compliance-check run to verify the logging end to end,
+  and then mark P9-01. This is 1 document, about 9 requests, about $0.15.
+- Task A (documentation sync): the claims list is waiting on two
+  decisions (the P5-04 wording, and the "as built" stamp).
+- Fixtures v2, then the agent loop (design in
+  `docs/agent_tool_use_design.md`).
+
+**Known issues:**
+- The bad-character definition was refined during testing. Whitespace
+  such as a non-breaking space no longer counts as bad, which lowers the
+  measured share from 0.055% to 0.022%.
+- `claim_verification`, `groundedness` and `negative_control` don't start
+  audit runs yet. Their model calls are logged only if they run inside
+  one.
+
+**Notes:**
+- Not committed or pushed by Claude.
+
+**Agentic tool loop: built and tested offline (2026-10-13/14). No API calls.**
+- **Fixtures v2:**
+  - **Data and labels:** `data/fixtures_v2/` (19 documents, 18 accounts),
+    built by `build_fixtures.py` with seed 20261013. Labels are in
+    `tests/fixtures/eval_set_v2.json`.
+  - **Scope cases** added at the user's request: another lender (v2_d17),
+    no lender named (v2_d18), not a credit agreement (v2_d19).
+  - **`python -m src.evaluation.fixtures_v2_check` passes.** It also wrote
+    `docs/fixtures_v2_coverage.md` and `docs/fixtures_v2_labels.md` before
+    any run.
+  - **The blind-read check caught a real leak:** every account with a
+    payment event belonged to a defective document. Defects were
+    rebalanced and the rule tightened.
+- **Agent:**
+  - **MCP server:** `src/mcp_server/agent_server.py`, with raw evidence only
+    and lookup by customer number only.
+  - **Loop:** `src/agent/tool_agent.py`. The model chooses its tools from
+    the server's `list_tools`.
+  - **Output schema:** `src/agent/agent_schemas.py`.
+  - **Deterministic validation:** `src/agent/agent_validation.py`:
+    - necessary and unnecessary calls, from the document's own facts;
+    - policy required every time on Northbridge agreements, with policy
+      quotes checked against the passage they name;
+    - outcomes forced to `insufficient_evidence` when a quote isn't in the
+      passage it names, or that passage isn't cited;
+    - 2.1(a)/(b) checked against the account, and 2.1(c) by a quoted,
+      dated, in-window note.
+- **Evaluation:** `src/evaluation/agent_eval.py` (`plan`, `run`,
+  `claimcheck`, `score`).
+- **Tests:**
+  - `tests/test_tool_agent.py` (24);
+  - `tests/test_tool_agent_mcp_integration.py` (2), through the real MCP
+    server subprocess, the real index and the real accounts;
+  - `tests/test_agent_eval.py` (3).
+- **Bugs found by the integration test and fixed:**
+  - **The server's error output went to an unread pipe,** which can fill
+    and block the server. It now goes to `LOG_DIR/agent_server_stderr.log`.
+  - **On Windows, loading the embedding model inside the first tool call
+    hung.** It didn't hang in a shell, a plain subprocess or a console-less
+    subprocess; in the server it hung before the model began loading. The
+    server now warms up before serving (`agent_server.warm_up`). The fix
+    was verified through the real MCP client: the server is up in about
+    16s, and every tool call then returns at once.
+- **Docs:**
+  - ARCHITECTURE.md, new section "Agentic tool loop", plus the "Not built"
+    list;
+  - README.md, the "Not built yet" list;
+  - `docs/agent_tool_use_design.md`, an addendum with the new rules.
+
+**Regulation cap changed to 4, one search per outcome (2026-10-14, user decision).**
+- **What changed:**
+  - `search_regulation(outcome, query)`: each call names exactly one
+    Consumer Duty outcome, with a cap of 4 (`AGENT_CALL_LIMIT_BY_TOOL`);
+    other tools stay at 3, and the total stays at 8;
+  - an outcome may cite only regulation passages from its own search, and
+    its confidence uses the similarity from that search;
+  - every credit agreement needs all 4 outcome searches, and a second
+    search for the same outcome is unnecessary.
+- **Updated:** the labels, coverage and labels docs (regenerated; the
+  fixture check passes), the scorer (per-outcome search coverage), and the
+  integration test.
+- **Tests:** 33 agent tests pass, including through the real MCP server.
+- **Cost estimate (plan):** 19 docs × 3 runs, about $6.84 typical and $15.96
+  worst case; × 1 run, about $2.28 and $5.32.
+- **Run-to-run agreement on the v2 baseline** was computed from saved
+  data, free: 52 of 60 doc × outcome pairs agree across all 3 runs, and
+  all 52 are correct. Every wrong verdict is in the 8 that disagree. It
+  isn't yet a reported metric.
+
+**Open items settled (2026-10-14):**
+- **Fixtures, option A (user decision):** the agent also runs on the 15
+  hand-written v1 documents.
+  - `agent_eval --set v1` was added.
+  - Labels: `tests/fixtures/eval_set_v1_agent.json` and
+    `docs/agent_v1_labels.md`, written before any run from the baseline's
+    ground truth.
+  - The score report puts the agent's outcomes next to the baseline's full
+    pass on the same documents.
+- **Bug found before any run:** the lender rule misread two v1 lenders as
+  "not stated", because it required Ltd or plc. Fixed: "not stated" now
+  means the clause names no one. All 15 v1 lenders read as other lenders,
+  and the v2 readings are unchanged.
+- **Server start-up:** `ToolAgent.run_many` runs a whole batch through one
+  MCP server; each document is still a separate run. Tested with a fake
+  session and through the real server.
+- **Tests:** 36 agent unit and scorer tests; 3 real-MCP integration tests.
+- **Still open:** "recent" in 2.1(c). It stays a documented interpretation
+  (12 months) until the user decides.
+- **Cost plans:**
+  - v1: 15 × 3 runs, about $5.40 typical and $12.60 worst case;
+  - v2: 19 × 3 runs, about $6.84 typical and $15.96 worst case.
+
+**"Recent" settled (2026-10-14, user decision).** 2.1(c) "recent" means the
+12 months before the review date.
+- **Where it lives:** `AGENT_RECENT_WINDOW_MONTHS = 12` in config; the
+  agent is told it in the system prompt.
+- **The 2.1(a) "trailing 12 months" window is pinned separately,** to the
+  procedure's own wording, so changing "recent" can't move it.
+- **Tests:** boundary tests, where 2025-10-01 is recent and 2025-09-30 is
+  not.
+
+**Pre-flight before the paid evaluation (2026-10-14, zero API calls):**
+- **No leftovers:** no stray processes or Chroma staging collections; one
+  stray probe file was removed.
+- **Fixed in the code review:**
+  - the prompt now states the turn budget and that tools can be batched in
+    one turn; one-call-per-turn would have used all 6 turns before
+    submitting;
+  - the report separates "forced by a quote rule" from "forced by the
+    threshold";
+  - claims naming no returned passage are labelled `no_named_passage`,
+    not "no";
+  - the v1 baseline comparison shows runs and rates, because the baseline
+    has 45 rows.
+- **Dry run:** `agent_eval run --dry-run` drives an offline rehearsal
+  model through the real MCP server, the real data and the real scorer.
+  - **Result on all 34 documents:** tool calls 100% as required, 0
+    unnecessary calls, no limit hit, all 72 outcome quotes found in their
+    named passages, no check failures.
+  - **Outputs:** `logs/dryrun/`, never `docs/`.
+- **Expectation to state before paying:** under the 0.65 threshold, most
+  post-threshold verdicts on 3 of the 4 outcomes will be
+  `insufficient_evidence`, the same pattern as the baseline. The agent's
+  own verdicts (the `llm` rows) carry the accuracy signal.
+- **Tests:** 210 passed, 40 skipped. Protected hashes unchanged.
+
+**Confidence gate (2026-10-14, user decision): no auto-approval until it is calibrated.**
+- **Agent only:** `AGENT_AUTO_APPROVAL_ENABLED = False`. Every case goes to a
+  human, with `review_reasons`.
+- **The 0.65 override was removed:** confidence is reported (plus a "below
+  reference" flag) and never replaces the verdict. Only the quote and
+  citation rules replace verdicts.
+- **Evidence:** on the baseline, 0.65 passed 0% of compliant PV and CU
+  verdicts and 100% of CS and PS verdicts, including CS's 3 wrong ones.
+- **Unchanged:** the baseline code and its numbers.
+- **Tests:** 212 passed, 40 skipped.
+
+**Next:**
+1. Approve the live agent evaluation; the plan output gives the cost.
+2. Run `claimcheck`, then `score`, and record the results.
+3. P7-01, human approval.
+
+**Documentation correction (Task A, 2026-10-13).** README.md and
+ARCHITECTURE.md were checked claim by claim against the code. Past
+progress.md entries are records and were not edited; the stale claims in
+them are listed here.
+
+Found stale, and what changed:
+- **README.md was rewritten to the as-built system.** The stale claims
+  were:
+  - a 32-test suite of all-live tests, against today's 205 tests (165
+    offline, 40 live);
+  - 3 documents, against 15;
+  - Phase 5 and Phase 8 as "to come", though both are built and run;
+  - an "extracted clause list" field, which doesn't exist;
+  - "two specific outcomes" unreliable, though the v2 pass shows false
+    positives in 3 outcomes;
+  - "MCP over plain function calls" and "one orchestrating agent" as
+    descriptions of the evaluated path;
+  - Streamlit and Ragas in the stack, though neither is used.
+
+  The garbage-chunk section now claims only what the records support:
+  nothing was logged, and no error surfaced. It also adds the
+  encrypted-PDF bug. The placeholder retries were added as a known
+  limitation.
+- **ARCHITECTURE.md:**
+  - **New section:** "As built (2026-10-13, commit 7f63d32 plus
+    uncommitted changes)", with the file that calls each step and MCP
+    marked as a side path.
+  - **The original data-flow block is kept, relabelled as the August
+    plan.** Its stale points: customer queries and complaints, a
+    natural-language question as input, MCP in the flow, retrieval via
+    MCP, and the approval gate, deployment and monitoring presented as
+    current.
+  - **Dated notes added inline, with the original text kept:**
+    - extraction confidence is test-only;
+    - consumer_support's "never a false flag" is superseded (v2 has 3);
+    - the account tool holds no transactions;
+    - `evaluate()` changed under item #4;
+    - the 300-character excerpt is now the whole chunk;
+    - the MCP trade-off row, as built;
+    - the checklist's state column, superseded;
+    - "what remains is running it" and "no verifier result yet", both
+      done;
+    - LangGraph's "Claude's own agent loop", which doesn't exist.
+  - **P5-04 note:** the calls are real MCP but hardcoded by the code;
+    this is not agentic tool use.
+- **feature_list.json:** P5-04 gained a `note` with the same
+  clarification. Its description and `passes` are unchanged.
+- **Stale claims in past progress.md entries, kept as records:**
+  - Session 10, Status paragraph: "the Compliance Agent calls all three
+    through the MCP protocol". True only of the test-only method.
+  - Session 9 and Session 8 entries: Phase 5 listed as if part of the
+    pipeline.
+- **Public-facing wording:**
+  - None in the repo.
+  - A CV file outside the repo names the project. The user is to check
+    it for the old claims; it wasn't edited or read further.
+
+---
+
 ## Session 25 — 2026-10-01
 **Status:** Pilot finding 2 fixed with Option A: the judge and the claim
 checker see each retrieved chunk in full, not its first 300 characters.
@@ -294,11 +561,132 @@ option 2).
   attempt 2, 3 on attempt 3). Details in ARCHITECTURE.md "Evaluation
   notes".
 
+**Full-pass Signal 1 saved (free):** `groundedness plan` on
+`docs/eval_raw_main_pass_v2.jsonl` wrote
+`docs/eval_raw_main_pass_v2_signal1.jsonl`. 180 rows, all with cited-chunk
+min/mean (499 per-chunk scores), 0 API requests, protected hashes
+unchanged.
+
+**Full-pass claim check run (approved 536; used exactly 536).**
+- Store written outside OneDrive (`C:\\Users\\folar\\eval_runs\\`, same
+  reason as the main pass), then copied byte-identical into `docs/` under
+  the default names: `eval_raw_main_pass_v2_claim_judgments_checks.jsonl`
+  (store), `..._checks_results.jsonl`, `..._checks_report.md`.
+- **0 retries, 0 HTTP errors, 0 failures.** No retry log was created
+  because no parse error occurred.
+- Raw results, reported as facts only:
+  - **Verdicts (536 claims):** yes 484 (90.3%), partially 52 (9.7%), no 0.
+    By outcome:
+
+    | Outcome | Claims | partially |
+    |---|---|---|
+    | price_and_value | 150 | 20 (13.3%) |
+    | consumer_support | 139 | 6 (4.3%) |
+    | products_and_services | 120 | 7 (5.8%) |
+    | consumer_understanding | 127 | 19 (15.0%) |
+
+  - **Quote check (542 sources):** 513 in the named chunk (45 exact, 456
+    normalised, 12 fuzzy), 29 `not_found`. None in another retrieved chunk
+    or elsewhere in the corpus.
+  - **The `not_found` quotes:** 27 of 29 are "..." splices whose every part
+    is verbatim in the named chunk. The other 2 are an identical quote
+    (`_4` run 1, `_6` run 2) that appears to join two sentences of the
+    chunk without a marker (best fuzzy 0.74). Consumer Understanding
+    accounts for 16 of the 29.
+  - **Disagreements:** (A) every quote in its named chunk but LLM `no`: 0.
+    (B) a quote outside its named chunk but LLM `yes`: 25, all of them the
+    `not_found` splices above.
+  - **Named excerpt outside the judgment's own `cited_sources`:** 2 of 542
+    (`_2` run 0 and `_12` run 1, both consumer_understanding). Named
+    excerpts that don't exist: 0.
+  - **Source count:** 530 single-source claims (9.8% partially) and 6
+    two-source claims (all yes).
+  - **Document facts:** 13 not found, 11 of them the "Not addressed in
+    this document." placeholder.
+- **Partially rate, numbers only:**
+
+  | Set | Claims | partially |
+  |---|---|---|
+  | Full pass | 536 | 9.7% |
+  | Full pass, `_2` + `_12`, run 0 | 23 | 0.0% |
+  | Full pass, `_2` + `_12`, runs 0-2 | 72 | 8.3% |
+  | By run: 0 / 1 / 2 | | 8.9% / 11.0% / 9.1% |
+  | Re-pilot, `_2` + `_12` | 27 | 22% (6) |
+  | Session 23 pilot, all 4 docs | 39 | 26% |
+  | Session 23 pilot, `_2` + `_12` | 21 | 38% |
+
+- Protected hashes unchanged: 9 files, including the full-pass inputs.
+
+**Negative control for the claim checker: built, NOT run (2026-10-08).**
+- **Criteria first.** `docs/negative_control_criteria.md` was written before
+  any pair was selected or any call made.
+  - Groups: 10 unrelated (a chunk retrieved for a different outcome of the
+    same row), 10 neighbouring (the adjacent chunk in the same regulation
+    file), 10 positive (the claim's own named chunk).
+  - Pass: 10/10 unrelated rejected, at least 7/10 neighbouring rejected,
+    at least 9/10 positives accepted.
+  - Rejected = `no`, accepted = `yes`; `partially` counts as neither.
+  - Seed `20261008`.
+- **Adjacency definition.** The Chroma index records no previous/next links
+  (only each chunk's source page), so adjacency = order by `file_name`,
+  numeric `page_label`, `start_char_idx`.
+- **New `src/evaluation/negative_control.py`:**
+  - `build` (free) selects from single-source, full-pass `yes` claims whose
+    quote was found exact/normalised, mechanically verifies each pair, and
+    refuses to overwrite a frozen pairs file;
+  - `run` uses the same `claim_verification._check_claim`, appends results,
+    resumes with a WARNING, and logs retries;
+  - `report` scores against the criteria as written.
+- **New `tests/test_negative_control.py` (7 tests, synthetic data):**
+  - the absent/present rules, including "..." parts;
+  - adjacency stays within a file;
+  - selection meets every rule and is deterministic;
+  - the frozen pairs file is not overwritten;
+  - `run` calls the same checker with the same prompt and tool settings,
+    once per pair, and resumes;
+  - scoring edge cases (7/10, 9/10, a `partially` on an unrelated pair
+    fails, a missing result fails);
+  - the report path.
+  123 offline tests pass.
+- **Real `build`:** wrote `docs/negative_control_pairs.jsonl` (sha256
+  `e966eeb5...`), 0 candidates replaced, 0 API requests.
+- **Independent re-verification:** no problems.
+  - groups 10/10/10; 30 distinct claims; 3/3/2/2 outcomes per group;
+  - quote absent from all 20 wrong chunks (best in-order fuzzy 0.38), and
+    present in all 10 positives;
+  - neighbours adjacent and in the same file; unrelated chunks outside the
+    claim's own retrieval.
+- Protected hashes unchanged (9 files).
+- **Not run yet:** 30 calls (worst case 120), awaiting approval.
+- **Criteria addendum (added before any API call, after the pairs were
+  frozen; original text unchanged):**
+  - The checker sees only the claim and the chunk (`SOURCE
+    TEXT:\n<chunk>\n\nCLAIM:\n<claim>`), never the quote, the excerpt
+    number, the reasoning or the document.
+  - A negative pair marked `yes` is reported as a checker failure. The user
+    annotates whether the chunk supports the claim in its own words, in
+    `docs/negative_control_annotations.jsonl`; annotations never change any
+    count or pass/fail.
+  - `report` shows the LLM-only result (what the criteria apply to) and the
+    combined gate (quote found AND `yes`), per group. Under the gate,
+    `partially` with the quote found is neither; the gate rejects every
+    negative by construction (quote absent).
+- **Code:** `negative_control.py` gained `quote_found`, `gate_decision`,
+  `score_gate`, `checker_failures`, an annotations section and
+  `--annotations` on `report`.
+- **Tests:** 4 new tests (the exact message the checker receives, gate
+  rules, gate and failures, annotations never changing any result), plus 1
+  updated assertion. 127 offline tests pass; protected hashes unchanged,
+  including the frozen pairs file.
+
 **Next:**
-- Approve `claim_verification check` on the full pass: exactly 536 calls
-  nominal (worst case 2,144).
-- Run `groundedness plan --input docs/eval_raw_main_pass_v2.jsonl` again
-  (free) to save the full pass's Signal 1 file.
+- Approve the negative control run (30 calls).
+- Not decided: the spliced-quote `not_found` labels (25 of the 29 drive
+  every type-B disagreement); a limitation already documented in
+  ARCHITECTURE.md.
+- Write up the full-pass results (raw facts) in a results document if
+  wanted. P8-07 can be reviewed for `passes: true` now that the
+  comprehensive re-run has happened and been checked.
   Each judge call is now about 2x the input tokens (see ARCHITECTURE.md).
 
 **Known issues:**

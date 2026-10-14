@@ -1,0 +1,883 @@
+{
+  "_disclaimer": "Labels for graders only. Never passed to the agent or to any tool.",
+  "review_date": "2026-10-01",
+  "seed": 20261013,
+  "documents": [
+    {
+      "doc_id": "v2_d01",
+      "split": "design",
+      "file": "data/fixtures_v2/docs/v2_d01.txt",
+      "customer_id": "CUST-89997",
+      "loan_reference": "NCL-2026-88644",
+      "ground_truth": {
+        "price_and_value": "non_compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": "CUST-89997"
+      },
+      "planted_defect": "price_and_value",
+      "account_scenario": "missed_two_in_window",
+      "expected_escalation": {
+        "decision": "escalate",
+        "triggers": [
+          "2.1(a)"
+        ]
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": true,
+          "arguments": {
+            "customer_id": "CUST-89997"
+          }
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "two missed payments dated inside the trailing 12 months -> 2.1(a)"
+    },
+    {
+      "doc_id": "v2_d02",
+      "split": "heldout",
+      "file": "data/fixtures_v2/docs/v2_d02.txt",
+      "customer_id": "CUST-69917",
+      "loan_reference": "NCL-2026-36335",
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": "CUST-69917"
+      },
+      "planted_defect": null,
+      "account_scenario": "missed_two_in_window",
+      "expected_escalation": {
+        "decision": "escalate",
+        "triggers": [
+          "2.1(a)"
+        ]
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": true,
+          "arguments": {
+            "customer_id": "CUST-69917"
+          }
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "two missed payments dated inside the trailing 12 months -> 2.1(a)"
+    },
+    {
+      "doc_id": "v2_d03",
+      "split": "design",
+      "file": "data/fixtures_v2/docs/v2_d03.txt",
+      "customer_id": "CUST-35345",
+      "loan_reference": "NCL-2026-74148",
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "non_compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": "CUST-35345"
+      },
+      "planted_defect": "products_and_services",
+      "account_scenario": "hardship_open",
+      "expected_escalation": {
+        "decision": "escalate",
+        "triggers": [
+          "2.1(b)"
+        ]
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": true,
+          "arguments": {
+            "customer_id": "CUST-35345"
+          }
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "a hardship marker with no closed date -> 2.1(b)"
+    },
+    {
+      "doc_id": "v2_d04",
+      "split": "heldout",
+      "file": "data/fixtures_v2/docs/v2_d04.txt",
+      "customer_id": "CUST-85351",
+      "loan_reference": "NCL-2026-16119",
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": "CUST-85351"
+      },
+      "planted_defect": null,
+      "account_scenario": "hardship_open",
+      "expected_escalation": {
+        "decision": "escalate",
+        "triggers": [
+          "2.1(b)"
+        ]
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": true,
+          "arguments": {
+            "customer_id": "CUST-85351"
+          }
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "a hardship marker with no closed date -> 2.1(b)"
+    },
+    {
+      "doc_id": "v2_d05",
+      "split": "design",
+      "file": "data/fixtures_v2/docs/v2_d05.txt",
+      "customer_id": "CUST-52981",
+      "loan_reference": "NCL-2026-98175",
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "non_compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": "CUST-52981"
+      },
+      "planted_defect": "consumer_understanding",
+      "account_scenario": "note_bereavement",
+      "expected_escalation": {
+        "decision": "escalate",
+        "triggers": [
+          "2.1(c)"
+        ]
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": true,
+          "arguments": {
+            "customer_id": "CUST-52981"
+          }
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "a note recording a recent bereavement -> 2.1(c)"
+    },
+    {
+      "doc_id": "v2_d06",
+      "split": "heldout",
+      "file": "data/fixtures_v2/docs/v2_d06.txt",
+      "customer_id": "CUST-72079",
+      "loan_reference": "NCL-2026-39396",
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": "CUST-72079"
+      },
+      "planted_defect": null,
+      "account_scenario": "note_relationship_breakdown",
+      "expected_escalation": {
+        "decision": "escalate",
+        "triggers": [
+          "2.1(c)"
+        ]
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": true,
+          "arguments": {
+            "customer_id": "CUST-72079"
+          }
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "a note recording a recent separation -> 2.1(c)"
+    },
+    {
+      "doc_id": "v2_d07",
+      "split": "design",
+      "file": "data/fixtures_v2/docs/v2_d07.txt",
+      "customer_id": "CUST-22711",
+      "loan_reference": "NCL-2026-86776",
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "non_compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": "CUST-22711"
+      },
+      "planted_defect": "consumer_support",
+      "account_scenario": "missed_one_in_window",
+      "expected_escalation": {
+        "decision": "no_escalation",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": true,
+          "arguments": {
+            "customer_id": "CUST-22711"
+          }
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "near-miss: one missed payment in the window; 2.1(a) needs two or more"
+    },
+    {
+      "doc_id": "v2_d08",
+      "split": "design",
+      "file": "data/fixtures_v2/docs/v2_d08.txt",
+      "customer_id": "CUST-64391",
+      "loan_reference": "NCL-2026-52663",
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": "CUST-64391"
+      },
+      "planted_defect": null,
+      "account_scenario": "missed_two_one_outside_window",
+      "expected_escalation": {
+        "decision": "no_escalation",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": true,
+          "arguments": {
+            "customer_id": "CUST-64391"
+          }
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "near-miss: two missed payments but one is before 2025-10-01"
+    },
+    {
+      "doc_id": "v2_d09",
+      "split": "heldout",
+      "file": "data/fixtures_v2/docs/v2_d09.txt",
+      "customer_id": "CUST-91642",
+      "loan_reference": "NCL-2026-64698",
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "non_compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": "CUST-91642"
+      },
+      "planted_defect": "consumer_understanding",
+      "account_scenario": "hardship_closed",
+      "expected_escalation": {
+        "decision": "no_escalation",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": true,
+          "arguments": {
+            "customer_id": "CUST-91642"
+          }
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "near-miss: the hardship marker is closed; 2.1(b) needs an open marker"
+    },
+    {
+      "doc_id": "v2_d10",
+      "split": "heldout",
+      "file": "data/fixtures_v2/docs/v2_d10.txt",
+      "customer_id": "CUST-91039",
+      "loan_reference": "NCL-2026-54495",
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "non_compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": "CUST-91039"
+      },
+      "planted_defect": "consumer_support",
+      "account_scenario": "note_house_move",
+      "expected_escalation": {
+        "decision": "no_escalation",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": true,
+          "arguments": {
+            "customer_id": "CUST-91039"
+          }
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "near-miss: a house move for work is a life event but not one 2.1(c) lists"
+    },
+    {
+      "doc_id": "v2_d11",
+      "split": "design",
+      "file": "data/fixtures_v2/docs/v2_d11.txt",
+      "customer_id": "CUST-87899",
+      "loan_reference": "NCL-2026-87500",
+      "ground_truth": {
+        "price_and_value": "non_compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": "CUST-87899"
+      },
+      "planted_defect": "price_and_value",
+      "account_scenario": "clean",
+      "expected_escalation": {
+        "decision": "no_escalation",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": true,
+          "arguments": {
+            "customer_id": "CUST-87899"
+          }
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "no payment events, markers or trigger notes"
+    },
+    {
+      "doc_id": "v2_d12",
+      "split": "design",
+      "file": "data/fixtures_v2/docs/v2_d12.txt",
+      "customer_id": "CUST-16999",
+      "loan_reference": "NCL-2026-72241",
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": "CUST-16999"
+      },
+      "planted_defect": null,
+      "account_scenario": "clean",
+      "expected_escalation": {
+        "decision": "no_escalation",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": true,
+          "arguments": {
+            "customer_id": "CUST-16999"
+          }
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "no payment events, markers or trigger notes"
+    },
+    {
+      "doc_id": "v2_d13",
+      "split": "heldout",
+      "file": "data/fixtures_v2/docs/v2_d13.txt",
+      "customer_id": "CUST-41065",
+      "loan_reference": "NCL-2026-66519",
+      "ground_truth": {
+        "price_and_value": "non_compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": "CUST-41065"
+      },
+      "planted_defect": "price_and_value",
+      "account_scenario": "account_not_found",
+      "expected_escalation": {
+        "decision": "cannot_determine",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": true,
+          "arguments": {
+            "customer_id": "CUST-41065"
+          }
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "the customer number in the document has no account record"
+    },
+    {
+      "doc_id": "v2_d14",
+      "split": "heldout",
+      "file": "data/fixtures_v2/docs/v2_d14.txt",
+      "customer_id": "CUST-86954",
+      "loan_reference": "NCL-2026-61844",
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "non_compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": "CUST-86954"
+      },
+      "planted_defect": "consumer_support",
+      "account_scenario": "holder_name_mismatch",
+      "expected_escalation": {
+        "decision": "cannot_determine",
+        "triggers": []
+      },
+      "expected_discrepancy": true,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": true,
+          "arguments": {
+            "customer_id": "CUST-86954"
+          }
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "the account for this customer number belongs to a differently named person"
+    },
+    {
+      "doc_id": "v2_d15",
+      "split": "heldout",
+      "file": "data/fixtures_v2/docs/v2_d15.txt",
+      "customer_id": "CUST-19654",
+      "loan_reference": "NCL-2026-50101",
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "non_compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": "CUST-19654"
+      },
+      "planted_defect": "products_and_services",
+      "account_scenario": "loan_not_on_account",
+      "expected_escalation": {
+        "decision": "no_escalation",
+        "triggers": []
+      },
+      "expected_discrepancy": true,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": true,
+          "arguments": {
+            "customer_id": "CUST-19654"
+          }
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "account is clean, but the agreement's reference is not among its products"
+    },
+    {
+      "doc_id": "v2_d16",
+      "split": "design",
+      "file": "data/fixtures_v2/docs/v2_d16.txt",
+      "customer_id": null,
+      "loan_reference": "NCL-2026-29423",
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "northbridge",
+        "customer_number": null
+      },
+      "planted_defect": null,
+      "account_scenario": "no_customer_identified",
+      "expected_escalation": {
+        "decision": "cannot_determine",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "specimen agreement with no customer number: there is nothing to look up"
+    },
+    {
+      "doc_id": "v2_d17",
+      "split": "design",
+      "file": "data/fixtures_v2/docs/v2_d17.txt",
+      "customer_id": "CUST-38997",
+      "loan_reference": "NCL-2026-40850",
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "non_compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "other",
+        "customer_number": "CUST-38997"
+      },
+      "planted_defect": "consumer_support",
+      "account_scenario": "other_lender",
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "another lender's agreement: not a Northbridge customer, so no account lookup or Northbridge policy applies; Consumer Duty outcomes still apply"
+    },
+    {
+      "doc_id": "v2_d18",
+      "split": "heldout",
+      "file": "data/fixtures_v2/docs/v2_d18.txt",
+      "customer_id": "CUST-85253",
+      "loan_reference": "NCL-2026-88930",
+      "ground_truth": {
+        "price_and_value": "compliant",
+        "consumer_support": "compliant",
+        "products_and_services": "compliant",
+        "consumer_understanding": "compliant"
+      },
+      "document_facts": {
+        "credit_agreement": true,
+        "lender": "not_stated",
+        "customer_number": "CUST-85253"
+      },
+      "planted_defect": null,
+      "account_scenario": "lender_not_stated",
+      "expected_escalation": {
+        "decision": "cannot_determine",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": true,
+          "per_outcome": [
+            "price_and_value",
+            "consumer_support",
+            "products_and_services",
+            "consumer_understanding"
+          ]
+        }
+      },
+      "reason": "the agreement names no lender, so it cannot be established that the customer is Northbridge's: an account lookup is unnecessary and escalation cannot be determined"
+    },
+    {
+      "doc_id": "v2_d19",
+      "split": "design",
+      "file": "data/fixtures_v2/docs/v2_d19.txt",
+      "customer_id": "CUST-82872",
+      "loan_reference": "NCL-2026-16038",
+      "ground_truth": {
+        "price_and_value": "not_applicable",
+        "consumer_support": "not_applicable",
+        "products_and_services": "not_applicable",
+        "consumer_understanding": "not_applicable"
+      },
+      "document_facts": {
+        "credit_agreement": false,
+        "lender": "northbridge",
+        "customer_number": "CUST-82872"
+      },
+      "planted_defect": null,
+      "account_scenario": "not_a_credit_agreement",
+      "expected_escalation": {
+        "decision": "not_applicable",
+        "triggers": []
+      },
+      "expected_discrepancy": false,
+      "expected_tool_calls": {
+        "get_account": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_policy": {
+          "required": false,
+          "forbidden": true
+        },
+        "search_regulation": {
+          "required": false,
+          "forbidden": true
+        }
+      },
+      "reason": "a change-of-address letter, not a credit agreement: none of the four outcomes apply and no tool call is needed"
+    }
+  ]
+}

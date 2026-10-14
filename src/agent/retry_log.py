@@ -20,12 +20,23 @@ warning), so attaching them cannot change what a call sends or returns.
 Logging is OFF unless a path is set with `set_path()` (run_eval.py's `main`
 sets `<output stem>_retries.jsonl`), so ordinary runs and tests write
 nothing.
+
+Audit log (docs/audit_logging_design.md): the same hooks, plus
+`completion:kwargs`, also send every model request (`llm_call`: tokens,
+stop reason, request id, prompt hash) and every failed attempt (`retry`) to
+src/monitoring/audit.py when an audit run is active. Still observe-only. The
+retries file above is kept as it was, so existing readers are unaffected.
 """
 
 import json
 import time
 from pathlib import Path
 from typing import Any
+
+from src.monitoring import audit
+
+# Audit-log stage for each call site; anything else logs under its own name.
+STAGE_BY_CALL_SITE = {"judge": "judgment", "mcp_judge": "judgment", "extraction": "extraction"}
 
 _path: Path | None = None
 _context: dict[str, Any] = {}
@@ -66,11 +77,34 @@ def attach(client: Any, call_site: str) -> Any:
     if not hasattr(client, "on"):  # e.g. a test double; nothing to attach to
         return client
     last: dict[str, Any] = {}
+    stage = STAGE_BY_CALL_SITE.get(call_site, call_site)
+
+    def on_kwargs(*args: Any, **kwargs: Any) -> None:
+        try:
+            last["kwargs"], last["t0"] = kwargs, time.time()
+            # A new request is attempt 1 unless the previous attempt failed validation.
+            last["attempt"] = last.get("attempt", 0) + 1 if last.pop("retrying", False) else 1
+        except Exception:
+            pass
 
     def on_response(response: Any) -> None:
         last["response"] = response
+        try:
+            t0 = last.get("t0")
+            audit.llm_call(stage, call_site, response, kwargs=last.get("kwargs"), attempt=last.get("attempt"),
+                           duration_ms=int((time.time() - t0) * 1000) if t0 else None)
+        except Exception:
+            pass  # observation must never affect the call
 
     def on_parse_error(error: Exception, **meta: Any) -> None:
+        last["retrying"] = not meta.get("is_last_attempt")  # after the last attempt, the next request is a new call
+        try:
+            audit.event(stage, "retry", level="warn", component=f"src/agent/retry_log.py:{call_site}", data={
+                "call_site": call_site, "attempt_number": meta.get("attempt_number"),
+                "is_last_attempt": meta.get("is_last_attempt"), "error_type": type(error).__name__,
+                "error": str(error)[:3000], **_describe(last.get("response"))})
+        except Exception:
+            pass
         try:
             if _path is None:
                 return
@@ -89,6 +123,7 @@ def attach(client: Any, call_site: str) -> Any:
         except Exception:
             pass  # observation must never affect the call
 
+    client.on("completion:kwargs", on_kwargs)
     client.on("completion:response", on_response)
     client.on("parse:error", on_parse_error)
     return client

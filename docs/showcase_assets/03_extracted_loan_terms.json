@@ -1,0 +1,19 @@
+{
+  "_disclaimer": "Synthetic document. All loan documents, borrowers and lenders referred to here are synthetic (data/synthetic_docs/). Regulatory text is from the FCA corpus in data/regulatory_corpus/.",
+  "_source": "docs/eval_raw_main_pass_v2.jsonl, row loan_agreement_1 run 1, field _cached_fields",
+  "_schema": "src/agent/schemas.py LoanAgreementFields (output of src/agent/intake.py extract_fields)",
+  "document": "data/synthetic_docs/loan_agreement_1.txt",
+  "fields": {
+    "lender_name": "Northfield Consumer Finance Ltd",
+    "borrower_name": "Daniel Osei",
+    "loan_amount": 8500.0,
+    "apr": 24.9,
+    "term_months": 36,
+    "repayment_schedule": "36 equal monthly instalments of £337.70, payable by direct debit on the 1st day of each calendar month, the first payment falling due one calendar month after drawdown. Total amount payable over the term, inclusive of interest, is £12,157.20.",
+    "fees": "Administration and arrangement charges may apply, as set out from time to time in the Lender's standard tariff of charges (not a specific amount stated in this document; the Borrower may request a copy of the current tariff). The Lender may vary its tariff of charges from time to time by giving reasonable notice.",
+    "vulnerable_customer_provision": "\"The Lender recognises that some customers may, either permanently or temporarily, be in circumstances that make them vulnerable — for example due to ill health, bereavement, changes in personal circumstances, low resilience to financial or emotional shocks, or low capability in managing financial matters.\" If the Borrower considers they are or may become vulnerable, they are encouraged to inform the Lender in confidence via customer service; the Lender will work with the Borrower to identify appropriate support, which may include adjusted communication methods, additional time to consider options, or referral to independent debt advice. Contacting the Lender will not affect the Borrower's obligations but may affect options available if experiencing payment difficulties.",
+    "fair_value_justification": "Not addressed in this document.",
+    "target_market_suitability_statement": "\"This Loan has been designed for consumers seeking a fixed-rate, fixed-term personal loan for a known borrowing amount, who are able to evidence affordability of the fixed monthly instalments set out in clause 2 and who do not require flexible or revolving credit. The Lender has assessed that a Borrower with these characteristics is likely to achieve good outcomes from this product, having regard to its fixed cost structure, defined term, and early repayment rights set out in clause 4. The Lender reviews this target market assessment periodically and considers the impact of its distribution channels on ensuring the product reaches the intended market.\"",
+    "key_terms_summary_provision": "\"KEY FACTS AT A GLANCE: Loan amount: £8,500.00; APR: 24.9%; Term: 36 months; Monthly repayment: £337.70; Total amount repayable: £12,157.20. This summary is provided upfront to help the Borrower understand the key terms of this Agreement before reading the full terms and conditions set out below.\""
+  }
+}
