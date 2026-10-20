@@ -19,6 +19,13 @@
       "passes": true
     },
     {
+      "id": "P1-03",
+      "phase": "Phase 1: RAG core (additional scope, not in original plan)",
+      "description": "Ingestion is gated: content checks (PDF reader used, no raw-PDF markers, bad characters, chunks per page, pages with text) and a retrieval smoke test run before the live index is replaced; --check-only checks the existing index",
+      "passes": false,
+      "note": "2026-10-20: tested offline (tests/test_ingestion_checks.py). --check-only on the real regulatory_corpus index passes all 7 checks (2026-10-13 and 2026-10-20). The gated rebuild itself (staging collection, smoke test, swap) has not been run on the real corpus. That run is local and free (no API)."
+    },
+    {
       "id": "P2-01",
       "phase": "Phase 2: Structured extraction",
       "description": "Intake Agent extracts structured fields from uploaded document using Pydantic schema",
@@ -66,6 +73,20 @@
       "description": "Agent calls all three MCP tools correctly during a real run (not hardcoded function calls)",
       "passes": true,
       "note": "2026-10-13: 'not hardcoded function calls' means the calls go through a real MCP client session over stdio, not direct Python calls. Which tools are called, in what order, and with what arguments is hardcoded in compliance.judge_price_and_value_with_mcp_context; the model only reads the results and never chooses a tool. This method is called only by tests, not by the evaluated pipeline. Agentic tool use (model-chosen tools) is a separate, later feature: see docs/agent_tool_use_design.md."
+    },
+    {
+      "id": "P5-05",
+      "phase": "Phase 5: MCP tools layer (additional scope, not in original plan)",
+      "description": "Agentic tool use: the model chooses which MCP tools to call, and with what arguments, inside a bounded loop (8 calls, search_regulation 4 with one per outcome, other tools 3, 6 turns) and submits an assessment citing numbered evidence",
+      "passes": false,
+      "note": "Built and tested offline (tests/test_tool_agent.py, tests/test_tool_agent_mcp_integration.py with the real MCP server). The offline dry run covers all 34 documents. Not yet run against the live model. Design: docs/agent_tool_use_design.md."
+    },
+    {
+      "id": "P5-06",
+      "phase": "Phase 5: MCP tools layer (additional scope, not in original plan)",
+      "description": "Deterministic checks on every agent run (no LLM): required and unnecessary tool calls, quotes found in the passage they name, citations only from the agent's own searches, policy quotes in the policy passage, escalation criteria 2.1(a)-(c) checked against account facts; failures force insufficient_evidence and give review reasons",
+      "passes": false,
+      "note": "Built and tested offline (src/agent/agent_validation.py, tests/test_tool_agent.py). Dry run on all 34 documents: tool calls 100% correct, 0 unnecessary, 72/72 quotes found. Not yet run on live model output."
     },
     {
       "id": "P6-01",
@@ -126,13 +147,43 @@
       "id": "P8-07",
       "phase": "Phase 8: Evaluation (additional scope, not in original plan)",
       "description": "Comprehensive re-run prerequisites: all 20 items of the deferred checklist in ARCHITECTURE.md 'Evaluation notes' in place before the one final main-pass re-run. Progress: items 1-2 in code (exercised for real by the Session 23 pilot); item 11 (main pass writes to docs/eval_raw_main_pass_v2.jsonl by default, refuses the Phase 8 file, resumes against its own output only, warns loudly about skipped pairs) built and tested offline (tests/test_run_eval_main_output.py); item 13 (summary, variants, groundedness.py and claim_verification.py take --input, default to the v2 file, read the Phase 8 file only when given it explicitly; summary writes <input stem>_summary.json and never overwrites docs/eval_summary.json) built and tested offline (tests/test_eval_readers_input.py); item 19 (groundedness.py run writes to --output, default docs/eval_groundedness_<input stem>.md, and refuses docs/eval_groundedness.md) built and tested offline (tests/test_groundedness_output.py); item 17 (claim_verification check keeps an append-only claim-check store and rebuilds <store>_results.jsonl and <store>_report.md from every judgment plus the whole store, so a second or --docs-limited run drops nothing) built and tested offline (tests/test_claim_check_store.py); item 18 (claim_verification check saves each claim-check result as it returns, and a re-run skips already-checked claims with a WARNING) built and tested offline (tests/test_claim_check_store.py); item 20 (excerpt length defined once as query_engine.SOURCE_EXCERPT_CHARS and read at call time by groundedness.py and claim_verification.py) built and tested offline (tests/test_excerpt_length_single_source.py); item 3 (run_eval.py main saves the structured-claim fields: each outcome record now carries the full OutcomeJudgment as `judgment`) built and tested offline (tests/test_main_pass_record.py); item 8 (the same full judgment, including document_facts / regulatory_requirements / absences, saved for every run, not just run 0) built and tested offline (tests/test_main_pass_record.py); item 6 (every retrieved source per outcome, cited or not, saved as `retrieved_sources` with node IDs for every run; SourceCitation gained an optional node_id filled by the query engine) built and tested offline (tests/test_main_pass_record.py); item 7 (`_cached_fields` saved for every run, not just run 0) built and tested offline (tests/test_main_pass_record.py); item 9 (raw judgment cited_sources saved as `cited_sources_raw` next to the resolved list) built and tested offline (tests/test_main_pass_record.py); item 4 (the judge's user message includes the full loan agreement text; evaluate() requires it) built and tested offline (tests/test_rerun_final_batch.py); item 10 (groundedness.py and claim_verification.py work on any run: saved retrieved_sources/fields used, judge --runs, new zero-cost ingest of a main pass's own judgments) built and tested offline (tests/test_rerun_final_batch.py); item 12 (variants rows save the same per-outcome fields as main, and use the production message builder) built and tested offline (tests/test_rerun_final_batch.py); item 14 (variants writes <input stem>_variants.jsonl and skips, with a WARNING, rows already there) built and tested offline (tests/test_rerun_final_batch.py); item 15 (summary warns about missing/duplicate rows, missing outcomes and logged failures; silent when complete) built and tested offline (tests/test_rerun_final_batch.py); item 16 (claim_verification judge and ingest announce skipped (doc, run) pairs) built and tested offline (tests/test_rerun_final_batch.py). All 20 checklist items are built and tested offline, and the Session 23 real pilot (4 documents, run 0, 141 API requests) validated the pipeline mechanism end to end against the live API. passes stays false until the comprehensive re-run itself (the full 15-document, 3-run pass) has actually happened and been checked: the pilot validated the mechanism, not the re-run. Session 25: the judge and claim checker now see whole retrieved chunks instead of 300 characters (pilot finding 2); every row records source_excerpt_chars and replay of older rows stays pinned to 300; confirmed by a 2-document re-pilot (18 API requests)",
-      "passes": false
+      "passes": true,
+      "note": "2026-10-20: the comprehensive re-run happened and was checked. docs/eval_raw_main_pass_v2.jsonl holds 45/45 rows (15 documents x runs 0-2), no duplicates, all 4 outcomes, each with the full judgment, retrieved_sources and _cached_fields, and whole-chunk excerpts recorded. The 2 errors in the errors file (loan_agreement_2 and _3, run 0: parallel tool-use 400s) were re-run and are among the 45. Checked afterwards: summary (docs/eval_raw_main_pass_v2_summary.json), claim checks (513/542 quotes located; report docs/eval_raw_main_pass_v2_claim_judgments_checks_report.md) and Signal 1. Commit 7f63d32."
+    },
+    {
+      "id": "P8-08",
+      "phase": "Phase 8: Evaluation (additional scope, not in original plan)",
+      "description": "Fixture set v2 for the agent: 19 loan documents and 18 mock accounts (seed 20261013) with labels, plus a blind-read leak check that no account or document field gives away the label",
+      "passes": true,
+      "note": "Built 2026-10-14: data/fixtures_v2/, labels in tests/fixtures/eval_set_v2.json, coverage in docs/fixtures_v2_coverage.md. The leak check (src/evaluation/fixtures_v2_check.py) passes. v1 agent labels: tests/fixtures/eval_set_v1_agent.json."
+    },
+    {
+      "id": "P8-09",
+      "phase": "Phase 8: Evaluation (additional scope, not in original plan)",
+      "description": "Agent evaluation harness: plan (exact cost), run (v1 or v2, 3 runs), claim check, score (tool calling, outcomes, escalation, groundedness, comparison with the v1 baseline as rates)",
+      "passes": false,
+      "note": "Built and tested offline (src/evaluation/agent_eval.py, tests/test_agent_eval.py); --dry-run works end to end. passes stays false until the live v2 and v1 runs have been scored."
+    },
+    {
+      "id": "P8-10",
+      "phase": "Phase 8: Evaluation (additional scope, not in original plan)",
+      "description": "Run-to-run agreement reported as an official result: per document and outcome, whether the 3 runs agree, and where the errors sit",
+      "passes": true,
+      "note": "2026-10-20: src/evaluation/agreement.py (zero API cost) on docs/eval_raw_main_pass_v2.jsonl writes docs/eval_agreement_eval_raw_main_pass_v2.md. 52 of 60 (document, outcome) pairs agree across the 3 runs, with 0 wrong verdicts; the 8 that disagree hold all 8 wrong verdicts and both abstentions. Majority vote is correct in 7 of 8. Tests: tests/test_agreement.py (3). Works on any main-pass file, for the agent rows later."
+    },
+    {
+      "id": "P8-11",
+      "phase": "Phase 8: Evaluation (additional scope, not in original plan)",
+      "description": "Confidence calibration report per outcome category: whether any category could skip review, with the 95% bound and the documents needed",
+      "passes": false,
+      "note": "Auto-approval is disabled (AGENT_AUTO_APPROVAL_ENABLED = False); confidence is reported only. Report not yet written."
     },
     {
       "id": "P9-01",
       "phase": "Phase 9: Monitoring",
       "description": "Every agent run logged: query, tools called, output, confidence, flag status",
-      "passes": false
+      "passes": false,
+      "note": "Audit logging built and tested offline 2026-10-13 (src/monitoring/audit.py; JSONL per run under ./logs plus index.jsonl). Ingestion check runs are logged for real. passes stays false until a live compliance or agent run is logged end to end."
     },
     {
       "id": "P9-02",

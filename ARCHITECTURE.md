@@ -1009,9 +1009,17 @@ The standard, with the decisions behind it, is in
 - **Logging module:** `src/monitoring/audit.py`. One JSON line per event,
   one file per run (`LOG_DIR/<date>/<run_id>.jsonl`, default `./logs/`,
   gitignored), plus `LOG_DIR/index.jsonl` with one line per run.
-- **Off until a run starts:** an entry point starts a run (`run_eval
-  main`, `python -m src.ingestion.ingest`, `python -m
-  src.agent.compliance`), so library use and tests write nothing.
+- **Off until a run starts:** an entry point starts a run, so library
+  use and tests write nothing. The entry points that start one:
+  - `run_eval main`, `python -m src.ingestion.ingest` and `python -m
+    src.agent.compliance`;
+  - `agent_eval run` and `claimcheck`;
+  - since 2026-10-20, the other paid evaluation commands:
+    `claim_verification judge` and `check`, `groundedness run`, and
+    `negative_control run`. Each logs a completeness check (calls or rows
+    saved against those planned), and is recorded as `failed` if it
+    crashes (`audit.logged_run`; `tests/test_eval_audit.py`).
+  - Zero-cost commands (plan, summary, report, ingest) are not logged.
 - **Tests never write to `LOG_DIR`:** `tests/conftest.py` sends their
   runs to a temp directory.
 - **Run header:** commit, a dirty-tree flag, allowlisted settings, corpus

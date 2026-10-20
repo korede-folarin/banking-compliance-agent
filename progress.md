@@ -40,7 +40,36 @@ Newest entry at the top.
 - `.claude/launch.json` stays committed (the user's decision), so a clone
   gets the review-app launcher on port 8510.
 
-**Next:** commit. After that, Monday: tracker
+**Monday checklist (done 2026-10-20):**
+- **Tracker:** `feature_list.json` gains the built but unlisted work
+  (P1-03, P5-05, P5-06, P8-08 to P8-11), and P9-01 gets a note. Only P8-08
+  (fixtures v2) is passing. Each of the others has a note on what proof
+  is missing.
+- **Audit runs:** the paid evaluation commands now write an audit run:
+  - `claim_verification judge` and `check`, `groundedness run`, and
+    `negative_control run`;
+  - via the new `audit.logged_run`, a "completed" or "failed" status;
+  - a completeness check, plus doc, run and outcome context per call;
+  - model calls are already logged through the retry_log hooks.
+  - `tests/test_eval_audit.py` (4) covers it.
+
+- **P8-07 `passes: true`.** The full re-run's output was checked
+  read-only:
+  - 45/45 rows, with no duplicates and all 4 outcomes;
+  - the checklist fields present on every row;
+  - the 2 logged 400s were re-run;
+  - the summary, claim checks and Signal 1 exist.
+
+- **P8-10 `passes: true`: agreement report.** `src/evaluation/agreement.py`
+  costs nothing and reads any main-pass file. It wrote
+  `docs/eval_agreement_eval_raw_main_pass_v2.md`:
+  - 52 of 60 pairs agree, with 0 wrong;
+  - 8 disagree, holding all 8 wrong verdicts and 2 abstentions;
+  - the majority vote is right in 7 of 8;
+  - the rule-of-three bound is 5.8%.
+  - `tests/test_agreement.py` (3). README Results gains the paragraph.
+
+**Next:** commit (end of Monday). Tuesday: calibration report. After that, Monday: tracker
 entries and audit logging in the 3 evaluation tools.
 
 ---

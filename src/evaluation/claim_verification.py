@@ -97,6 +97,7 @@ from src.agent.schemas import LoanAgreementFields  # noqa: E402
 from src.agent.structured_output import single_tool_choice  # noqa: E402
 from src.agent.uncertainty import NOT_ADDRESSED, _cosine_similarity, _get_embed_model, _splitter  # noqa: E402
 from src.config import ANTHROPIC_MODEL, CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR  # noqa: E402
+from src.monitoring import audit  # noqa: E402
 from src.evaluation.groundedness import compute_signal1_cited  # noqa: E402
 from src.evaluation.run_eval import INPUT_HELP, MAIN_PASS_PATH, resolve_main_input  # noqa: E402
 from src.retrieval import query_engine  # noqa: E402  (SOURCE_EXCERPT_CHARS, read at call time)
@@ -600,6 +601,13 @@ def cmd_plan(args) -> None:
 
 
 def cmd_judge(args) -> None:
+    with audit.logged_run("claim_verification judge", settings={
+            "input": getattr(args, "input", None), "judgments": str(_judgments_path(args)),
+            "docs": getattr(args, "docs", None), "runs": getattr(args, "runs", None)}):
+        _cmd_judge(args)
+
+
+def _cmd_judge(args) -> None:
     docs, runs = _pilot_docs(args), _pilot_runs(args)
     judgments_path = _judgments_path(args)
     main_pass_path = resolve_main_input(args.input)
@@ -619,6 +627,7 @@ def cmd_judge(args) -> None:
     retriever = None
     agent = ComplianceAgent()
     for doc_id, run_idx in todo:
+        audit.set_context(doc_id=doc_id, run_idx=run_idx)
         cached = _cached_run(doc_id, run_idx, main_pass_path)
         fields = LoanAgreementFields(**cached["_cached_fields"])
         sources = {}
@@ -664,6 +673,10 @@ def cmd_judge(args) -> None:
             },
         )
         print(f"{doc_id} run {run_idx}: { {k: judgments[k].status for k in OUTCOME_KEYS} }")
+    audit.set_context()
+    written = {(r["doc_id"], r.get("run_idx", 0)) for r in _read_jsonl(judgments_path)}
+    audit.check("evaluation", "judgments_complete", all(p in written for p in todo),
+                metric=f"{sum(p in written for p in todo)}/{len(todo)}", threshold=len(todo))
     print(f"\nWrote {judgments_path}")
 
 
@@ -786,6 +799,13 @@ def _store_key(rec: dict) -> tuple:
 
 
 def cmd_check(args) -> None:
+    with audit.logged_run("claim_verification check", settings={
+            "judgments": str(_judgments_path(args)), "output": getattr(args, "output", None),
+            "docs": getattr(args, "docs", None), "runs": getattr(args, "runs", None)}):
+        _cmd_check(args)
+
+
+def _cmd_check(args) -> None:
     import instructor
     from anthropic import Anthropic
 
@@ -843,6 +863,7 @@ def cmd_check(args) -> None:
         numbers = list(dict.fromkeys(s["excerpt_number"] for s in req["sources"]))
         chunk_texts = [by_index[x]["text_excerpt"] for x in numbers if x in by_index]
         retry_log.set_context(doc_id=r["doc_id"], run_idx=r["run_idx"], outcome=r["outcome"], claim_index=i)
+        audit.set_context(doc_id=r["doc_id"], run_idx=r["run_idx"], outcome=r["outcome"])
         res = _check_claim(client, req["claim"], chunk_texts)
         support_match = (
             _best_in(res.supporting_sentence, [(str(x), by_index[x]["text_excerpt"]) for x in numbers if x in by_index])[1]
@@ -871,6 +892,11 @@ def cmd_check(args) -> None:
             f"quote={[s['quote_location'] + '/' + s['match_type'] for s in req['sources']]} "
             f"sim_min={req['similarity_min']}"
         )
+
+    audit.set_context()
+    saved = sum(_claim_key(r["doc_id"], r["run_idx"], r["outcome"], i, req["claim"]) in stored for r, i, req in pending)
+    audit.check("evaluation", "claim_checks_complete", saved == len(pending),
+                metric=f"{saved}/{len(pending)}", threshold=len(pending))
 
     # Attach stored results to every judgment's claims (all documents).
     used = set()

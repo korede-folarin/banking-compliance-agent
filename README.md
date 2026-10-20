@@ -83,6 +83,12 @@ overridden to `insufficient_evidence`, and 62.5% of the incorrect ones are
 caught. Those caught cases are routed to review, which is the safety
 property; the threshold is not a correctness detector.
 
+**Run-to-run agreement.** In 52 of 60 document-outcome pairs, all 3 runs
+gave the same verdict, and none of those verdicts was wrong. All 8 wrong
+verdicts, and both abstentions, are in the 8 pairs where the runs
+disagreed. On these 15 synthetic documents, disagreement between runs
+marked every error. See `docs/eval_agreement_eval_raw_main_pass_v2.md`.
+
 **Claim checks.** Every regulatory claim was checked twice:
 - **Quote location (deterministic).** 513 of 542 cited quotes were found
   in the excerpt they named. 27 of the 29 not found are "..."-spliced
@@ -123,7 +129,7 @@ retry. The details are in ARCHITECTURE.md.
 
 ## What this does and doesn't prove
 
-**The test suite has 265 tests.** 225 run offline. 40 are live tests that
+**The test suite has 272 tests.** 232 run offline. 40 are live tests that
 call the Claude API and are skipped without a key.
 
 The evaluation covers 15 synthetic loan agreements with planted, known

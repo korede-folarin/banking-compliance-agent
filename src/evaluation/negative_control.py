@@ -37,6 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from src.agent import retry_log  # noqa: E402
 from src.evaluation import claim_verification as cv  # noqa: E402
+from src.monitoring import audit  # noqa: E402
 from tests.fixtures.eval_set import OUTCOME_KEYS  # noqa: E402
 
 DOCS = Path(__file__).resolve().parent.parent.parent / "docs"
@@ -265,6 +266,12 @@ def cmd_build(args) -> None:
 
 
 def cmd_run(args) -> None:
+    with audit.logged_run("negative_control run", settings={
+            "pairs": getattr(args, "pairs", None), "output": getattr(args, "output", None)}):
+        _cmd_run(args)
+
+
+def _cmd_run(args) -> None:
     import instructor
     from anthropic import Anthropic
 
@@ -286,11 +293,16 @@ def cmd_run(args) -> None:
     client = retry_log.attach(instructor.from_anthropic(Anthropic()), "negative_control")
     for n, p in enumerate(todo, start=1):
         retry_log.set_context(pair_id=p["pair_id"], group=p["group"])
+        audit.set_context(doc_id=p.get("doc_id"), run_idx=p.get("run_idx"), outcome=p.get("outcome"))
         res = cv._check_claim(client, p["claim"], [p["chunk_text"]])
         with open(out_path, "a", encoding="utf-8") as f:
             f.write(json.dumps({"pair_id": p["pair_id"], "group": p["group"], "verdict": res.verdict,
                                 "supporting_sentence": res.supporting_sentence}) + "\n")
         print(f"[{n}/{len(todo)}] {p['pair_id']} {p['group']}: {res.verdict}")
+    audit.set_context()
+    written = {r["pair_id"] for r in _read_jsonl(out_path)}
+    audit.check("evaluation", "pairs_complete", all(p["pair_id"] in written for p in todo),
+                metric=f"{sum(p['pair_id'] in written for p in todo)}/{len(todo)}", threshold=len(todo))
 
 
 def quote_found(pair: dict) -> bool:

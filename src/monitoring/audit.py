@@ -3,7 +3,8 @@ Audit log: one JSON line per event, one file per run (docs/audit_logging_design.
 
 Logging is OFF until `start_run()` is called, so library use and tests write
 nothing unless they ask to. Entry points (run_eval main, ingestion, the
-compliance CLI) start a run; pipeline code calls `event()`, `check()` and
+compliance CLI, agent_eval run/claimcheck, and the paid commands of
+claim_verification, groundedness and negative_control) start a run; pipeline code calls `event()`, `check()` and
 `llm_call()`, which do nothing when no run is active.
 
 Layout:  LOG_DIR/<YYYY-MM-DD>/<run_id>.jsonl   the run's events
@@ -22,6 +23,7 @@ import subprocess
 import sys
 import time
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -168,6 +170,18 @@ def end_run(status: str = "completed") -> None:
     })
     _run = None
     _context.clear()
+
+
+@contextmanager
+def logged_run(command: str, **start_kwargs: Any):
+    """start_run ... end_run around a command: "completed" if it returns, "failed" if it raises (SystemExit too)."""
+    start_run(command, **start_kwargs)
+    status = "failed"
+    try:
+        yield
+        status = "completed"
+    finally:
+        end_run(status)
 
 
 def set_context(**fields: Any) -> None:

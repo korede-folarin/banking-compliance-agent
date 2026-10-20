@@ -95,6 +95,7 @@ from src.agent.schemas import LoanAgreementFields  # noqa: E402
 from src.agent.structured_output import single_tool_choice  # noqa: E402
 from src.agent.uncertainty import _cosine_similarity, _get_embed_model  # noqa: E402
 from src.config import ANTHROPIC_MODEL  # noqa: E402
+from src.monitoring import audit  # noqa: E402
 from src.evaluation.run_eval import INPUT_HELP, MAIN_PASS_PATH, SUMMARY_PATH, resolve_main_input  # noqa: E402
 from src.retrieval import query_engine  # noqa: E402  (SOURCE_EXCERPT_CHARS, read at call time)
 from src.retrieval.query_engine import load_index  # noqa: E402
@@ -492,6 +493,13 @@ def _resolve_report_output(output: str | None, input_path: Path) -> Path:
 
 
 def cmd_run(args) -> None:
+    with audit.logged_run("groundedness run", settings={
+            "input": getattr(args, "input", None), "output": getattr(args, "output", None),
+            "p8_05_scope": getattr(args, "p8_05_scope", False)}):
+        _cmd_run(args)
+
+
+def _cmd_run(args) -> None:
     import instructor
     from anthropic import Anthropic
 
@@ -508,6 +516,7 @@ def cmd_run(args) -> None:
     client = retry_log.attach(instructor.from_anthropic(Anthropic()), "groundedness_check")
     done = 0
     for j in scope:
+        audit.set_context(doc_id=j["doc_id"], run_idx=j.get("run_idx", 0), outcome=j["outcome"])
         source_text = "\n\n".join(s["text_excerpt"] for s in j["sources"])
         verdicts = []
         for claim in j["claims"]:
@@ -518,6 +527,9 @@ def cmd_run(args) -> None:
         j["claim_verdicts"] = list(zip(j["claims"], verdicts))
         j["signal2_bucket"] = _signal2_bucket(verdicts)
         j["agreement"] = _agreement(j["signal1"], j["signal2_bucket"])
+    audit.set_context()
+    audit.check("evaluation", "claim_checks_complete", done == total_claims,
+                metric=f"{done}/{total_claims}", threshold=total_claims)
 
     _write_report(scope, output_path)
     print(f"\nWrote {output_path}")
