@@ -14,7 +14,7 @@ not choose tools or steps; the code calls each step in order.
 | `python -m src.evaluation.run_eval main` (`src/evaluation/run_eval.py` `cmd_main`, L343–358) | `FirstPassAgent.run` → `ComplianceAgent.evaluate` → `build_compliance_report`, once per document per run. This produced the full pass. |
 | `python -m src.agent.compliance <doc>` (`src/agent/compliance.py` `__main__` → `run_compliance_check` → `ComplianceCheckAgent.run`, L478–481) | The same three steps, for one document. |
 
-There is no UI: `src/app.py` (named in CLAUDE.md as `streamlit run src/app.py`) does not exist.
+When this flow was recorded there was no UI. The human review screen (`streamlit run src/app.py`, P7-01) was built afterwards, on 2026-10-15. It reads saved evaluation results and records a reviewer's decisions, and it does not run the steps below.
 
 ## Steps (one document)
 

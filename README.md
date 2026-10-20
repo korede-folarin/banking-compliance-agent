@@ -123,7 +123,7 @@ retry. The details are in ARCHITECTURE.md.
 
 ## What this does and doesn't prove
 
-**The test suite has 205 tests.** 165 run offline. 40 are live tests that
+**The test suite has 265 tests.** 225 run offline. 40 are live tests that
 call the Claude API and are skipped without a key.
 
 The evaluation covers 15 synthetic loan agreements with planted, known

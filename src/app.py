@@ -40,8 +40,10 @@ if not audit.active():  # one audit run per app process; decisions are logged un
 store = DecisionStore()
 
 st.title("Compliance review")
-if "flash" in st.session_state:  # confirmation from the previous action, shown once after the refresh
-    st.success(st.session_state.pop("flash"))
+flash = st.session_state.pop("flash", None)  # confirmation from the previous action, shown once after the refresh
+if flash:
+    st.success(flash)
+    st.toast(flash)  # floats on screen, so it is seen even when the reviewer is scrolled down at the Resolve button
 st.caption("Synthetic documents and accounts only. Auto-approval is disabled: every case needs a human decision "
            "on each item before it can be resolved. Confidence is shown for information and never replaces a verdict.")
 
@@ -71,6 +73,8 @@ case = next(c for c in visible if c.case_id == case_id)
 is_resolved = case.case_id in resolved
 decided = store.current(case.case_id)
 
+if flash and flash.startswith("Resolved "):  # the resolved case left the Open list: say a different case is now shown
+    st.info(f"{flash} Now showing the next case: {case.case_id}.")
 st.markdown(f"### {case.doc_id} · run {case.run_idx} · {case.source}")
 # The agent numbers its evidence E1, E2...; the baseline numbers the excerpts it retrieved 1-5.
 passage_label = "passage E" if case.tool_calls or case.items[-1].item_id == "escalation" else "excerpt "
@@ -119,7 +123,7 @@ for item in case.items:
         if st.button("Record decision", key=f"rec_{item.item_id}"):
             try:
                 store.decide(case, item.item_id, action, reviewer, verdict, reason)
-                st.success("Recorded.")
+                st.session_state["flash"] = f"Recorded: {item.title}, {action}."
                 st.rerun()
             except ReviewError as exc:
                 st.error(str(exc))

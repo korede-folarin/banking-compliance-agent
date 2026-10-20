@@ -5,6 +5,46 @@ Newest entry at the top.
 
 ---
 
+## Session 28 — 2026-10-20
+**Status:** P7-01 `passes: true`. Docs synced. Zero API calls.
+
+**Done:**
+- **P7-01 verified by the user in the running app.** Five baseline cases
+  (loan_agreement_1 runs 0–2, loan_agreement_2 runs 1–2) each got four
+  confirm decisions and a resolve, all in `reviews/decisions.jsonl`. The
+  resolve button appeared only after all four items were decided.
+- **Fixed: a resolve looked like it had reverted.** The resolved case
+  leaves the Open list, so the next open case was shown at once, and the
+  confirmation sat at the top of the page out of view.
+  - The confirmation now also appears as a toast.
+  - A line above the case heading names the case resolved and the case
+    now shown.
+  - "Recorded." now survives the refresh: it is passed through the same
+    message as the resolve confirmation.
+  - Test added for this. `tests/test_review.py`: 13 passed.
+- **Docs sync:**
+  - README test count: 265 (225 offline, 40 live).
+  - ARCHITECTURE: the stale "no UI" lines are updated, and P7-01 is
+    removed from Not built.
+  - Showcase INDEX and SYSTEM_FLOW: the review screen is noted as built
+    after the assets were made.
+  - `.env.example` lists the optional variables, commented out.
+- **Removed `ragas` and `langchain-community`** (the user's decision).
+  - They were never imported: evaluation uses the custom harness.
+  - langchain-community was only there for ragas's pin.
+  - PDF reading is pypdf, llama-index-readers-file and cryptography, all
+    kept.
+  - After uninstalling, `pip check` is clean, and `ingest --check-only`
+    passes all 7 checks.
+
+- `.claude/launch.json` stays committed (the user's decision), so a clone
+  gets the review-app launcher on port 8510.
+
+**Next:** commit. After that, Monday: tracker
+entries and audit logging in the 3 evaluation tools.
+
+---
+
 ## Session 27 — 2026-10-13
 **Status:** Audit logging (P9-01 groundwork) built and tested offline. Zero
 API calls. P9-01 stays `passes: false` until a real run is logged end to

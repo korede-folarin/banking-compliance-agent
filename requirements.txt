@@ -9,10 +9,6 @@ pypdf>=4.3.0
 cryptography>=41.0.0  # pypdf needs this to open AES-encrypted regulatory PDFs
 llama-index-readers-file>=0.4.0  # SimpleDirectoryReader needs this for real PDF parsing (else it reads raw bytes)
 llama-index-embeddings-huggingface>=0.4.0  # local embeddings, no external API/key needed
-ragas>=0.1.0
-# ragas unconditionally imports langchain_community.chat_models.vertexai,
-# which was removed in langchain-community 0.4.0 — pin below that line.
-langchain-community<0.4.0
 pytest>=8.3.0
 pandas>=2.2.0
 instructor>=1.0.0  # structured extraction (Pydantic-validated) from Claude via tool calling

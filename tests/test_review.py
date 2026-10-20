@@ -154,6 +154,7 @@ def test_screen_records_decisions_then_resolves(tmp_path, monkeypatch):
     for item in ("price_and_value", "consumer_support", "products_and_services", "consumer_understanding"):
         at.button(key=f"rec_{item}").click().run()
         assert not at.exception and not at.error
+        assert any(s.value.startswith("Recorded: ") for s in at.success)  # confirmation survives the refresh
     at.button(key="resolve").click().run()
     assert any("Resolved baseline:loan_agreement_1:run0" in s.value for s in at.success)
     assert "Queue: 0 case(s)" in at.subheader[0].value  # gone from the Open list

@@ -83,7 +83,8 @@
       "id": "P7-01",
       "phase": "Phase 7: Human-in-the-loop",
       "description": "Flagged issues require explicit human approval before marked resolved",
-      "passes": false
+      "passes": true,
+      "note": "Verified 2026-10-20 by the user in the running app: 5 baseline cases each had 4 decisions recorded, then resolved; the resolve button appeared only after all 4. Rules tested in tests/test_review.py (13)."
     },
     {
       "id": "P8-01",

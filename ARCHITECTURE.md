@@ -50,7 +50,6 @@ loan agreement text
   only.
 
 **Not built:**
-- the human approval gate (P7-01);
 - the monitoring dashboard (P9-02);
 - Docker and deployment (P10);
 - a live run of the agentic tool loop: it is built and tested offline (see "Agentic tool loop");
@@ -65,8 +64,8 @@ The block below is the original plan. Where it differs from the code, the
   natural-language question.
 - **MCP isn't on the evaluated path,** and retrieval doesn't go through
   MCP tools.
-- **Planned, not built:** the human approval gate, deployment and
-  monitoring.
+- **Planned, not built:** deployment and the monitoring dashboard. The
+  human approval gate was built later (P7-01, see "Human review").
 
 ```
 COMPANY DATA
@@ -217,8 +216,10 @@ appearing uniform.
 **UI display** ("confidence %, evidence used, auto-resolved vs escalated
 tag") is Phase 7's job, not Phase 6's: the data these fields need
 (`confidence`, `sources`/`cited_sources`, `needs_human_review`) now
-exists in structured form on every relevant result object, but no UI
-exists yet to display it (`streamlit run src/app.py` isn't built).
+exists in structured form on every relevant result object. The review
+screen built in Phase 7 (`streamlit run src/app.py`, see "Human review")
+displays the confidence, flags and evidence. It shows no
+auto-resolved tag, because auto-approval is disabled.
 
 ## Compliance-check field provenance
 `LoanAgreementFields` (`src/agent/schemas.py`) has four fields that map

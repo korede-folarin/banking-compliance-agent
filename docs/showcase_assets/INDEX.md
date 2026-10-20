@@ -117,4 +117,6 @@ fields, so its scores differ slightly from the run 1 judgment in asset 1.
 - **The retrieval query for runs 1 and 2, and for the other three
   outcomes.** The query text wasn't saved. Only the retrieved sources were
   saved, so asset 2 uses the one saved query.
-- **A UI screenshot.** There is no UI: `src/app.py` does not exist.
+- **A UI screenshot.** When these assets were made there was no UI. The
+  review screen (`src/app.py`, P7-01) was built afterwards, on
+  2026-10-15, and no screenshot of it has been added yet.
