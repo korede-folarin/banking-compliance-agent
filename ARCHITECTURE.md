@@ -33,7 +33,8 @@ loan agreement text
 
 - **Entry points:** `python -m src.evaluation.run_eval main` (the
   evaluation pass) and `python -m src.agent.compliance <doc>`.
-- **No UI:** `src/app.py` does not exist yet.
+- **Review screen (P7-01, 2026-10-15):** `streamlit run src/app.py`. See
+  "Human review" below.
 - **Audit logging:** every stage logs to `LOG_DIR` when a run is started
   (see "Audit logging" below).
 
@@ -812,6 +813,39 @@ ingested and checked: claim-check report
 `docs/eval_raw_main_pass_pilot_claim_judgments_checks_report.md`, raw facts
 only. The pilot validated the mechanism. It is not the comprehensive
 re-run, and its results are not comparable to Phase 8 (item #4).
+
+## Human review (P7-01, built and tested offline 2026-10-15)
+"Flagged issues require explicit human approval before marked resolved."
+
+**The files:**
+- `src/review/cases.py` turns baseline and agent rows into one case shape:
+  one case per (document, run). The items are the four outcomes, plus
+  escalation for agent cases. Each item carries the verdict, confidence,
+  reasoning, flags, and claims with their quotes and full passages.
+  Labels are never shown.
+- `src/review/store.py` enforces the rules:
+  - a reviewer must be named;
+  - an item is either `confirm`ed or `override`n, and an override needs an
+    allowed, different verdict and a written reason;
+  - a case can be `resolve`d only when every item has a decision;
+  - nothing changes after resolution;
+  - the history is append-only and the latest decision per item counts.
+
+  Decisions go to `REVIEW_DIR/decisions.jsonl` (`./reviews/`, gitignored
+  because it holds names) and to the audit log, without the reviewer's
+  name.
+- `src/app.py` (Streamlit) only displays and passes decisions through,
+  with the queue, case view, decision controls, resolve and history.
+  Dry-run rows can be shown, labelled as rehearsal.
+
+**Tests:** `tests/test_review.py` (13) cover the rules on the store, plus
+the screen end to end with Streamlit's offline `AppTest`: no decision
+without a reviewer, an override without a reason is refused, resolve only
+appears once everything is decided, and a resolved case leaves the Open
+queue.
+
+**Startup:** starting the audit run no longer imports the query engine
+(and the ML stack) just to read one setting, so the app loads in seconds.
 
 ## Agentic tool loop (built and tested offline 2026-10-14; not yet run live)
 Design and decisions: `docs/agent_tool_use_design.md`. The fixed workflow

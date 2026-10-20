@@ -40,6 +40,12 @@ AGENT_RECENT_WINDOW_MONTHS = 12
 # confidence score is reported, never used to replace the agent's verdict.
 AGENT_AUTO_APPROVAL_ENABLED = False
 
+# --- Human review (P7-01) ---
+# Append-only review decisions. Gitignored: they hold reviewer names. Relative to the repo root.
+REVIEW_DIR = Path(os.getenv("REVIEW_DIR", "reviews"))
+if not REVIEW_DIR.is_absolute():
+    REVIEW_DIR = PROJECT_ROOT / REVIEW_DIR
+
 # --- Audit logging (docs/audit_logging_design.md) ---
 # Relative paths resolve against the repo root, not the working directory, so
 # a run started from anywhere logs to the same place. ./logs/ is gitignored.

@@ -10,3 +10,9 @@ CLAUDE.local.md
 
 # Audit logs (docs/audit_logging_design.md)
 logs/
+
+# Human review decisions (hold reviewer names)
+reviews/
+
+# Personal planning (not part of the project)
+planning/

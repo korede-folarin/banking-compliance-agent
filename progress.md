@@ -208,6 +208,31 @@ end.
 - **Unchanged:** the baseline code and its numbers.
 - **Tests:** 212 passed, 40 skipped.
 
+**P7-01 human review built (2026-10-15).**
+- **Files:** `src/review/cases.py`, `src/review/store.py`, `src/app.py`;
+  `REVIEW_DIR` in config; `reviews/` gitignored; `.claude/launch.json`
+  runs the app on port 8510, because 8501 is used by another app.
+- **Rules enforced in the store:**
+  - a reviewer must be named;
+  - an override needs a reason;
+  - a case resolves only when every item is decided;
+  - nothing changes after resolution;
+  - decisions are append-only.
+- **Tests:** 13 in `tests/test_review.py`, including the screen through
+  `AppTest`. Full suite: 225 passed, 40 skipped.
+- **Checked in the browser:** the app loads the 45 baseline cases and
+  shows verdicts, quotes and the full passages. No decisions were recorded
+  in testing.
+- **Fixed while testing:**
+  - a resolved case vanished with no confirmation; a message now appears
+    after the refresh;
+  - baseline passages were labelled "E1"; they now read "excerpt 1";
+  - the audit header no longer loads the ML stack, so the app starts in
+    about 6 s instead of over a minute.
+- **The live pilot:** blocked. The API key in `.env` was rejected (401,
+  no charge). The user has added a key but has no API credit yet.
+- **P7-01 `passes`:** left false until the user has tried the screen.
+
 **Next:**
 1. Approve the live agent evaluation; the plan output gives the cost.
 2. Run `claimcheck`, then `score`, and record the results.

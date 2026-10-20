@@ -1,3 +1,0 @@
-{"doc_id": "v2_d01", "run_idx": 0, "error": "AuthenticationError(\"Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011Cg2xcHgLTxPQDDuSQAB2o'}\")"}
-{"doc_id": "v2_d10", "run_idx": 0, "error": "AuthenticationError(\"Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011Cg2xcJK2KFB9um8FBqXin'}\")"}
-{"doc_id": "v2_d17", "run_idx": 0, "error": "AuthenticationError(\"Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011Cg2xcJvUuKF6zHc76vxUq'}\")"}

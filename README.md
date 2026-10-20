@@ -134,14 +134,27 @@ arbitrary real-world agreements or a wider regulatory corpus.
   affordability and arrears rules, is not indexed.
 - **No affordability judgment:** the project doesn't attempt one.
 
+## Human review (P7-01)
+
+`streamlit run src/app.py` opens the review queue. Auto-approval is off,
+so every case is in it: baseline results now, and the agent's once they
+have run. For each item (the four outcomes, plus escalation for agent
+cases), the reviewer sees:
+- the system's verdict, confidence and the reasons it was flagged;
+- each claim with its quote and the full passage it came from.
+
+The reviewer then **confirms** the verdict or **overrides** it. An
+override needs a written reason. A case can be marked resolved only when
+every item has an explicit decision and a reviewer is named. Decisions
+are append-only (`./reviews/`, gitignored) and logged to the audit log.
+The rules are enforced in `src/review/store.py`, not just on screen.
+
 ## Not built yet
 
 - **Agentic tool use: built and tested offline, not yet run live.** The
   model chooses MCP tools in a bounded loop on a new 19-document fixture
   set; a deterministic layer checks every call and quote (ARCHITECTURE.md,
   "Agentic tool loop"). The live evaluation needs approval of its API cost.
-- **Human approval gate (P7-01):** today `needs_human_review` is a flag;
-  there's no review screen.
 - **Monitoring dashboard (P9-02).** Audit logging (P9-01) is built and
   tested offline, but not yet verified on a live run.
 - **Deployment and business framing:** Docker and deployment (P10); the

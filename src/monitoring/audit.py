@@ -94,10 +94,12 @@ def _git() -> dict:
 
 
 def _settings(extra: dict | None) -> dict:
-    from src.retrieval import query_engine  # read at call time: SOURCE_EXCERPT_CHARS can change
-
     s = {k: getattr(config, k) for k in SETTINGS_ALLOWLIST}
-    s["SOURCE_EXCERPT_CHARS"] = query_engine.SOURCE_EXCERPT_CHARS
+    # Read at call time (it can change), but only if the query engine is already loaded: importing it
+    # pulls in the ML stack (~90 s cold), which a run that does no retrieval (e.g. the review app)
+    # must not pay for.
+    query_engine = sys.modules.get("src.retrieval.query_engine")
+    s["SOURCE_EXCERPT_CHARS"] = query_engine.SOURCE_EXCERPT_CHARS if query_engine else "not loaded"
     s.update(extra or {})
     return s
 
