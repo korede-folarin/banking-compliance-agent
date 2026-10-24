@@ -69,7 +69,129 @@ Newest entry at the top.
   - the rule-of-three bound is 5.8%.
   - `tests/test_agreement.py` (3). README Results gains the paragraph.
 
-**Next:** commit (end of Monday). Tuesday: calibration report. After that, Monday: tracker
+Monday committed as 8d9cdec.
+
+**Tuesday checklist:**
+- **P8-11 `passes: true`: calibration report.**
+  - `src/evaluation/calibration.py` costs nothing. It wrote
+    `docs/eval_calibration_eval_raw_main_pass_v2.md`.
+  - **The question:** if a `compliant` verdict skipped review, how often
+    would it be a missed issue?
+  - **The three gates:**
+    - one run with confidence ≥0.65;
+    - all 3 runs compliant;
+    - both.
+  - **The method:** one document counts once, with an exact
+    Clopper-Pearson 95% upper bound.
+  - **The result:** no category qualifies at 1%, 2% or 5%. Zero missed
+    issues were seen, but there are at most 13 approvals per outcome
+    (bound ≥20.6%). The documents needed with zero misses are 299, 149
+    and 59.
+  - **Tests:** `tests/test_calibration.py` (3). README Results gains the
+    paragraph.
+  - **A risk target is not chosen yet:** that is a business decision, and
+    the report shows 1%, 2% and 5%.
+
+- **Splice rule B (user decision: "just because something was separated
+  by a sentence separator doesn't make it not found").**
+  - **The rule:** a "..." quote is found (`spliced`) when every part of 3+
+    words is in the text, in order, as whole words.
+  - **Where it lives:** in `claim_verification.match_quote`. The agent's
+    `quote_in` now calls it, which is stricter than before: order is
+    required.
+  - **New `claim_verification rescore`:** no API client. It writes
+    `<store>_rule_b_results.jsonl` and `_report.md` and refuses to
+    overwrite.
+  - **Applied to the full pass:**
+    - 27 `not_found` → `named_chunk/spliced`, so 540/542 quotes are now
+      in their named excerpt;
+    - type-B disagreements went from 25 to 1;
+    - the originals are untouched.
+  - **Tests:** `tests/test_splice_rule.py` (4), a reversed-order agent
+    case, and a rescore test.
+
+**2026-10-24:**
+- **Splice rule tightened (user decision).** Every "..." part must have
+  at least 3 words. A shorter part now fails the splice; before, it was
+  skipped. The rescore files were regenerated.
+- **Test-log leak fixed.** `test_check_retry_logging_only_observes` calls
+  `monkeypatch.undo()`, which also undid conftest's LOG_DIR redirect. 3
+  fake `claim_verification check` runs (model `claude-test`) reached the
+  real `logs/`.
+  - Conftest now uses its own `MonkeyPatch.context()`, plus a
+    session-wide check that the real `logs/index.jsonl` is unchanged.
+  - The 3 fake entries and their log files were removed (user decision).
+- **Agentic tool loop:** confirmed built and tested offline, never run
+  live. Every logged agent run cost $0, and there are no agent result
+  files.
+
+**Live agent evaluation (2026-10-24, user approved a $12 cap).**
+- **Budget:**
+  - The user's credit was $13.46, and the Console monthly limit is $45.
+  - New `--max-usd` hard cap on `agent_eval run` and `claimcheck`
+    (required for paid runs), plus `claimcheck --runs/--count-only`.
+    Tests: `tests/test_budget_cap.py` (4).
+- **Stages and estimated spend (audit log):**
+
+  | Stage | What ran | Spend |
+  |---|---|---|
+  | Pilot | d01, d10, d17 | $0.32 |
+  | v1 | 15×1 | $1.94 |
+  | v2 run 0 | the other 16 documents | $1.65 |
+  | Claim checks | run 0: v1 144, v2 161 | $1.16 |
+  | Negative control | 30 calls | $0.11 |
+  | v2 runs 1–2 | 38 runs | $3.79 |
+  | **Total** | | **~$8.97** |
+
+  There were no failures and no budget stops.
+- **Free work:**
+  - `agent_eval signal1` (the baseline's Signal 1 ruler on agent rows).
+  - `score` now includes Signal 1 and run-to-run agreement
+    (`docs/eval_agreement_eval_agent_v2.md`).
+  - `docs/eval_results_v2.md` written.
+- **Headline results (facts):**
+  - **Tool calling:** required calls 100%. 10 unnecessary calls in 6
+    runs (v2_d17 and d18, non-Northbridge).
+  - **Escalation:** 50/57. All errors are held-out `cannot_determine`;
+    6 of them were said as `no_escalation`.
+  - **Consumer understanding:** the agent is worse than the baseline
+    (v1 0.533 vs 0.907, with 2 FN against 0).
+  - **Agreement:** 12 of 13 agent errors repeat in every run.
+  - **Negative control:** unrelated group 9/10 `no` (1 `partially`), so
+    the strict criterion FAILS; the other groups pass, and the combined
+    gate passes all.
+- **Tracker:**
+  - P5-05, P5-06 and P8-09 are now `passes: true` (26 of 35).
+  - **P9-01 stays false:** confidence was missing from the agent's
+    per-run end event. It was added the same day, not yet seen live.
+- **Open:**
+  - the P8-04 decision (prompt variants: defer or run);
+  - the website must reflect these results, especially the
+    consumer-understanding misses and repeated errors.
+
+**The gate (user decisions, 2026-10-24, after the live run).**
+- **Before any model call, code decides:**
+  - not a credit agreement: no model call and no tool call;
+  - another lender: only the regulation search is offered, and escalation
+    is `not_applicable`;
+  - no lender named, or a Northbridge agreement with no customer number:
+    escalation is `cannot_determine`.
+- **After the run:** an account that is not found, not looked up, or in
+  another person's name also gives `cannot_determine`.
+- **Every rule-set `cannot_determine` goes to review,** with the rule named.
+  The model's own decision is kept as `llm_decision`.
+- **Files:** `agent_validation.escalation_gate` / `account_gate`, and the
+  gate in `tool_agent._loop`. Un-offered tools never reach the server.
+- **Tests:**
+  - 6 new in `test_tool_agent.py`;
+  - 2 tests updated for the new behaviour: d19 makes no calls, and the
+    d01 account carries the borrower's name.
+- **Dry run on all 19:** the rules fire on exactly the 6 docs labelled
+  `cannot_determine`/`not_applicable`.
+- **Limit:** the rules were written after seeing the held-out failures,
+  so held-out is no longer held out for escalation.
+
+**Next:** commit; then Friday (dashboard, Docker) and Saturday (story) items. After that, Monday: tracker
 entries and audit logging in the 3 evaluation tools.
 
 ---

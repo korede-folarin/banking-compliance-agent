@@ -43,6 +43,12 @@ DEFAULT_OUTPUT = {"v2": ROOT / "docs" / "eval_agent_v2.jsonl", "v1": ROOT / "doc
 BASELINE_PASS = ROOT / "docs" / "eval_raw_main_pass_v2.jsonl"
 V1_LABELS_MD = ROOT / "docs" / "agent_v1_labels.md"
 OUTCOMES = ("price_and_value", "consumer_support", "products_and_services", "consumer_understanding")
+# Budget guard (--max-usd): a paid command stops before the next unit of work could pass the cap.
+# Per-unit worst cases, from the design-doc estimate (worst run ~$0.28) with headroom, and a claim
+# check with its retries.
+RUN_WORST_USD = 0.35
+CLAIM_EST_USD = 0.004
+CLAIM_WORST_USD = 0.02
 TOOLS = ("search_regulation", "get_account", "search_policy")
 EXPECTED_STATUS = {"non_compliant": "potentially_non_compliant", "compliant": "compliant"}
 
@@ -229,6 +235,8 @@ def cmd_run(args) -> None:
         for suffix in ("", "_errors", "_claimchecks"):
             Path(args.output).with_name(f"eval_agent_{args.set}{suffix}.jsonl").unlink(missing_ok=True)
         print("DRY RUN: offline rehearsal model, real MCP server and data, ZERO API calls.")
+    elif getattr(args, "max_usd", None) is None:
+        raise SystemExit("run makes API calls: pass --max-usd (a hard cap on this command's spend).")
     out = _output(args.output, args.set)
     errors = out.with_name(f"{out.stem}_errors.jsonl")
     docs = _select(args)
@@ -263,14 +271,33 @@ def cmd_run(args) -> None:
         print(f"[{doc_id} run {run_idx}] calls={[c['tool'] for c in result['tool_calls']]} "
               f"escalation={(result['escalation'] or {}).get('decision')} stop={result['stop']['reason']}")
 
+    cap = getattr(args, "max_usd", None)
+
+    def capped(items):
+        """Stop before a run that could take the spend past --max-usd (worst case per run: RUN_WORST_USD)."""
+        for item in items:
+            spent = audit.estimated_cost() or 0.0
+            if cap is not None and spent + RUN_WORST_USD > cap:
+                state["capped"] = spent
+                print(f"BUDGET STOP: ~${spent:.2f} spent; the next run could pass the ${cap:.2f} cap. "
+                      "Re-running resumes from here.")
+                return
+            yield item
+
     try:
         # One MCP server for the whole batch; every (doc, run) is still its own agent run.
         agent = ToolAgent(client=RehearsalModel()) if args.dry_run else ToolAgent()
-        agent.run_many((((d["doc_id"], i), (ROOT / d["file"]).read_text(encoding="utf-8")) for d, i in todo),
+        agent.run_many(capped(((d["doc_id"], i), (ROOT / d["file"]).read_text(encoding="utf-8")) for d, i in todo),
                        before=before, after=after)
         status = "completed" if not state["failed"] else "completed_with_failures"
+        if "capped" in state:
+            status = "budget_stop"
+        audit.check("evaluation", "within_budget", (audit.estimated_cost() or 0.0) <= (cap if cap is not None else float("inf")),
+                    metric=audit.estimated_cost(), threshold=cap)
     finally:
+        spent = audit.estimated_cost() or 0.0
         audit.end_run(status)
+    print(f"Estimated spend this command: ~${spent:.2f} (status: {status})")
     if args.dry_run:
         cmd_score(args)
 
@@ -301,19 +328,30 @@ def cmd_claimcheck(args) -> None:
 
     out = _output(args.output, args.set)
     store = out.with_name(f"{out.stem}_claimchecks.jsonl")
-    rows = _read_jsonl(out)
+    runs, cap = getattr(args, "runs", None), getattr(args, "max_usd", None)
+    rows = [r for r in _read_jsonl(out) if runs is None or r["run_idx"] in runs]
     done = {(c["doc_id"], c["run_idx"], c["outcome"], c["claim_index"], c["claim"]) for c in _read_jsonl(store)}
     todo = [c for r in rows for c in _claims(r)
             if (c["doc_id"], c["run_idx"], c["outcome"], c["claim_index"], c["claim"]) not in done]
-    print(f"Claims to check: {len(todo)} (already stored: {len(done)}) -> {store}")
-    if not todo:
-        print("WARNING: nothing to check; NO API calls made.")
+    sendable = sum(1 for c in todo if c["texts"])
+    print(f"Claims to check: {len(todo)} ({sendable} sent to the model, ~${sendable * CLAIM_EST_USD:.2f}; "
+          f"already stored: {len(done)}; runs: {runs or 'all'}) -> {store}")
+    if not todo or getattr(args, "count_only", False):
+        print("NO API calls made." if todo else "WARNING: nothing to check; NO API calls made.")
         return
-    audit.start_run("agent_eval claimcheck", settings={"input": str(out), "store": str(store)})
+    if cap is None:
+        raise SystemExit("claimcheck makes API calls: pass --max-usd (a hard cap on this command's spend).")
+    audit.start_run("agent_eval claimcheck", settings={"input": str(out), "store": str(store), "runs": runs,
+                                                       "max_usd": cap})
     status = "failed"
     try:
         client = retry_log.attach(instructor.from_anthropic(Anthropic()), "agent_claim_check")
         for c in todo:
+            spent = audit.estimated_cost() or 0.0
+            if spent + CLAIM_WORST_USD > cap:
+                print(f"BUDGET STOP: ~${spent:.2f} spent; the next check could pass the ${cap:.2f} cap.")
+                status = "budget_stop"
+                return
             audit.set_context(doc_id=c["doc_id"], run_idx=c["run_idx"], outcome=c["outcome"])
             if not c["texts"]:
                 verdict = {"verdict": "no_named_passage", "supporting_sentence": "",
@@ -433,11 +471,75 @@ def cmd_score(args) -> None:
     s = score_rows(rows, labels, claimchecks)
     if args.set == "v1":
         s["baseline"] = baseline_outcomes(labels)
+    s1 = _read_jsonl(out.with_name(f"{out.stem}_signal1.jsonl"))
+    if s1:
+        s["signal1"] = {"agent": signal1_summary(s1)}
+        if args.set == "v1":
+            base = [x for x in _read_jsonl(BASELINE_SIGNAL1) if x["doc_id"] in labels]
+            s["signal1"]["baseline"] = signal1_summary(base)
     s["meta"] = {"rows": len(rows), "input": out.name, "claimchecks": len(claimchecks),
                  "errors": len(_read_jsonl(out.with_name(f"{out.stem}_errors.jsonl")))}
+    if len({r["run_idx"] for r in rows}) > 1:  # run-to-run agreement, the baseline's ruler (src/evaluation/agreement.py)
+        from src.evaluation import agreement
+
+        as_main = [{"doc_id": r["doc_id"], "run_idx": r["run_idx"], "ground_truth": labels[r["doc_id"]]["ground_truth"],
+                    "outcomes": {k: {"llm_status": r["outcomes"][k]["llm_status"] or "insufficient_evidence"}
+                                 for k in OUTCOMES}} for r in rows]
+        pairs = agreement.pair_table(as_main)
+        s["agreement"] = agreement.summarise(pairs)
+        agreement.write_report(pairs, s["agreement"], out, out.with_name(f"eval_agreement_{out.stem}.md"))
     out.with_name(f"{out.stem}_scores.json").write_text(json.dumps(s, indent=2) + "\n", encoding="utf-8")
     out.with_name(f"{out.stem}_report.md").write_text(_report(s), encoding="utf-8")
     print(f"Wrote {out.stem}_scores.json and {out.stem}_report.md")
+
+
+BASELINE_SIGNAL1 = ROOT / "docs" / "eval_raw_main_pass_v2_signal1.jsonl"
+
+
+def signal1_rows(rows: list[dict]) -> list[dict]:
+    """
+    Signal 1 for the agent, the baseline's ruler (groundedness.compute_signal1_cited): cosine similarity
+    between an outcome's reasoning and each regulation or policy passage it cites. Zero API cost (local
+    embeddings). Outcomes with no reasoning or no cited passage are skipped, as in the baseline.
+    """
+    from src.evaluation.groundedness import compute_signal1_cited
+
+    out = []
+    for r in rows:
+        evidence = {e["number"]: e for e in r.get("evidence", [])}
+        for key in OUTCOMES:
+            o = r["outcomes"].get(key) or {}
+            j = o.get("judgment") or {}
+            cited = [{"index": n, "text_excerpt": evidence[n]["text"]} for n in j.get("cited_sources") or []
+                     if n in evidence and evidence[n]["kind"] in ("regulation", "policy")]
+            if not j.get("reasoning") or not cited:
+                continue
+            out.append({"doc_id": r["doc_id"], "run_idx": r["run_idx"], "outcome": key, "llm_status": o.get("llm_status"),
+                        "signal1_cited": compute_signal1_cited(j["reasoning"], cited)})
+    return out
+
+
+def signal1_summary(s1: list[dict]) -> dict:
+    """Per outcome: n, and the median and minimum of each judgment's lowest cited-passage similarity."""
+    import statistics
+
+    out = {}
+    for key in OUTCOMES:
+        mins = sorted(x["signal1_cited"]["min"] for x in s1 if x["outcome"] == key and x["signal1_cited"]["min"] is not None)
+        out[key] = {"n": len(mins), "median_min": round(statistics.median(mins), 4) if mins else None,
+                    "lowest": round(mins[0], 4) if mins else None}
+    return out
+
+
+def cmd_signal1(args) -> None:
+    out = _output(args.output, args.set)
+    rows = _read_jsonl(out)
+    if not rows:
+        raise SystemExit(f"No rows in {out}. Run `agent_eval run` first.")
+    path = out.with_name(f"{out.stem}_signal1.jsonl")
+    s1 = signal1_rows(rows)
+    path.write_text("".join(json.dumps(x) + "\n" for x in s1), encoding="utf-8")
+    print(f"Wrote {path.name}: {len(s1)} outcome judgments (zero API cost).")
 
 
 def baseline_outcomes(labels: dict) -> dict:
@@ -482,7 +584,25 @@ def _report(s: dict) -> str:
                     L.append(f"| {k} | {stage} | {system} | {runs} | {tp} | {tn} | {fp} | {fn} | {ab} | {acc} | "
                              f"{ab / runs:.3f} |" if runs else f"| {k} | {stage} | {system} | 0 | - | - | - | - | - | n/a | n/a |")
         L.append("")
-    for name in [k for k in s if k not in ("meta", "baseline")]:
+    if "signal1" in s:
+        L += ["## Signal 1: reasoning vs the passages it cites", "",
+              "Cosine similarity (local embeddings, zero API cost) between each outcome's reasoning and each "
+              "regulation or policy passage it cites; per judgment, the lowest. The same ruler as the baseline "
+              "(`groundedness.compute_signal1_cited`). No threshold: a coarse topical signal, not proof of support.", "",
+              "| Outcome | System | Judgments | Median of lowest | Lowest |", "|---|---|---|---|---|"]
+        for k in OUTCOMES:
+            for system, v in s["signal1"].items():
+                x = v[k]
+                L.append(f"| {k} | {system} | {x['n']} | {x['median_min'] if x['median_min'] is not None else 'n/a'} | "
+                         f"{x['lowest'] if x['lowest'] is not None else 'n/a'} |")
+        L.append("")
+    if "agreement" in s:
+        a, d = s["agreement"]["agree"], s["agreement"]["disagree"]
+        L += ["## Run-to-run agreement", "",
+              f"Pairs (document, outcome) where every run gave the same verdict: {a['pairs']}, with {a['wrong']} wrong "
+              f"verdicts. Pairs where runs disagreed: {d['pairs']}, with {d['wrong']} wrong verdicts and "
+              f"{d['abstained']} abstentions. Full table: `docs/eval_agreement_{m['input'].removesuffix('.jsonl')}.md`.", ""]
+    for name in [k for k in s if k not in ("meta", "baseline", "signal1", "agreement")]:
         g = s[name]
         t = g["tool_calls"]
         L += [f"## {name}", "", "### Tool calling", "",
@@ -545,7 +665,7 @@ def main() -> None:
     p = argparse.ArgumentParser(description="Evaluate the agentic tool loop on fixtures v2")
     sub = p.add_subparsers(dest="command", required=True)
     for name, fn in (("plan", cmd_plan), ("run", cmd_run), ("claimcheck", cmd_claimcheck), ("score", cmd_score),
-                     ("labels-v1", cmd_labels_v1)):
+                     ("signal1", cmd_signal1), ("labels-v1", cmd_labels_v1)):
         sp = sub.add_parser(name)
         sp.add_argument("--set", choices=("v2", "v1"), default="v2", help="Fixture set (default v2)")
         sp.add_argument("--output", help="Agent rows JSONL (default docs/eval_agent_<set>.jsonl)")
@@ -557,6 +677,12 @@ def main() -> None:
             sp.add_argument("--log-payloads", action="store_true")
             sp.add_argument("--dry-run", action="store_true",
                             help="Zero API calls: offline rehearsal model with the real tools and data, then score.")
+        if name in ("run", "claimcheck"):
+            sp.add_argument("--max-usd", type=float,
+                            help="Hard cap on this command's estimated spend (required unless --dry-run/--count-only)")
+        if name == "claimcheck":
+            sp.add_argument("--runs", nargs="+", type=int, help="Only rows with these run_idx values (default all)")
+            sp.add_argument("--count-only", action="store_true", help="Count the claims and the cost; no API calls")
         sp.set_defaults(func=fn)
     args = p.parse_args()
     args.func(args)

@@ -31,22 +31,22 @@ def _standard_turns(customer_id):
 
 def test_scores_tool_calls_outcomes_and_escalation():
     d01 = LABELS["v2_d01"]  # PV defect, two missed payments in window -> escalate 2.1(a)
-    acct = _account(events=("2026-03-14", "2026-07-14")) | {"customer_id": d01["customer_id"]}
+    acct = (_account(events=("2026-03-14", "2026-07-14"))
+            | {"customer_id": d01["customer_id"], "account_holder_name": "Amara Okafor"})  # the borrower in v2_d01
     a01 = _assessment(decision="escalate", triggers=("2.1(a)",),
                       outcomes={"price_and_value": _judgment([4], 4, status="potentially_non_compliant")})
     row01 = _row("v2_d01", [*_standard_turns(d01["customer_id"]), _resp(_use(9, SUBMIT_TOOL, a01))], account=acct)
 
-    # v2_d19 is a letter: the agent wrongly searches regulation for one outcome (unnecessary)
-    a19 = _assessment(decision="not_applicable", policy=(), scope=(False, None, "yes"))
-    row19 = _row("v2_d19", [_resp(REG_CALLS[0]), _resp(_use(2, SUBMIT_TOOL, a19))])
+    # v2_d19 is a letter: since the gate (2026-10-24) the model is not called and no tool can be
+    row19 = _row("v2_d19", [])
 
     s = agent_eval.score_rows([row01, row19], LABELS, [])
     o = s["overall"]
     assert o["tool_calls"]["get_account"]["required_runs"] == 1 and o["tool_calls"]["get_account"]["correct_argument"] == 1
     assert o["tool_calls"]["search_regulation"]["all_outcomes_searched"] == 1
     assert o["tool_calls"]["search_regulation"]["forbidden_runs"] == 1
-    assert o["tool_calls"]["search_regulation"]["forbidden_called"] == 1
-    assert o["tool_calls"]["all"]["unnecessary_calls"] == 1
+    assert o["tool_calls"]["search_regulation"]["forbidden_called"] == 0
+    assert o["tool_calls"]["all"]["unnecessary_calls"] == 0 and o["tool_calls"]["all"]["turns"] == 3  # d01 only; d19 made none
     assert o["outcomes"]["price_and_value"]["llm_tp"] == 1 and o["outcomes"]["consumer_support"]["llm_tn"] == 1
     assert o["outcomes"]["price_and_value"]["not_applicable_docs"] == 1
     assert o["escalation"]["decision_correct"] == 2 and o["escalation"]["triggers_exact"] == 1

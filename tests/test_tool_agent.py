@@ -15,13 +15,19 @@ validation rules:
   - unnecessary calls flagged: other lender, no lender named, not a credit
     agreement, no customer number, second account lookup, repeats;
   - escalation fits the document; 2.1(a)/(b) match the account; 2.1(c) needs a
-    quoted, dated, in-window note; unclaimed life-event notes flagged.
+    quoted, dated, in-window note; unclaimed life-event notes flagged;
+  - the gate (2026-10-24): no model call for a non-credit document; other or
+    unnamed lenders are offered only the regulation search; cannot_determine is
+    set by rule (no lender, no customer number, no account record, account in
+    another name) and goes to review.
 """
 
 import json
 from pathlib import Path
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
+
+import pytest
 
 from src.agent import agent_validation as av
 from src.agent import tool_agent
@@ -121,7 +127,7 @@ def _assessment(decision="no_escalation", triggers=(), policy=((2, POLICY_TEXT[:
             "escalation": {"decision": decision, "triggers": list(triggers),
                            "policy_quotes": [{"evidence_number": n, "verbatim_quote": q} for n, q in policy],
                            "note_quotes": list(note_quotes), "discrepancies": [], "reasoning": "r",
-                           "cited_evidence": [account, *[n for n, _ in policy]]}}
+                           "cited_evidence": [n for n in (account, *[n for n, _ in policy]) if n is not None]}}
 
 
 REG_CALLS = [_use(10 + i, "search_regulation", {"outcome": o, "query": f"{o} requirements"}) for i, o in enumerate(OWN)]
@@ -288,6 +294,10 @@ def test_spliced_quote_is_checked_part_by_part():
     invented = "firms must consider all the costs ... and publish every fee online"
     bad = _standard(_assessment(outcomes={"price_and_value": _judgment([4], 4, quote=invented)}))[0]["outcomes"]["price_and_value"]
     assert bad["status"] == "insufficient_evidence"
+    # Rule B (2026-10-20): the parts must appear in the quote's order, as "..." implies.
+    reversed_ = "charges a consumer may pay ... firms must consider all the costs"
+    rev = _standard(_assessment(outcomes={"price_and_value": _judgment([4], 4, quote=reversed_)}))[0]["outcomes"]["price_and_value"]
+    assert rev["status"] == "insufficient_evidence"
 
 
 # --- policy every time, and policy quotes in the policy ---
@@ -332,11 +342,60 @@ def test_no_lender_named_account_lookup_is_unnecessary_and_escalation_cannot_be_
     assert c["passed"] is False and c["threshold"] == ["cannot_determine"]
 
 
-def test_not_a_credit_agreement_every_call_is_unnecessary_and_outcomes_not_applicable():
-    result, _, _ = _standard(_assessment(decision="not_applicable", policy=(), scope=(False, None, "yes")), doc=LETTER)
-    assert len(result["unnecessary_calls"]) == 6  # account, policy, and all 4 regulation searches
+# --- the gate, decided by code before the model runs (user decision 2026-10-24) ---
+
+def test_not_a_credit_agreement_makes_no_model_call_and_no_tool_call():
+    result, session, client = _run([], doc=LETTER)  # no responses scripted: any model call would fail
+    assert client.requests == [] and session.calls == [] and result["tool_calls"] == []
     assert all(o["status"] == "not_applicable" for o in result["outcomes"].values())
-    assert result["necessary_calls"] == {"search_regulation": False, "search_policy": False, "get_account": False}
+    assert result["escalation"]["decision"] == "not_applicable" and "not a credit agreement" in result["escalation"]["rule"]
+    assert "no assessment submitted" not in result["review_reasons"]
+
+
+def test_another_lenders_agreement_is_offered_only_the_regulation_search():
+    other = _doc(lender="Harbour Finance Ltd, 2 Dock Road, Leeds", cid="CUST-12345")
+    turns = [_resp(_use(1, "get_account", {"customer_id": "CUST-12345"}), *REG_CALLS),
+             _resp(_use(9, SUBMIT_TOOL, _assessment(decision="no_escalation", policy=(), account=None,
+                                                    scope=(True, "Harbour Finance Ltd", "no"),
+                                                    outcomes={k: _judgment([n - 3], n - 3) for k, n in OWN.items()})))]
+    result, session, client = _run(turns, doc=other)
+    assert [t["name"] for t in client.requests[0]["tools"]] == ["search_regulation", SUBMIT_TOOL]
+    assert "Pre-check by code" in client.requests[0]["messages"][0]["content"]
+    assert [n for n, _ in session.calls] == ["search_regulation"] * 4  # the account lookup never reached the server
+    assert result["tool_calls"][0]["is_error"]
+    e = result["escalation"]
+    assert (e["decision"], e["llm_decision"]) == ("not_applicable", "no_escalation")
+    assert "escalation rule overrode the model's no_escalation" in result["review_reasons"]
+
+
+def test_no_lender_named_is_cannot_determine_and_goes_to_review():
+    unnamed = _doc(lender="The Lender", cid="CUST-12345")
+    turns = [_resp(*REG_CALLS),
+             _resp(_use(9, SUBMIT_TOOL, _assessment(decision="no_escalation", policy=(), account=None,
+                                                    outcomes={k: _judgment([n - 3], n - 3) for k, n in OWN.items()})))]
+    result, _, client = _run(turns, doc=unnamed)
+    assert [t["name"] for t in client.requests[0]["tools"]] == ["search_regulation", SUBMIT_TOOL]
+    assert result["escalation"]["decision"] == "cannot_determine"
+    assert any(r.startswith("escalation: cannot_determine (rule: the agreement names no lender") for r in result["review_reasons"])
+    assert result["needs_human_review"]
+
+
+@pytest.mark.parametrize("account, why", [
+    ({"customer_id": "CUST-00000"}, "no account record exists for CUST-12345"),
+    ({"account_holder_name": "Someone Else"}, "belongs to Someone Else, not to Ann Bell"),
+])
+def test_account_missing_or_belonging_to_someone_else_is_cannot_determine(account, why):
+    doc = DOC.replace('(2) A B ("the Borrower")', '(2) Ann Bell, of 1 High Street, York ("the Borrower")')
+    session = FakeSession(_account() | account)
+    result, _, _ = _standard(_assessment(decision="no_escalation"), session=session, doc=doc)
+    assert result["escalation"]["decision"] == "cannot_determine" and why in result["escalation"]["rule"]
+    assert result["escalation"]["llm_decision"] == "no_escalation"
+
+
+def test_matching_account_leaves_the_decision_to_the_model():
+    doc = DOC.replace('(2) A B ("the Borrower")', '(2) A B, of 1 High Street, York ("the Borrower")')
+    result, _, _ = _standard(_assessment(decision="no_escalation"), doc=doc)
+    assert result["escalation"]["decision"] == "no_escalation" and result["escalation"]["rule"] is None
 
 
 def test_second_account_lookup_and_other_customer_are_unnecessary():

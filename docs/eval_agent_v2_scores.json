@@ -1,0 +1,2185 @@
+{
+  "overall": {
+    "tool_calls": {
+      "search_regulation": {
+        "required_runs": 54,
+        "required_made": 54,
+        "all_outcomes_searched": 54,
+        "searched:price_and_value": 54,
+        "searched:consumer_support": 54,
+        "searched:products_and_services": 54,
+        "searched:consumer_understanding": 54,
+        "calls": 216,
+        "forbidden_runs": 3,
+        "forbidden_called": 0
+      },
+      "get_account": {
+        "required_runs": 45,
+        "required_made": 45,
+        "correct_argument": 45,
+        "calls": 51,
+        "forbidden_runs": 12,
+        "forbidden_called": 6
+      },
+      "search_policy": {
+        "required_runs": 48,
+        "required_made": 48,
+        "calls": 52,
+        "forbidden_runs": 9,
+        "forbidden_called": 4
+      },
+      "all": {
+        "runs": 57,
+        "calls": 319,
+        "unnecessary_calls": 10,
+        "runs_with_unnecessary": 6,
+        "limit_stops": 0,
+        "turns": 112
+      }
+    },
+    "outcomes": {
+      "price_and_value": {
+        "llm_tp": 9,
+        "post_tp": 8,
+        "llm_abstain": 1,
+        "post_abstain": 3,
+        "llm_tn": 44,
+        "post_tn": 43,
+        "not_applicable_docs": 3,
+        "not_applicable_reported": 3
+      },
+      "consumer_support": {
+        "llm_tn": 42,
+        "post_tn": 42,
+        "llm_abstain": 11,
+        "post_abstain": 11,
+        "not_applicable_docs": 3,
+        "not_applicable_reported": 3,
+        "llm_tp": 1,
+        "post_tp": 1
+      },
+      "products_and_services": {
+        "llm_tn": 48,
+        "post_tn": 48,
+        "llm_abstain": 6,
+        "post_abstain": 6,
+        "not_applicable_docs": 3,
+        "not_applicable_reported": 3
+      },
+      "consumer_understanding": {
+        "llm_fp": 9,
+        "post_fp": 8,
+        "llm_tn": 37,
+        "post_tn": 37,
+        "llm_abstain": 3,
+        "post_abstain": 4,
+        "llm_fn": 4,
+        "post_fn": 4,
+        "llm_tp": 1,
+        "post_tp": 1,
+        "not_applicable_docs": 3,
+        "not_applicable_reported": 3
+      }
+    },
+    "forced_to_insufficient": {
+      "price_and_value:below_reference": 23,
+      "consumer_support:below_reference": 46,
+      "products_and_services:below_reference": 18,
+      "consumer_understanding:below_reference": 38,
+      "price_and_value:rule": 2,
+      "consumer_understanding:rule": 1
+    },
+    "escalation": {
+      "runs": 57,
+      "decision_correct": 50,
+      "expected_escalate": 18,
+      "expected_escalate_correct": 18,
+      "triggers_exact": 18,
+      "expected_no_escalation": 21,
+      "expected_no_escalation_correct": 21,
+      "expected_not_applicable": 6,
+      "expected_not_applicable_correct": 6,
+      "expected_cannot_determine": 12,
+      "expected_cannot_determine_correct": 5,
+      "discrepancy_expected": 6,
+      "discrepancy_reported": 6
+    },
+    "checks_failed": {
+      "no_unnecessary_calls": 6,
+      "quotes_in_named_passages": 4,
+      "escalation_decision_fits_document": 4,
+      "regulation_from_own_search": 1
+    },
+    "groundedness": {
+      "claimcheck_partially": 14,
+      "claimcheck_yes": 145,
+      "outcomes_quote_checked": 216,
+      "outcomes_all_quotes_in_named_passage": 212,
+      "policy_quote_checks": 45,
+      "policy_quotes_all_found": 45,
+      "claimcheck_no": 1
+    },
+    "per_doc": {
+      "v2_d01": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fees charged at len)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"clear commun)",
+            "get_account({\"customer_id\": \"CUST-89997\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value fees cha)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"clear commun)",
+            "get_account({\"customer_id\": \"CUST-89997\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-89997\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fees charges must b)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"fees and cha)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d10": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-91039\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-91039\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support o)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-91039\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d17": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-38997\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [
+            "no account lookup is needed for this document"
+          ],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-38997\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support c)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [
+            "no account lookup is needed for this document"
+          ],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-38997\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support o)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [
+            "no account lookup is needed for this document",
+            "Northbridge policy does not apply to this document"
+          ],
+          "stop": null
+        }
+      ],
+      "v2_d02": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-69917\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-69917\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"clear commun)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-69917\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d03": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-35345\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-35345\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-35345\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d04": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-85351\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-85351\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support v)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-85351\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation triggers\"})"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d05": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-52981\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-52981\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-52981\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d06": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-72079\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-72079\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-72079\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d07": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-22711\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-22711\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support o)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-22711\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d08": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-64391\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-64391\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"supporting custome)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-64391\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d09": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-91642\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-91642\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-91642\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d11": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-87899\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fees charged must b)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"clear commun)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-87899\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fees must be clear )",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation triggers\"})"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value fees cha)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-87899\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d12": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-16999\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-16999\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-16999\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"supporting custome)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d13": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fees charged must r)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-41065\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "cannot_determine",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"clear commun)",
+            "get_account({\"customer_id\": \"CUST-41065\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "cannot_determine",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fees and charges mu)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-41065\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d14": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-86954\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support o)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support o)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-86954\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"clear commun)",
+            "get_account({\"customer_id\": \"CUST-86954\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d15": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-19654\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-19654\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-19654\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d16": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "cannot_determine",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"supporting custome)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "cannot_determine",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "cannot_determine",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d18": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-85253\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"supporting custome)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "cannot_determine",
+          "unnecessary": [
+            "no account lookup is needed for this document",
+            "Northbridge policy does not apply to this document"
+          ],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-85253\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "cannot_determine",
+          "unnecessary": [
+            "no account lookup is needed for this document",
+            "Northbridge policy does not apply to this document"
+          ],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-85253\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation triggers\"})"
+          ],
+          "escalation": "no_escalation",
+          "expected": "cannot_determine",
+          "unnecessary": [
+            "no account lookup is needed for this document",
+            "Northbridge policy does not apply to this document"
+          ],
+          "stop": null
+        }
+      ],
+      "v2_d19": [
+        {
+          "run": 0,
+          "calls": [],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ]
+    }
+  },
+  "design": {
+    "tool_calls": {
+      "search_regulation": {
+        "required_runs": 27,
+        "required_made": 27,
+        "all_outcomes_searched": 27,
+        "searched:price_and_value": 27,
+        "searched:consumer_support": 27,
+        "searched:products_and_services": 27,
+        "searched:consumer_understanding": 27,
+        "calls": 108,
+        "forbidden_runs": 3,
+        "forbidden_called": 0
+      },
+      "get_account": {
+        "required_runs": 21,
+        "required_made": 21,
+        "correct_argument": 21,
+        "calls": 24,
+        "forbidden_runs": 9,
+        "forbidden_called": 3
+      },
+      "search_policy": {
+        "required_runs": 24,
+        "required_made": 24,
+        "calls": 25,
+        "forbidden_runs": 6,
+        "forbidden_called": 1
+      },
+      "all": {
+        "runs": 30,
+        "calls": 157,
+        "unnecessary_calls": 4,
+        "runs_with_unnecessary": 3,
+        "limit_stops": 0,
+        "turns": 58
+      }
+    },
+    "outcomes": {
+      "price_and_value": {
+        "llm_tp": 6,
+        "post_tp": 6,
+        "llm_tn": 21,
+        "post_tn": 21,
+        "not_applicable_docs": 3,
+        "not_applicable_reported": 3
+      },
+      "consumer_support": {
+        "llm_tn": 21,
+        "post_tn": 21,
+        "llm_abstain": 5,
+        "post_abstain": 5,
+        "not_applicable_docs": 3,
+        "not_applicable_reported": 3,
+        "llm_tp": 1,
+        "post_tp": 1
+      },
+      "products_and_services": {
+        "llm_tn": 24,
+        "post_tn": 24,
+        "llm_abstain": 3,
+        "post_abstain": 3,
+        "not_applicable_docs": 3,
+        "not_applicable_reported": 3
+      },
+      "consumer_understanding": {
+        "llm_fp": 6,
+        "post_fp": 5,
+        "llm_tn": 18,
+        "post_tn": 18,
+        "llm_fn": 3,
+        "post_fn": 3,
+        "not_applicable_docs": 3,
+        "not_applicable_reported": 3,
+        "post_abstain": 1
+      }
+    },
+    "forced_to_insufficient": {
+      "price_and_value:below_reference": 13,
+      "consumer_support:below_reference": 24,
+      "products_and_services:below_reference": 11,
+      "consumer_understanding:below_reference": 23,
+      "consumer_understanding:rule": 1
+    },
+    "escalation": {
+      "runs": 30,
+      "decision_correct": 30,
+      "expected_escalate": 9,
+      "expected_escalate_correct": 9,
+      "triggers_exact": 9,
+      "expected_not_applicable": 6,
+      "expected_not_applicable_correct": 6,
+      "expected_no_escalation": 12,
+      "expected_no_escalation_correct": 12,
+      "expected_cannot_determine": 3,
+      "expected_cannot_determine_correct": 3
+    },
+    "checks_failed": {
+      "no_unnecessary_calls": 3,
+      "quotes_in_named_passages": 2
+    },
+    "groundedness": {
+      "claimcheck_partially": 10,
+      "claimcheck_yes": 68,
+      "outcomes_quote_checked": 108,
+      "outcomes_all_quotes_in_named_passage": 106,
+      "policy_quote_checks": 21,
+      "policy_quotes_all_found": 21
+    },
+    "per_doc": {
+      "v2_d01": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fees charged at len)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"clear commun)",
+            "get_account({\"customer_id\": \"CUST-89997\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value fees cha)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"clear commun)",
+            "get_account({\"customer_id\": \"CUST-89997\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-89997\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fees charges must b)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"fees and cha)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d17": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-38997\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [
+            "no account lookup is needed for this document"
+          ],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-38997\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support c)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [
+            "no account lookup is needed for this document"
+          ],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-38997\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support o)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [
+            "no account lookup is needed for this document",
+            "Northbridge policy does not apply to this document"
+          ],
+          "stop": null
+        }
+      ],
+      "v2_d03": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-35345\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-35345\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-35345\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d05": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-52981\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-52981\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-52981\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d07": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-22711\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-22711\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support o)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-22711\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d08": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-64391\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-64391\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"supporting custome)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-64391\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d11": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-87899\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fees charged must b)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"clear commun)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-87899\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fees must be clear )",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation triggers\"})"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value fees cha)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-87899\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d12": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-16999\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-16999\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-16999\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"supporting custome)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d16": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "cannot_determine",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"supporting custome)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "cannot_determine",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "cannot_determine",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d19": [
+        {
+          "run": 0,
+          "calls": [],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ]
+    }
+  },
+  "heldout": {
+    "tool_calls": {
+      "search_regulation": {
+        "required_runs": 27,
+        "required_made": 27,
+        "all_outcomes_searched": 27,
+        "searched:price_and_value": 27,
+        "searched:consumer_support": 27,
+        "searched:products_and_services": 27,
+        "searched:consumer_understanding": 27,
+        "calls": 108
+      },
+      "get_account": {
+        "required_runs": 24,
+        "required_made": 24,
+        "correct_argument": 24,
+        "calls": 27,
+        "forbidden_runs": 3,
+        "forbidden_called": 3
+      },
+      "search_policy": {
+        "required_runs": 24,
+        "required_made": 24,
+        "calls": 27,
+        "forbidden_runs": 3,
+        "forbidden_called": 3
+      },
+      "all": {
+        "runs": 27,
+        "calls": 162,
+        "unnecessary_calls": 6,
+        "runs_with_unnecessary": 3,
+        "limit_stops": 0,
+        "turns": 54
+      }
+    },
+    "outcomes": {
+      "price_and_value": {
+        "llm_abstain": 1,
+        "post_abstain": 3,
+        "llm_tn": 23,
+        "post_tn": 22,
+        "llm_tp": 3,
+        "post_tp": 2
+      },
+      "consumer_support": {
+        "llm_abstain": 6,
+        "post_abstain": 6,
+        "llm_tn": 21,
+        "post_tn": 21
+      },
+      "products_and_services": {
+        "llm_tn": 24,
+        "post_tn": 24,
+        "llm_abstain": 3,
+        "post_abstain": 3
+      },
+      "consumer_understanding": {
+        "llm_tn": 19,
+        "post_tn": 19,
+        "llm_abstain": 3,
+        "post_abstain": 3,
+        "llm_tp": 1,
+        "post_tp": 1,
+        "llm_fp": 3,
+        "post_fp": 3,
+        "llm_fn": 1,
+        "post_fn": 1
+      }
+    },
+    "forced_to_insufficient": {
+      "price_and_value:below_reference": 10,
+      "consumer_support:below_reference": 22,
+      "products_and_services:below_reference": 7,
+      "consumer_understanding:below_reference": 15,
+      "price_and_value:rule": 2
+    },
+    "escalation": {
+      "runs": 27,
+      "decision_correct": 20,
+      "expected_no_escalation": 9,
+      "expected_no_escalation_correct": 9,
+      "expected_escalate": 9,
+      "expected_escalate_correct": 9,
+      "triggers_exact": 9,
+      "expected_cannot_determine": 9,
+      "expected_cannot_determine_correct": 2,
+      "discrepancy_expected": 6,
+      "discrepancy_reported": 6
+    },
+    "checks_failed": {
+      "no_unnecessary_calls": 3,
+      "escalation_decision_fits_document": 4,
+      "quotes_in_named_passages": 2,
+      "regulation_from_own_search": 1
+    },
+    "groundedness": {
+      "claimcheck_partially": 4,
+      "claimcheck_yes": 77,
+      "outcomes_quote_checked": 108,
+      "outcomes_all_quotes_in_named_passage": 106,
+      "policy_quote_checks": 24,
+      "policy_quotes_all_found": 24,
+      "claimcheck_no": 1
+    },
+    "per_doc": {
+      "v2_d10": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-91039\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-91039\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support o)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-91039\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d02": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-69917\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-69917\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"clear commun)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-69917\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d04": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-85351\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-85351\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support v)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-85351\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation triggers\"})"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d06": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-72079\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-72079\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-72079\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "escalate",
+          "expected": "escalate",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d09": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-91642\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-91642\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-91642\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d13": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fees charged must r)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-41065\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "cannot_determine",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"clear commun)",
+            "get_account({\"customer_id\": \"CUST-41065\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "cannot_determine",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fees and charges mu)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-41065\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d14": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-86954\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support o)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support o)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-86954\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"clear commun)",
+            "get_account({\"customer_id\": \"CUST-86954\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "cannot_determine",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d15": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-19654\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-19654\"})",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-19654\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "no_escalation",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "v2_d18": [
+        {
+          "run": 0,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-85253\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"supporting custome)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "cannot_determine",
+          "unnecessary": [
+            "no account lookup is needed for this document",
+            "Northbridge policy does not apply to this document"
+          ],
+          "stop": null
+        },
+        {
+          "run": 1,
+          "calls": [
+            "get_account({\"customer_id\": \"CUST-85253\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation procedure triggers)",
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "no_escalation",
+          "expected": "cannot_determine",
+          "unnecessary": [
+            "no account lookup is needed for this document",
+            "Northbridge policy does not apply to this document"
+          ],
+          "stop": null
+        },
+        {
+          "run": 2,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)",
+            "get_account({\"customer_id\": \"CUST-85253\"})",
+            "search_policy({\"query\": \"vulnerable customer escalation triggers\"})"
+          ],
+          "escalation": "no_escalation",
+          "expected": "cannot_determine",
+          "unnecessary": [
+            "no account lookup is needed for this document",
+            "Northbridge policy does not apply to this document"
+          ],
+          "stop": null
+        }
+      ]
+    }
+  },
+  "signal1": {
+    "agent": {
+      "price_and_value": {
+        "n": 54,
+        "median_min": 0.7356,
+        "lowest": 0.6189
+      },
+      "consumer_support": {
+        "n": 54,
+        "median_min": 0.7206,
+        "lowest": 0.6289
+      },
+      "products_and_services": {
+        "n": 54,
+        "median_min": 0.6908,
+        "lowest": 0.5906
+      },
+      "consumer_understanding": {
+        "n": 54,
+        "median_min": 0.685,
+        "lowest": 0.5879
+      }
+    }
+  },
+  "meta": {
+    "rows": 57,
+    "input": "eval_agent_v2.jsonl",
+    "claimchecks": 160,
+    "errors": 0
+  },
+  "agreement": {
+    "runs_per_pair": [
+      3
+    ],
+    "all": {
+      "pairs": 76,
+      "verdicts": 228,
+      "wrong": 13,
+      "abstained": 33
+    },
+    "agree": {
+      "pairs": 71,
+      "verdicts": 213,
+      "wrong": 12,
+      "abstained": 27
+    },
+    "disagree": {
+      "pairs": 5,
+      "verdicts": 15,
+      "wrong": 1,
+      "abstained": 6
+    },
+    "by_outcome": {
+      "price_and_value": {
+        "agree": 18,
+        "pairs": 19
+      },
+      "consumer_support": {
+        "agree": 18,
+        "pairs": 19
+      },
+      "products_and_services": {
+        "agree": 19,
+        "pairs": 19
+      },
+      "consumer_understanding": {
+        "agree": 16,
+        "pairs": 19
+      }
+    },
+    "disagree_majority_correct": 3,
+    "agree_wrong_pairs": 4,
+    "agree_wrong_upper_95": null
+  }
+}

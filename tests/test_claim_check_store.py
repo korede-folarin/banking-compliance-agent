@@ -191,6 +191,19 @@ def test_item17_docs_limited_runs_never_drop_other_documents(env):
     assert len(_rows(env["store"])) == TOTAL_CLAIMS
 
 
+def test_rescore_writes_new_files_without_calls_or_touching_the_originals(env):
+    _check()
+    originals = {p: p.read_bytes() for p in (env["store"], env["results"], env["report"])}
+    env["state"]["client"] = _FakeClient(crash_on=1)  # any model call would raise
+    cv.cmd_rescore(argparse.Namespace(judgments=None, output=None, tag="rule_b"))
+    assert all(p.read_bytes() == b for p, b in originals.items())
+    new = env["store"].with_name("pilot_checks_rule_b_results.jsonl")
+    assert len(_rows(new)) == len(_rows(env["results"]))
+    assert all(q["llm_check"] for r in _rows(new) for q in r["regulatory_requirements"])
+    with pytest.raises(SystemExit, match="Refusing to overwrite"):
+        cv.cmd_rescore(argparse.Namespace(judgments=None, output=None, tag="rule_b"))
+
+
 # --- item 18 ---
 
 def test_item18_each_result_is_saved_before_the_next_call(env):

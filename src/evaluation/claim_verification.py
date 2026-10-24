@@ -141,7 +141,12 @@ OUTCOME_DOCUMENT_FIELDS = {
 }
 
 LOCATION_ORDER = ["named_chunk", "other_retrieved_chunk", "corpus_not_retrieved", "not_found"]
-MATCH_ORDER = ["exact", "normalised", "fuzzy", "none"]
+MATCH_ORDER = ["exact", "normalised", "fuzzy", "spliced", "none"]
+# A quote whose parts the model joined with "..." (rule B, user decisions 2026-10-20 and 2026-10-24):
+# found as "spliced" when every part has at least 3 words and is in the text, in the quote's order, each
+# exactly after normalising. A part shorter than 3 words means the quote is not found as a splice.
+SPLICE = re.compile(r"\s*(?:\.\.\.|…)\s*")
+SPLICE_MIN_WORDS = 3
 
 CLAIM_CHECK_SYSTEM_PROMPT = (
     "You are checking exactly one claim against the source text provided. "
@@ -272,8 +277,27 @@ def _fuzzy_score(quote_tokens: list[str], text_tokens: list[str], prefilter: boo
     return best
 
 
+def spliced_in_order(quote: str, text: str) -> bool:
+    """
+    Every "..."-separated part is at least SPLICE_MIN_WORDS words and is in the text, in the quote's
+    order (normalised, whole words). A shorter part fails the splice: it is too short to show where it
+    came from (user decision 2026-10-24).
+    """
+    parts = [normalise(p) for p in SPLICE.split(quote.strip())]
+    parts = [p for p in parts if p]  # a leading or trailing "..." leaves an empty part: not a part
+    if len(parts) < 2 or any(len(p.split()) < SPLICE_MIN_WORDS for p in parts):
+        return False
+    padded, pos = f" {normalise(text)} ", 0
+    for p in parts:
+        i = padded.find(f" {p} ", pos)
+        if i < 0:
+            return False
+        pos = i + len(p) + 1
+    return True
+
+
 def match_quote(quote: str, text: str, prefilter: bool = True) -> dict:
-    """Returns {"match_type": exact|normalised|fuzzy|none, "fuzzy_score": float|None}."""
+    """Returns {"match_type": exact|normalised|fuzzy|spliced|none, "fuzzy_score": float|None}."""
     q = quote.strip()
     if not q:
         return {"match_type": "none", "fuzzy_score": None}
@@ -283,7 +307,11 @@ def match_quote(quote: str, text: str, prefilter: bool = True) -> dict:
     if nq and nq in nt:
         return {"match_type": "normalised", "fuzzy_score": None}
     score = _fuzzy_score(nq.split(), nt.split(), prefilter)
-    return {"match_type": "fuzzy" if score >= FUZZY_CUTOFF else "none", "fuzzy_score": round(score, 4)}
+    if score >= FUZZY_CUTOFF:
+        return {"match_type": "fuzzy", "fuzzy_score": round(score, 4)}
+    if SPLICE.search(q) and spliced_in_order(q, text):
+        return {"match_type": "spliced", "fuzzy_score": round(score, 4)}
+    return {"match_type": "none", "fuzzy_score": round(score, 4)}
 
 
 def _best_in(quote: str, candidates: list[tuple[str, str]], prefilter: bool = True) -> tuple[str | None, dict]:
@@ -898,6 +926,10 @@ def _cmd_check(args) -> None:
     audit.check("evaluation", "claim_checks_complete", saved == len(pending),
                 metric=f"{saved}/{len(pending)}", threshold=len(pending))
 
+    _attach_and_write(results, stored, store_path, results_path, report_path)
+
+
+def _attach_and_write(results: list[dict], stored: dict, store_path: Path, results_path: Path, report_path: Path) -> None:
     # Attach stored results to every judgment's claims (all documents).
     used = set()
     for r in results:
@@ -921,6 +953,44 @@ def _cmd_check(args) -> None:
     incomplete = [r for r in results if not all(q["llm_check"] for q in r["regulatory_requirements"])]
     write_report(complete, report_path, store_path, results_path, incomplete)
     print(f"\nWrote {results_path}\nWrote {report_path}")
+
+
+def cmd_rescore(args) -> None:
+    """
+    Zero API cost: re-run the mechanical checks (the current quote rules) on a judgments file and attach
+    the already-stored claim-check results, writing to NEW files <store stem>_<tag>_results.jsonl and
+    _report.md. No client is created; the store and the existing results/report are not touched.
+    """
+    judgments_path = _judgments_path(args)
+    store_path, old_results, _ = _resolve_check_outputs(args.output, judgments_path)
+    if not store_path.exists():
+        raise SystemExit(f"No claim-check store at {store_path}: nothing to rescore.")
+    base = store_path.with_name(f"{store_path.stem}_{args.tag}")
+    results_path, report_path = base.with_name(f"{base.name}_results.jsonl"), base.with_name(f"{base.name}_report.md")
+    if results_path.exists() or report_path.exists():
+        raise SystemExit(f"Refusing to overwrite {results_path.name} / {report_path.name}: choose another --tag.")
+    print(f"Judgments file: {judgments_path}\nClaim-check store (read only): {store_path}")
+    results = mechanical_checks(_read_jsonl(judgments_path), load_corpus())
+    stored = {_store_key(rec): rec for rec in _read_jsonl(store_path)}
+    _attach_and_write(results, stored, store_path, results_path, report_path)
+    _compare_locations(_read_jsonl(old_results), results, old_results.name)
+
+
+def _compare_locations(old: list[dict], new: list[dict], old_name: str) -> None:
+    """Print how each regulatory quote's location/match changed between two results files."""
+    def flat(rows):
+        return {(r["doc_id"], r["run_idx"], r["outcome"], i, j): f"{s['quote_location']}/{s['match_type']}"
+                for r in rows for i, q in enumerate(r["regulatory_requirements"]) for j, s in enumerate(q["sources"])}
+    a, b = flat(old), flat(new)
+    moved: dict[tuple, int] = {}
+    for k in b:
+        if k in a and a[k] != b[k]:
+            moved[(a[k], b[k])] = moved.get((a[k], b[k]), 0) + 1
+    print(f"\nRegulatory quotes: {len(b)} (compared with {old_name}: {sum(k in a for k in b)} matched)")
+    for (x, y), n in sorted(moved.items(), key=lambda t: -t[1]):
+        print(f"  {x} -> {y}: {n}")
+    if not moved:
+        print("  no quote changed")
 
 
 # --- report (facts only) ---
@@ -1205,6 +1275,7 @@ def main() -> None:
         ("judge", cmd_judge, "Judgment calls (4 per (doc, run) pair)"),
         ("ingest", cmd_ingest, "Zero API cost: copy a main pass's own judgments (any run) into a judgments file"),
         ("check", cmd_check, "One narrow LLM claim-check per regulatory claim; writes report"),
+        ("rescore", cmd_rescore, "Zero API cost: current quote rules + stored claim checks, written to new files"),
     ]:
         p = sub.add_parser(name, help=help_text)
         p.add_argument(
@@ -1224,7 +1295,7 @@ def main() -> None:
         )
         if name in ("plan", "judge", "ingest"):  # `check` reads only the judgments file
             p.add_argument("--input", help=INPUT_HELP)
-        if name in ("plan", "check"):
+        if name in ("plan", "check", "rescore"):
             p.add_argument(
                 "--output",
                 help=(
@@ -1232,6 +1303,8 @@ def main() -> None:
                     "are written next to it as <store stem>_results.jsonl and <store stem>_report.md."
                 ),
             )
+        if name == "rescore":
+            p.add_argument("--tag", default="rule_b", help="Suffix for the new files (default rule_b)")
         p.set_defaults(func=func)
     args = parser.parse_args()
     args.func(args)

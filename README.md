@@ -89,15 +89,77 @@ verdicts, and both abstentions, are in the 8 pairs where the runs
 disagreed. On these 15 synthetic documents, disagreement between runs
 marked every error. See `docs/eval_agreement_eval_raw_main_pass_v2.md`.
 
+**Could any category skip human review? Not on this evidence.** No
+outcome qualifies for auto-approval at a 1%, 2% or 5% missed-issue
+target, under any gate:
+- one run above 0.65;
+- all 3 runs compliant;
+- both of those together.
+
+No missed issue was seen. But with at most 13 approved documents per
+outcome, the 95% upper bound stays at 20.6% or more. Showing 5% with zero
+misses would take 59 approved documents, and showing 1% would take 299.
+Auto-approval therefore stays off. See
+`docs/eval_calibration_eval_raw_main_pass_v2.md`.
+
 **Claim checks.** Every regulatory claim was checked twice:
-- **Quote location (deterministic).** 513 of 542 cited quotes were found
-  in the excerpt they named. 27 of the 29 not found are "..."-spliced
-  quotes, whose parts are verbatim but not contiguous.
+- **Quote location (deterministic).** 540 of 542 cited quotes were found
+  in the excerpt they named.
+  - **The splice rule:** 27 of those are "..."-spliced quotes. They count
+    as found when every part appears in the excerpt in the quote's order
+    (rule B, 2026-10-20). The agent's validator uses the same rule.
+  - **Under the earlier strict rule** the count was 513:
+    `docs/eval_raw_main_pass_v2_claim_judgments_checks_rule_b_report.md`
+    against the original report.
 - **A narrow LLM check, run per claim.** It returned yes for 484 of 536
   claims, partially for 52, and no for none.
 
 Full detail is in `docs/eval_raw_main_pass_v2_summary.json` and
 `docs/eval_raw_main_pass_v2_claim_judgments_checks_report.md`.
+
+## Agentic tool loop: live results (2026-10-24)
+
+The model chooses its own MCP tools inside a bounded loop. A
+deterministic layer checks every call and every quote. It was run live on
+19 new documents × 3 runs, and on the 15 baseline documents × 1 run, for
+about $9. The full results are in `docs/eval_results_v2.md`.
+
+**Tool calling.**
+- **Required calls:** every required call was made (regulation, account
+  and policy), with the right customer number every time.
+- **Unnecessary calls:** 10, all on two documents from other lenders. The
+  model looked up an account or a policy that didn't apply, and the
+  validation layer flagged all 10.
+
+**Escalation.**
+- **50 of 57 decisions correct.** All 7 errors were on held-out documents
+  whose right answer was "cannot determine".
+- **In 6 of the 7, the agent said "no escalation" instead.**
+
+**Compliance verdicts vs the baseline,** on the same 15 documents:
+- **Consumer understanding is worse:** 0.533 accuracy against 0.907, and
+  **2 missed breaches**, where the baseline had none.
+- **On the new set,** all 4 of the agent's missed breaches are also in
+  consumer understanding.
+- **Price and value and consumer support:** no errors, but more
+  abstentions.
+- **This does not replace the baseline.**
+
+**Its errors repeat.** 12 of the agent's 13 wrong verdicts were the same in
+every run, so disagreement between runs, which caught every baseline
+error, does not catch the agent's.
+
+**Since then, code decides first.** These rules were added after the live
+run, and are tested offline:
+- **A document that isn't a credit agreement** gets no model call.
+- **Another lender's agreement** is offered only the regulation search.
+- **The cases that can't be decided are set to "cannot determine" by
+  rule:** no lender named, no customer number, no account record, or an
+  account in another person's name. Each goes to a reviewer.
+
+These rules prevent all 10 unnecessary calls and all 7 escalation errors
+seen in the live run. They were written after seeing those held-out
+failures, so they have not yet been tested on unseen documents.
 
 ## What went wrong during the build, and what changed
 
@@ -129,7 +191,7 @@ retry. The details are in ARCHITECTURE.md.
 
 ## What this does and doesn't prove
 
-**The test suite has 272 tests.** 232 run offline. 40 are live tests that
+**The test suite has 289 tests.** 249 run offline. 40 are live tests that
 call the Claude API and are skipped without a key.
 
 The evaluation covers 15 synthetic loan agreements with planted, known
@@ -157,10 +219,6 @@ The rules are enforced in `src/review/store.py`, not just on screen.
 
 ## Not built yet
 
-- **Agentic tool use: built and tested offline, not yet run live.** The
-  model chooses MCP tools in a bounded loop on a new 19-document fixture
-  set; a deterministic layer checks every call and quote (ARCHITECTURE.md,
-  "Agentic tool loop"). The live evaluation needs approval of its API cost.
 - **Monitoring dashboard (P9-02).** Audit logging (P9-01) is built and
   tested offline, but not yet verified on a live run.
 - **Deployment and business framing:** Docker and deployment (P10); the

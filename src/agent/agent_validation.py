@@ -19,7 +19,7 @@ reads itself, never from the model's say-so:
    the outcome's own citation list, and a cited regulation passage must have been
    returned by that outcome's OWN search. A decided outcome needs at least one such quote
    and at least one cited regulation passage. Otherwise the outcome is FORCED to
-   insufficient_evidence. Quotes spliced with "..." are checked part by part.
+   insufficient_evidence. Quotes spliced with "..." are checked part by part, in order.
    Confidence = minimum similarity of the cited passages; below the threshold the
    outcome becomes insufficient_evidence (as P4-02).
 3. Escalation: the decision must fit the document facts (not_applicable for another
@@ -42,12 +42,12 @@ from src.monitoring import audit
 
 CUSTOMER_NUMBER = re.compile(r"Customer number:\s*(CUST-\d{5})")
 LENDER_CLAUSE = re.compile(r"\(1\)\s*(.+?)\s*\(\"the Lender\"\)", re.S)
+BORROWER_CLAUSE = re.compile(r"\(2\)\s*(.+?),\s+of\b", re.S)
 # A party clause that names no lender: "The Lender", or a blank placeholder like "[Lender name]".
 NO_LENDER_NAME = re.compile(r"^(the lender|\[[^\]]*\]|_+)?$", re.I)
 LIFE_EVENT_WORDS = re.compile(
     r"\b(died|death|passed away|bereave\w*|funeral|widow\w*|separat\w*|divorc\w*|split up|hospital\w*|"
     r"diagnos\w*|surgery|cancer|stroke|terminal|serious(ly)? ill\w*)\b", re.I)
-SPLICE = re.compile(r"\s*(?:\.\.\.|…)\s*")
 
 
 # --- document facts ---
@@ -64,8 +64,61 @@ def document_facts(text: str) -> dict:
     else:  # any named lender: "... Ltd", "... Lending Group", "... Credit Union", ...
         lender = "other"
     cid = (m.group(1) if (m := CUSTOMER_NUMBER.search(text)) else None)
+    borrower = (" ".join(m.group(1).split()) if (m := BORROWER_CLAUSE.search(text)) else None)
     return {"credit_agreement": credit, "lender": lender, "customer_number": cid,
-            "lender_clause": clause.group(1).strip() if clause else None}
+            "lender_clause": clause.group(1).strip() if clause else None, "borrower": borrower}
+
+
+# --- the gate: decided by code before any model call (user decision 2026-10-24) ---
+
+ALL_TOOLS = frozenset({"search_regulation", "search_policy", "get_account"})
+
+
+def escalation_gate(facts: dict) -> dict:
+    """
+    What code can decide from the document alone, before the model runs:
+    - not a credit agreement: nothing applies; the model is not called at all;
+    - another lender: escalation is not_applicable; only the regulation search is offered;
+    - no lender named, or a Northbridge agreement with no customer number: escalation is
+      cannot_determine, which always goes to a reviewer; the account lookup is not offered.
+    decision None = the model decides escalation (Northbridge agreement with a customer number).
+    """
+    if not facts["credit_agreement"]:
+        return {"decision": "not_applicable", "reason": "not a credit agreement: no outcome or procedure applies",
+                "tools": frozenset(), "call_model": False}
+    if facts["lender"] == "other":
+        return {"decision": "not_applicable", "call_model": True, "tools": frozenset({"search_regulation"}),
+                "reason": "another lender's agreement: Northbridge's escalation procedure does not apply"}
+    if facts["lender"] == "not_stated":
+        return {"decision": "cannot_determine", "call_model": True, "tools": frozenset({"search_regulation"}),
+                "reason": "the agreement names no lender, so it cannot be established that the customer is Northbridge's"}
+    if not facts["customer_number"]:
+        return {"decision": "cannot_determine", "call_model": True,
+                "tools": frozenset({"search_regulation", "search_policy"}),
+                "reason": "the agreement has no customer number, so there is no account to check"}
+    return {"decision": None, "reason": None, "tools": ALL_TOOLS, "call_model": True}
+
+
+def _same_name(a: str | None, b: str | None) -> bool:
+    norm = lambda s: re.sub(r"[^a-z]", "", (s or "").lower())  # noqa: E731
+    return bool(a and b) and norm(a) == norm(b)
+
+
+def account_gate(facts: dict, registry) -> str | None:
+    """
+    After the run, for a Northbridge agreement with a customer number: the reason escalation cannot be
+    determined from the account, or None. Checked by code from the lookup result itself.
+    """
+    cid = facts["customer_number"]
+    looked_up = [e for e in registry.items.values() if e["kind"] == "account" and e.get("customer_id") == cid]
+    if not looked_up:
+        return f"the account for {cid} was not looked up"
+    if not any(e.get("found") for e in looked_up):
+        return f"no account record exists for {cid}"
+    holder = next(e for e in looked_up if e.get("found"))["record"].get("account_holder_name")
+    if facts.get("borrower") and not _same_name(holder, facts["borrower"]):
+        return f"the account for {cid} belongs to {holder}, not to {facts['borrower']}, the borrower named in the agreement"
+    return None
 
 
 def necessary_calls(facts: dict) -> dict:
@@ -105,11 +158,13 @@ def unnecessary_calls(calls: list[dict], facts: dict) -> list[dict]:
 # --- quote matching ---
 
 def quote_in(quote: str, text: str) -> bool:
-    """Found exactly, normalised or fuzzily (the claim checker's matcher). A "..."-spliced quote: every part."""
+    """
+    Found by the claim checker's matcher, the same rule the baseline is scored with: exactly,
+    normalised, fuzzily, or as a "..."-splice whose parts all appear in the quote's order (rule B).
+    """
     from src.evaluation.claim_verification import match_quote
 
-    parts = [p for p in SPLICE.split(quote.strip()) if len(p.split()) >= 3] or [quote.strip()]
-    return all(match_quote(p, text)["match_type"] != "none" for p in parts)
+    return match_quote(quote, text)["match_type"] != "none"
 
 
 # --- account facts ---
@@ -139,7 +194,7 @@ def account_facts(record: dict, review_date: str) -> dict:
 # --- the validation ---
 
 def validate_run(document_text: str, assessment: AgentAssessment | None, registry, calls: list[dict], turns: int,
-                 stop: dict, review_date: str, threshold: float | None = None) -> dict:
+                 stop: dict, review_date: str, threshold: float | None = None, gate: dict | None = None) -> dict:
     """
     `threshold` is a REFERENCE value only (default CONFIDENCE_THRESHOLD, 0.65, which was never calibrated):
     each outcome reports whether its confidence is below it, but the agent's verdict is not replaced on
@@ -283,15 +338,38 @@ def validate_run(document_text: str, assessment: AgentAssessment | None, registr
                           facts_acct["life_event_notes_in_window"],
                           "no in-window bereavement/separation/health note left unclaimed", "warn")
 
+    # 4. escalation rules decided by code (user decision 2026-10-24). The model's own decision is kept
+    # as llm_decision; where the rule applies, it sets the decision. cannot_determine always goes to review.
+    gate = gate or escalation_gate(facts)
+    rule = gate["reason"]
+    forced = gate["decision"]
+    if forced is None and facts["credit_agreement"] and facts["lender"] == "northbridge" and facts["customer_number"]:
+        rule = account_gate(facts, registry)
+        forced = "cannot_determine" if rule else None
+    if forced:
+        escalation = {**(escalation or {"decision": None, "triggers": [], "policy_quotes": [], "note_quotes": [],
+                                        "discrepancies": [], "reasoning": None, "cited_evidence": []})}
+        escalation["llm_decision"] = escalation.get("decision")
+        escalation["decision"] = forced
+        escalation["rule"] = rule
+        if forced != "escalate":
+            escalation["triggers"] = []
+    elif escalation is not None:
+        escalation["llm_decision"] = escalation["decision"]
+        escalation["rule"] = None
+
     # Why a reviewer should look, case by case. These are reported even while auto-approval is off,
     # so the report shows which cases would still need a human if a calibrated gate existed.
     review_reasons = []
-    if assessment is None:
+    if assessment is None and gate.get("call_model", True):
         review_reasons.append("no assessment submitted")
     review_reasons += [f"{k}: {o['status']}" for k, o in outcomes.items()
                        if o["status"] in ("potentially_non_compliant", "insufficient_evidence")]
     if (escalation or {}).get("decision") not in (None, "no_escalation", "not_applicable"):
-        review_reasons.append(f"escalation: {escalation['decision']}")
+        review_reasons.append(f"escalation: {escalation['decision']}"
+                              + (f" (rule: {escalation['rule']})" if escalation.get("rule") else ""))
+    if escalation and escalation.get("rule") and escalation["llm_decision"] not in (None, escalation["decision"]):
+        review_reasons.append(f"escalation rule overrode the model's {escalation['llm_decision']}")
     if (escalation or {}).get("discrepancies"):
         review_reasons.append("discrepancies reported")
     review_reasons += [f"check failed: {c['name']}" for c in checks
@@ -302,6 +380,8 @@ def validate_run(document_text: str, assessment: AgentAssessment | None, registr
     audit.event("agent", "end", data={"needs_human_review": needs_review, "stop": stop, "turns": turns,
                                       "tool_calls": len(calls), "unnecessary_calls": len(unnecessary),
                                       "statuses": {k: v["status"] for k, v in outcomes.items()},
+                                      "confidence": {k: v.get("confidence") for k, v in outcomes.items()},
+                                      "review_reasons": review_reasons,
                                       "escalation": (escalation or {}).get("decision")})
     return {
         "document_facts": facts, "necessary_calls": need, "unnecessary_calls": unnecessary,

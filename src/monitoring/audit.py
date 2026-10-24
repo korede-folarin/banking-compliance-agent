@@ -284,6 +284,11 @@ def llm_call(stage: str, call_site: str, response: Any, *, kwargs: dict | None =
         }))
 
 
+def estimated_cost() -> float | None:
+    """Estimated spend of the active run so far (None if no run, or the model has no price)."""
+    return _estimate_cost(_run["model"], _run["tokens"]) if _run else None
+
+
 def _estimate_cost(model: str | None, tokens: dict) -> float | None:
     price = config.PRICE_PER_MTOK.get(model or "")
     if not price:

@@ -770,6 +770,21 @@ changed in code):
   was not. The label records a fact about the outcome's fields, not
   confirmation of the specific claimed absence. Read it as "an extracted
   field for this outcome is marked not addressed", nothing more.
+- **Resolved 2026-10-20 by rule B (user decisions 2026-10-20 and
+  2026-10-24):** a "..."-spliced quote is now matched as `spliced` when it
+  meets two conditions (`claim_verification.match_quote`):
+  - **every part has at least 3 words;** a shorter part fails the splice,
+    because it is too short to show where it came from;
+  - **every part is in the text, in the quote's order,** as whole words
+    after normalising.
+  - The agent's `quote_in` calls the same function, so both systems use
+    one rule. Before, the agent allowed parts in any order.
+  - `claim_verification rescore` (no API) re-scored the full pass into
+    `..._checks_rule_b_results.jsonl` and `..._report.md`. 27 quotes moved
+    from `not_found` to `named_chunk/spliced`, nothing else changed, and the
+    original files are kept.
+
+  The original note follows.
 - **Spliced quotes can read as `not_found`** (found in the Session 25
   re-pilot). The judge sometimes joins two non-adjacent passages of the same
   excerpt with "...". Both parts are verbatim in the chunk, but the joined
@@ -848,7 +863,40 @@ queue.
 **Startup:** starting the audit run no longer imports the query engine
 (and the ML stack) just to read one setting, so the app loads in seconds.
 
-## Agentic tool loop (built and tested offline 2026-10-14; not yet run live)
+## Agentic tool loop (built 2026-10-14; run live 2026-10-24; gate added 2026-10-24)
+
+**The gate: code decides first (user decisions 2026-10-24, after the live run).** The live run
+showed two failures that need no judgment to prevent. All 10 unnecessary calls were account or policy
+lookups on other lenders' agreements. 6 of the 7 escalation errors said `no_escalation` where the
+answer was `cannot_determine`. Both are now decided by code, from the document and the lookup result:
+
+| Document | Model called | Tools offered | Escalation |
+|---|---|---|---|
+| Not a credit agreement | **no** (0 model and 0 tool calls) | none | `not_applicable` |
+| Another lender | yes | regulation search only | `not_applicable` |
+| No lender named | yes | regulation search only | `cannot_determine` |
+| Northbridge, no customer number | yes | regulation search and policy | `cannot_determine` |
+| Northbridge, account not found or not looked up | yes | all | `cannot_determine` |
+| Northbridge, account in another person's name | yes | all | `cannot_determine` |
+| Northbridge, matching account | yes | all | **the model decides** |
+
+How it is enforced:
+- `escalation_gate` and `account_gate` in `agent_validation.py` decide; `tool_agent._loop` applies the
+  gate before the first model call.
+- A tool outside the offered set never reaches the MCP server: the model gets an error result.
+- The model is told the pre-check.
+- `cannot_determine` always adds a review reason naming the rule. Where the rule overrode the model,
+  that is a review reason too, and the model's own decision is kept as `llm_decision`.
+
+**Honest limits:**
+- The rules were written after seeing the held-out failures (v2_d13, d14, d18). The held-out set is no
+  longer held out for escalation.
+- The live numbers in `docs/eval_results_v2.md` are from before the gate.
+- The offline dry run on all 19 documents shows the rules fire on exactly the 6 documents labelled
+  `cannot_determine` or `not_applicable`, and on none of the 13 the model must decide.
+- A live re-run of those documents is what would show the effect on real model output.
+
+The original design, as built on 2026-10-14, follows.
 Design and decisions: `docs/agent_tool_use_design.md`. The fixed workflow
 above is unchanged and stays the baseline.
 

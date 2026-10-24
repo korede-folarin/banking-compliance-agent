@@ -78,15 +78,15 @@
       "id": "P5-05",
       "phase": "Phase 5: MCP tools layer (additional scope, not in original plan)",
       "description": "Agentic tool use: the model chooses which MCP tools to call, and with what arguments, inside a bounded loop (8 calls, search_regulation 4 with one per outcome, other tools 3, 6 turns) and submits an assessment citing numbered evidence",
-      "passes": false,
-      "note": "Built and tested offline (tests/test_tool_agent.py, tests/test_tool_agent_mcp_integration.py with the real MCP server). The offline dry run covers all 34 documents. Not yet run against the live model. Design: docs/agent_tool_use_design.md."
+      "passes": true,
+      "note": "2026-10-24 live: claude-sonnet-5 chose its own MCP tools in 72 runs (v2 19x3, v1 15x1), 0 failures, 0 limit stops. Required calls made 100% (regulation 54/54 with one search per outcome, account 45/45 with the correct customer number, policy 48/48). 10 unnecessary calls in 6 runs (v2_d17, v2_d18). See docs/eval_results_v2.md and docs/eval_agent_v2_report.md."
     },
     {
       "id": "P5-06",
       "phase": "Phase 5: MCP tools layer (additional scope, not in original plan)",
       "description": "Deterministic checks on every agent run (no LLM): required and unnecessary tool calls, quotes found in the passage they name, citations only from the agent's own searches, policy quotes in the policy passage, escalation criteria 2.1(a)-(c) checked against account facts; failures force insufficient_evidence and give review reasons",
-      "passes": false,
-      "note": "Built and tested offline (src/agent/agent_validation.py, tests/test_tool_agent.py). Dry run on all 34 documents: tool calls 100% correct, 0 unnecessary, 72/72 quotes found. Not yet run on live model output."
+      "passes": true,
+      "note": "2026-10-24: ran on every live agent run (862 checks logged in the v2 runs 1-2 audit run alone). Flagged all 10 unnecessary calls; forced 3 verdicts to insufficient_evidence (quote not in the named passage, or a regulation passage from another outcome's search). Escalation: 50/57 correct; the 7 errors are held-out cannot_determine cases."
     },
     {
       "id": "P6-01",
@@ -161,8 +161,8 @@
       "id": "P8-09",
       "phase": "Phase 8: Evaluation (additional scope, not in original plan)",
       "description": "Agent evaluation harness: plan (exact cost), run (v1 or v2, 3 runs), claim check, score (tool calling, outcomes, escalation, groundedness, comparison with the v1 baseline as rates)",
-      "passes": false,
-      "note": "Built and tested offline (src/evaluation/agent_eval.py, tests/test_agent_eval.py); --dry-run works end to end. passes stays false until the live v2 and v1 runs have been scored."
+      "passes": true,
+      "note": "2026-10-24: live v2 (57 runs) and v1 (15 runs) scored, claim-checked (305 claims, run 0) and compared with the baseline as rates. Budget guard --max-usd added and tested. Total ~$8.97 of a $12 cap. docs/eval_results_v2.md."
     },
     {
       "id": "P8-10",
@@ -175,15 +175,15 @@
       "id": "P8-11",
       "phase": "Phase 8: Evaluation (additional scope, not in original plan)",
       "description": "Confidence calibration report per outcome category: whether any category could skip review, with the 95% bound and the documents needed",
-      "passes": false,
-      "note": "Auto-approval is disabled (AGENT_AUTO_APPROVAL_ENABLED = False); confidence is reported only. Report not yet written."
+      "passes": true,
+      "note": "2026-10-20: src/evaluation/calibration.py (zero API cost) wrote docs/eval_calibration_eval_raw_main_pass_v2.md from the full baseline pass. Gates: one run with confidence >= 0.65; all 3 runs compliant; both. Unit = document. Exact Clopper-Pearson 95% upper bound on the missed-issue rate of approved compliant verdicts. Result: no category qualifies at a 1%, 2% or 5% target under any gate. 0 missed issues were seen, but at most 13 approvals per category gives bounds of 20.6% or more. With 0 missed, a gate needs 299 / 149 / 59 approved documents for 1% / 2% / 5%. Auto-approval stays off. Tests: tests/test_calibration.py (3)."
     },
     {
       "id": "P9-01",
       "phase": "Phase 9: Monitoring",
       "description": "Every agent run logged: query, tools called, output, confidence, flag status",
       "passes": false,
-      "note": "Audit logging built and tested offline 2026-10-13 (src/monitoring/audit.py; JSONL per run under ./logs plus index.jsonl). Ingestion check runs are logged for real. passes stays false until a live compliance or agent run is logged end to end."
+      "note": "Live agent runs on 2026-10-24 were logged end to end: run header, every model call with tokens, every tool call with its arguments, every check, and per run the statuses, escalation and review flag. Confidence per outcome was not in the per-run end event; added the same day (agent_validation), not yet seen in a live run. passes stays false until it is."
     },
     {
       "id": "P9-02",

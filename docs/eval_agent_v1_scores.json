@@ -1,0 +1,403 @@
+{
+  "overall": {
+    "tool_calls": {
+      "search_regulation": {
+        "required_runs": 15,
+        "required_made": 15,
+        "all_outcomes_searched": 15,
+        "searched:price_and_value": 15,
+        "searched:consumer_support": 15,
+        "searched:products_and_services": 15,
+        "searched:consumer_understanding": 15,
+        "calls": 60
+      },
+      "get_account": {
+        "forbidden_runs": 15,
+        "forbidden_called": 0,
+        "calls": 0
+      },
+      "search_policy": {
+        "forbidden_runs": 15,
+        "forbidden_called": 0,
+        "calls": 0
+      },
+      "all": {
+        "runs": 15,
+        "calls": 60,
+        "unnecessary_calls": 0,
+        "runs_with_unnecessary": 0,
+        "limit_stops": 0,
+        "turns": 30
+      }
+    },
+    "outcomes": {
+      "price_and_value": {
+        "llm_tp": 2,
+        "post_tp": 2,
+        "llm_tn": 11,
+        "post_tn": 11,
+        "llm_abstain": 2,
+        "post_abstain": 2
+      },
+      "consumer_support": {
+        "llm_tn": 10,
+        "post_tn": 10,
+        "llm_abstain": 3,
+        "post_abstain": 3,
+        "llm_tp": 2,
+        "post_tp": 2
+      },
+      "products_and_services": {
+        "llm_tn": 10,
+        "post_tn": 10,
+        "llm_fp": 3,
+        "post_fp": 3,
+        "llm_abstain": 1,
+        "post_abstain": 1,
+        "llm_tp": 1,
+        "post_tp": 1
+      },
+      "consumer_understanding": {
+        "llm_fp": 5,
+        "post_fp": 5,
+        "llm_tn": 8,
+        "post_tn": 8,
+        "llm_fn": 2,
+        "post_fn": 2
+      }
+    },
+    "forced_to_insufficient": {
+      "price_and_value:below_reference": 9,
+      "consumer_support:below_reference": 12,
+      "products_and_services:below_reference": 5,
+      "consumer_understanding:below_reference": 10
+    },
+    "escalation": {
+      "runs": 15,
+      "decision_correct": 15,
+      "expected_not_applicable": 15,
+      "expected_not_applicable_correct": 15
+    },
+    "checks_failed": {},
+    "groundedness": {
+      "claimcheck_yes": 130,
+      "outcomes_quote_checked": 60,
+      "outcomes_all_quotes_in_named_passage": 60,
+      "claimcheck_partially": 12,
+      "claimcheck_no": 1
+    },
+    "per_doc": {
+      "loan_agreement_1": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support o)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "loan_agreement_2": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support o)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"consumer und)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "loan_agreement_3": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"supporting custome)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"target market)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"clear commun)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "loan_agreement_4": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"target market)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"clear commun)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "loan_agreement_5": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value fees and)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "loan_agreement_6": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value fees cha)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support v)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"target market)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"clear commun)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "loan_agreement_7": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support o)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "loan_agreement_8": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support o)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"consumer und)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "loan_agreement_9": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"target market)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "loan_agreement_10": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products and )",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "loan_agreement_11": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"customer support c)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"product desig)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "loan_agreement_12": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"target market)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "loan_agreement_13": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"target market)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "loan_agreement_14": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"target market)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ],
+      "loan_agreement_15": [
+        {
+          "run": 0,
+          "calls": [
+            "search_regulation({\"outcome\": \"price_and_value\", \"query\": \"fair value assessme)",
+            "search_regulation({\"outcome\": \"consumer_support\", \"query\": \"support for custom)",
+            "search_regulation({\"outcome\": \"products_and_services\", \"query\": \"products desi)",
+            "search_regulation({\"outcome\": \"consumer_understanding\", \"query\": \"communicatio)"
+          ],
+          "escalation": "not_applicable",
+          "expected": "not_applicable",
+          "unnecessary": [],
+          "stop": null
+        }
+      ]
+    }
+  },
+  "baseline": {
+    "source": "eval_raw_main_pass_v2.jsonl",
+    "outcomes": {
+      "price_and_value": {
+        "llm_tp": 12,
+        "post_tp": 3,
+        "llm_tn": 32,
+        "post_abstain": 42,
+        "llm_fp": 1
+      },
+      "consumer_support": {
+        "llm_tn": 30,
+        "post_tn": 30,
+        "llm_tp": 12,
+        "post_tp": 7,
+        "post_abstain": 5,
+        "llm_fp": 3,
+        "post_fp": 3
+      },
+      "products_and_services": {
+        "llm_tn": 39,
+        "post_tn": 39,
+        "llm_tp": 6,
+        "post_tp": 6
+      },
+      "consumer_understanding": {
+        "llm_fp": 4,
+        "post_abstain": 45,
+        "llm_abstain": 2,
+        "llm_tn": 33,
+        "llm_tp": 6
+      }
+    }
+  },
+  "signal1": {
+    "agent": {
+      "price_and_value": {
+        "n": 15,
+        "median_min": 0.7436,
+        "lowest": 0.6753
+      },
+      "consumer_support": {
+        "n": 15,
+        "median_min": 0.7413,
+        "lowest": 0.6956
+      },
+      "products_and_services": {
+        "n": 15,
+        "median_min": 0.7283,
+        "lowest": 0.6707
+      },
+      "consumer_understanding": {
+        "n": 15,
+        "median_min": 0.6893,
+        "lowest": 0.617
+      }
+    },
+    "baseline": {
+      "price_and_value": {
+        "n": 45,
+        "median_min": 0.7931,
+        "lowest": 0.7574
+      },
+      "consumer_support": {
+        "n": 45,
+        "median_min": 0.8121,
+        "lowest": 0.74
+      },
+      "products_and_services": {
+        "n": 45,
+        "median_min": 0.797,
+        "lowest": 0.7659
+      },
+      "consumer_understanding": {
+        "n": 45,
+        "median_min": 0.7508,
+        "lowest": 0.6521
+      }
+    }
+  },
+  "meta": {
+    "rows": 15,
+    "input": "eval_agent_v1.jsonl",
+    "claimchecks": 143,
+    "errors": 0
+  }
+}

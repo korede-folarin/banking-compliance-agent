@@ -145,7 +145,11 @@ def test_real_server_rejects_a_malformed_customer_number(monkeypatch):
                                                                             cache_creation_input_tokens=0))
 
     model = OneCall("x")
-    result = ToolAgent(client=model, review_date="2026-10-01").run("Customer number: CUST-12345")
+    # A Northbridge credit agreement, so the gate offers get_account (a bare letter would get no model call).
+    doc = ("FIXED SUM LOAN AGREEMENT\nCustomer number: CUST-12345\n"
+           "(1) Northbridge Consumer Lending Ltd, 40 Wharf Street, Manchester (\"the Lender\"); and\n"
+           "(2) A B (\"the Borrower\").\nAPR: 19.9%\nYou will repay the Loan in 48 monthly instalments.\n")
+    result = ToolAgent(client=model, review_date="2026-10-01").run(doc)
     assert result["tool_calls"][0]["is_error"] is True
     assert "must look like CUST-12345" in model.result_text["content"]
 

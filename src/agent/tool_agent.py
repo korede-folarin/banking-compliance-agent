@@ -34,7 +34,7 @@ from pydantic import ValidationError
 
 from src import config
 from src.agent.agent_schemas import OUTCOME_KEYS, AgentAssessment  # noqa: F401  (re-exported)
-from src.agent.agent_validation import account_facts, validate_run  # noqa: F401  (re-exported)
+from src.agent.agent_validation import account_facts, document_facts, escalation_gate, validate_run  # noqa: F401
 from src.monitoring import audit
 
 SUBMIT_TOOL = "submit_assessment"
@@ -212,12 +212,26 @@ class ToolAgent:
         return await self._loop(session, tools, document_text)
 
     async def _loop(self, session, tools: list[dict], document_text: str) -> dict:
+        # The gate runs first, in code: a document that is not a credit agreement gets no model call
+        # and no tool call; for another lender's or an unnamed lender's agreement, the account and
+        # policy tools are not offered at all (user decision 2026-10-24).
+        gate = escalation_gate(document_facts(document_text))
+        audit.event("agent", "gate", data={"decision": gate["decision"], "reason": gate["reason"],
+                                           "tools": sorted(gate["tools"]), "call_model": gate["call_model"]})
+        if not gate["call_model"]:
+            return validate_run(document_text, None, EvidenceRegistry(), [], 0, {"reason": None, "detail": None},
+                                self._review_date, gate=gate)
+        tools = [t for t in tools if t["name"] in gate["tools"] or t["name"] == SUBMIT_TOOL]
+        offered = {t["name"] for t in tools}
+        pre_check = ("" if gate["decision"] is None else
+                     f"\n\nPre-check by code: {gate['reason']}. Escalation is therefore {gate['decision']}; set that "
+                     "decision. Only the tools offered to you apply to this document.")
         system = [{"type": "text", "cache_control": {"type": "ephemeral"}, "text": SYSTEM_PROMPT.format(
             review_date=self._review_date, max_calls=config.AGENT_MAX_TOOL_CALLS,
             recent_months=config.AGENT_RECENT_WINDOW_MONTHS, max_turns=config.AGENT_MAX_TURNS,
             max_per_tool=config.AGENT_MAX_CALLS_PER_TOOL,
             max_regulation=tool_limit("search_regulation"))}]
-        messages: list[dict] = [{"role": "user", "content": f"Loan agreement under review:\n\n{document_text}"}]
+        messages: list[dict] = [{"role": "user", "content": f"Loan agreement under review:\n\n{document_text}{pre_check}"}]
         registry = EvidenceRegistry()
         calls: list[dict] = []
         per_tool: dict[str, int] = {}
@@ -267,7 +281,9 @@ class ToolAgent:
                     break
                 key = f"{use.name}:{json.dumps(use.input, sort_keys=True)}"
                 cached = key in cache
-                if _malformed(use.input):
+                if use.name not in offered:  # never reaches the server: the gate ruled this tool out
+                    text, is_error = f"Error: {use.name} does not apply to this document ({gate['reason']}).", True
+                elif _malformed(use.input):
                     text, is_error = "Error: arguments were wrapped in a placeholder key; send the real arguments.", True
                 elif cached:
                     text, is_error = cache[key]
@@ -294,7 +310,7 @@ class ToolAgent:
         if assessment is None and stop["reason"] is None:
             stop.update(reason="turn_limit", detail=f"no assessment after {config.AGENT_MAX_TURNS} turns")
             audit.event("agent", "limit", level="warn", data={"limit": "turns", "turns": turns})
-        return validate_run(document_text, assessment, registry, calls, turns, stop, self._review_date)
+        return validate_run(document_text, assessment, registry, calls, turns, stop, self._review_date, gate=gate)
 
 
 async def _call(session, name: str, arguments: dict) -> str:
