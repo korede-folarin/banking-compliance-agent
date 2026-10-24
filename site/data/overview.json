@@ -1,0 +1,139 @@
+{
+ "systems": {
+  "AI agent (chooses its own tools)": {
+   "agreements": 34,
+   "reviews": 72,
+   "found": {
+    "Price and value": {
+     "Possible breach": 5,
+     "Not enough evidence": 3,
+     "Looks compliant": 25,
+     "Not applicable": 1
+    },
+    "Consumer support": {
+     "Looks compliant": 24,
+     "Not enough evidence": 7,
+     "Not applicable": 1,
+     "Possible breach": 2
+    },
+    "Products and services": {
+     "Looks compliant": 26,
+     "Not enough evidence": 3,
+     "Not applicable": 1,
+     "Possible breach": 4
+    },
+    "Consumer understanding": {
+     "Possible breach": 9,
+     "Looks compliant": 23,
+     "Not enough evidence": 1,
+     "Not applicable": 1
+    }
+   },
+   "possible_breaches": 20,
+   "agreements_with_a_possible_breach": 12,
+   "agreements_needing_a_person": 26,
+   "escalation": {
+    "Escalate: vulnerable customer": 6,
+    "No escalation needed": 9,
+    "Not applicable": 17,
+    "Can't tell: a person must check": 2
+   },
+   "reliability": {
+    "Price and value": {
+     "caught": 11,
+     "unsure": 3,
+     "correct_clear": 55
+    },
+    "Consumer support": {
+     "correct_clear": 52,
+     "unsure": 14,
+     "caught": 3
+    },
+    "Products and services": {
+     "correct_clear": 58,
+     "unsure": 7,
+     "false_alarm": 3,
+     "caught": 1
+    },
+    "Consumer understanding": {
+     "false_alarm": 14,
+     "correct_clear": 45,
+     "unsure": 3,
+     "missed": 6,
+     "caught": 1
+    }
+   },
+   "real_problems": 22,
+   "caught": 16,
+   "missed": 6,
+   "false_alarms": 17,
+   "escalation_right": [
+    65,
+    72
+   ]
+  },
+  "Fixed workflow (baseline)": {
+   "agreements": 15,
+   "reviews": 45,
+   "found": {
+    "Price and value": {
+     "Possible breach": 1,
+     "Not enough evidence": 14
+    },
+    "Consumer support": {
+     "Looks compliant": 11,
+     "Not enough evidence": 2,
+     "Possible breach": 2
+    },
+    "Products and services": {
+     "Looks compliant": 13,
+     "Possible breach": 2
+    },
+    "Consumer understanding": {
+     "Not enough evidence": 15
+    }
+   },
+   "possible_breaches": 5,
+   "agreements_with_a_possible_breach": 5,
+   "agreements_needing_a_person": 15,
+   "escalation": {},
+   "reliability": {
+    "Price and value": {
+     "caught": 12,
+     "correct_clear": 32,
+     "false_alarm": 1
+    },
+    "Consumer support": {
+     "correct_clear": 30,
+     "caught": 12,
+     "false_alarm": 3
+    },
+    "Products and services": {
+     "correct_clear": 39,
+     "caught": 6
+    },
+    "Consumer understanding": {
+     "false_alarm": 4,
+     "unsure": 2,
+     "correct_clear": 33,
+     "caught": 6
+    }
+   },
+   "real_problems": 36,
+   "caught": 36,
+   "missed": 0,
+   "false_alarms": 8,
+   "escalation_right": [
+    0,
+    0
+   ]
+  }
+ },
+ "health": {
+  "agent_document_runs": 76,
+  "failure_rate": 0.0395,
+  "median_latency_s": 67,
+  "live_spend_usd": 9.08,
+  "as_of": "2026-10-24"
+ }
+}

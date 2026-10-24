@@ -129,7 +129,8 @@
       "id": "P8-04",
       "phase": "Phase 8: Evaluation",
       "description": "Prompt variant comparison table (at least 2 variants scored)",
-      "passes": false
+      "passes": true,
+      "note": "2026-10-24: docs/eval_variants_report.md. Two price-and-value prompts (A production, B scenario-match) scored on 15 v1 documents x 1 run (30 calls, user approved). Both 15/15 (TP 4, TN 11, no FP/FN/abstain), with the same verdict on every document. No measurable difference; the production prompt stays. One run each cannot rule out a small effect. The variants command is not audit-logged, so its spend is estimated (~$1)."
     },
     {
       "id": "P8-05",
@@ -203,8 +204,8 @@
       "id": "P10-02",
       "phase": "Phase 10: Deployment",
       "description": "Deployed to Render (or equivalent), live demo link working end to end",
-      "passes": false,
-      "note": "2026-10-24: prepared, not deployed. src/requirements.txt holds only the app's light dependencies (Streamlit Community Cloud reads it first, next to the entrypoint); DEMO_MODE=1 shows a public-demo banner. The app imports no ML packages. Deploying needs the owner's Streamlit account; passes stays false until the live link works end to end."
+      "passes": true,
+      "note": "2026-10-24: deployed by the user to Streamlit Community Cloud: https://banking-compliance-agent.streamlit.app (repo main, src/app.py, light src/requirements.txt). Checked on the live link at commit dfa6b5f: the review queue loads 117 cases with no errors; the Dashboard's Compliance overview shows 34 agreements, 16 of 22 caught, 6 missed, 17 false alarms, 12 charts; System health falls back to the committed snapshot. The DEMO_MODE banner was not shown (secret not set at that check). No API key is needed or used."
     },
     {
       "id": "P11-01",

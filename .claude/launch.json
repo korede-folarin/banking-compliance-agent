@@ -14,6 +14,12 @@
       "port": 8511
     },
     {
+      "name": "static-site",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "http.server", "8520", "--bind", "127.0.0.1", "--directory", "site"],
+      "port": 8520
+    },
+    {
       "name": "review-app-docker",
       "runtimeExecutable": "docker",
       "runtimeArgs": ["run", "--rm", "-p", "127.0.0.1:8512:8501", "-v", "${workspaceFolder}/logs:/app/logs:ro", "compliance-review"],

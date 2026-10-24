@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Banking Compliance Agent · Live demo</title>
+<meta name="description" content="An AI that reviews loan agreements against the FCA Consumer Duty, cites its evidence and hands uncertain cases to a person. Results and a step-by-step replay, on synthetic data.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#overview">Skip to the results</a>
+
+<header class="bar">
+  <span class="brand">Compliance Agent</span>
+  <nav aria-label="Sections">
+    <a href="#overview">Overview</a>
+    <a href="#sample">Try a sample</a>
+    <a href="#reviewer">Be the reviewer</a>
+    <a href="https://github.com/korede-folarin/banking-compliance-agent" rel="noopener">GitHub ↗</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <p class="mono kicker">Live demo · synthetic data</p>
+    <h1>Banking<br>compliance agent</h1>
+    <p class="lede">An AI that reviews loan agreements against the FCA Consumer Duty, cites the regulation behind every
+      finding and hands anything uncertain to a person. Below: what it found in 34 test agreements, how reliable it was,
+      and a step-by-step replay of real reviews.</p>
+    <p class="note">This page is static and always on. The interactive review app runs on Streamlit and may take
+      about 30 seconds to wake if nobody has used it recently.</p>
+  </section>
+
+  <section id="overview" aria-labelledby="ov-h">
+    <p class="mono kicker">01 · Compliance overview</p>
+    <h2 id="ov-h">What it found, and how reliable it was</h2>
+    <div class="toggle" role="radiogroup" aria-label="Which system">
+      <button type="button" role="radio" aria-checked="true" data-system="AI agent (chooses its own tools)">AI agent <small>chooses its own tools</small></button>
+      <button type="button" role="radio" aria-checked="false" data-system="Fixed workflow (baseline)">Fixed workflow <small>the baseline</small></button>
+    </div>
+    <div class="cards" id="kpis"></div>
+
+    <h3>Findings by Consumer Duty outcome</h3>
+    <p class="cap">Each agreement counted once (its first review), as the reviewer receives it.</p>
+    <div id="found" class="bars"></div>
+    <div class="legend" id="found-legend"></div>
+    <details class="explain">
+      <summary>What the four outcomes mean</summary>
+      <dl>
+        <dt>Price and value</dt><dd>Is the price fair for what the customer gets? Fees and charges must be justified.</dd>
+        <dt>Consumer support</dt><dd>Can customers get help when they need it, especially vulnerable customers?</dd>
+        <dt>Products and services</dt><dd>Is the product designed for, and sold to, the right customers?</dd>
+        <dt>Consumer understanding</dt><dd>Are the key terms explained clearly enough for the customer to understand?</dd>
+      </dl>
+    </details>
+
+    <h3>How reliable is it?</h3>
+    <p class="cap" id="rel-cap"></p>
+    <div class="cards three" id="rel-kpis"></div>
+    <div class="table-wrap"><table id="rel-table"><caption class="sr">Results per outcome against the known answers</caption></table></div>
+    <p class="callout" id="rel-note"></p>
+
+    <div id="esc-block">
+      <h3>Vulnerable customers</h3>
+      <p class="cap" id="esc-cap"></p>
+      <div id="esc" class="bars single"></div>
+    </div>
+
+    <h3>System health</h3>
+    <p class="cap" id="health-cap"></p>
+    <div class="strip" id="health"></div>
+  </section>
+
+  <section id="sample" aria-labelledby="sa-h">
+    <p class="mono kicker">02 · Try a sample</p>
+    <h2 id="sa-h">Follow one agreement through its review</h2>
+    <p class="cap">A replay of the real recorded run. The code rules are the project's own, run on this data. Nothing here calls a model.</p>
+    <label class="pick" for="pick">Pick an agreement</label>
+    <select id="pick"></select>
+    <details class="explain"><summary>Read the agreement</summary><pre id="agreement"></pre></details>
+    <ol class="steps" id="steps"></ol>
+  </section>
+
+  <section id="reviewer" class="dark" aria-labelledby="rv-h">
+    <p class="mono kicker">03 · Be the reviewer</p>
+    <h2 id="rv-h">Every case goes to a person</h2>
+    <p>Open the review queue in the interactive app. Each verdict shows its reasoning, the quoted claims and the full FCA
+      passage. Confirm it or override it. An override needs a written reason, and nothing resolves until every item is
+      decided. Those rules are enforced in code.</p>
+    <p><a class="btn" href="https://banking-compliance-agent.streamlit.app" rel="noopener">Open the review app ↗</a></p>
+    <p class="cap light">Hosted on Streamlit Community Cloud. If it is asleep, press “wake up” and wait about 30 seconds.</p>
+  </section>
+</main>
+
+<footer>
+  <p><b>Honest scope.</b> 34 synthetic loan agreements with planted problems, checked against a Consumer-Duty-only
+    corpus. This is a portfolio project, not a production banking system, and nothing here is evidence about real
+    agreements. No real customer data is used anywhere.</p>
+  <p><a href="https://github.com/korede-folarin/banking-compliance-agent" rel="noopener">Code, evaluation reports and decisions on GitHub ↗</a>
+    · <a href="https://www.koredefolarin.com" rel="noopener">koredefolarin.com ↗</a></p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

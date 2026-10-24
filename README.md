@@ -5,6 +5,51 @@ FCA Consumer Duty), and reports where it falls short, citing the regulatory
 text each finding relies on. It routes uncertain or flagged cases to human
 review instead of guessing.
 
+## Live demo
+
+- **Always on:**
+  **[korede-folarin.github.io/banking-compliance-agent](https://korede-folarin.github.io/banking-compliance-agent/)**
+  is a static page with the compliance overview and the step-by-step
+  sample replay.
+- **Interactive app:**
+  **[banking-compliance-agent.streamlit.app](https://banking-compliance-agent.streamlit.app)**
+  has the review queue, where you record decisions, and the full
+  dashboard. It's free hosting, so it may take about 30 seconds to wake if
+  idle.
+
+Both use synthetic data only and need no sign-in. Nothing you do on either
+calls a model.
+
+**Rebuilding the static page:** run `python -m src.site.build` to rebuild
+`site/data/` from the saved results, then commit it. A GitHub Actions
+workflow publishes `site/` on each push.
+
+A two-minute tour:
+1. **Try a sample.** Pick one of 19 test agreements and follow its
+   review, step by step:
+   - what code decides before any AI runs;
+   - what the AI chose to look up;
+   - the customer's account;
+   - each verdict, with its quoted regulation;
+   - the code checking the AI's work;
+   - the vulnerable-customer decision;
+   - finally, the answer key.
+
+   It is a replay of the real recorded run.
+2. **Dashboard → Compliance overview.** What the system found in 34 test
+   loan agreements, and how reliable it was against the known answers.
+   Switch between the AI agent and the fixed workflow to compare them.
+   They differ on missed problems: the agent missed 6 and the fixed
+   workflow missed none.
+3. **The review queue (the "app" page).** Type any name, open a case, and
+   expand an outcome. You see the verdict, the reasoning, each quoted
+   claim, and the full FCA passage it came from.
+4. **Record a decision.** Confirm the verdict, or override it. An override
+   is refused without a written reason. A case can only be resolved once
+   every item is decided.
+5. **Dashboard → System health.** The technical view: failure rate,
+   latency and cost from the audit log.
+
 ## Why this needs to exist
 
 Compliance review of consumer credit documents is still mostly manual:
@@ -112,6 +157,16 @@ outcome, the 95% upper bound stays at 20.6% or more. Showing 5% with zero
 misses would take 59 approved documents, and showing 1% would take 299.
 Auto-approval therefore stays off. See
 `docs/eval_calibration_eval_raw_main_pass_v2.md`.
+
+**Prompt variants (price and value).** Two judging prompts were compared on
+the 15 documents, 1 run each:
+- **A:** the production prompt;
+- **B:** A plus an explicit check that each regulation excerpt is about
+  this kind of product.
+
+Both scored 15/15, with the same verdict on every document, so there is no
+measurable difference and the production prompt stays. One run each can't
+rule out a small effect. See `docs/eval_variants_report.md`.
 
 **Claim checks.** Every regulatory claim was checked twice:
 - **Quote location (deterministic).** 540 of 542 cited quotes were found
@@ -281,7 +336,7 @@ retry. The details are in ARCHITECTURE.md.
 
 ## What this does and doesn't prove
 
-**The test suite has 294 tests.** 254 run offline. 40 are live tests that
+**The test suite has 316 tests.** 276 run offline. 40 are live tests that
 call the Claude API and are skipped without a key.
 
 The evaluation covers 15 synthetic loan agreements with planted, known
@@ -337,11 +392,11 @@ puts around any decision tool.
 
 ## Open items
 
-- **P8-04, prompt variants:** a scored comparison of two prompt versions
-  for price and value. It needs a small paid run.
-- **P10-02, public demo:** ready to deploy to Streamlit Community Cloud
-  (`src/requirements.txt` holds the light dependencies; set
-  `DEMO_MODE=1`). It needs the owner's account.
+None. All 35 tracked features pass.
+
+What would come next is the bank-grade list above (identity, four-eyes,
+roles), and testing the escalation rules on agreements they weren't written
+from.
 
 ## On the architecture doc
 

@@ -47,7 +47,48 @@ Newest entry at the top.
       resolved cases.
   - **Tests:** `tests/test_dashboard.py` (4).
 
-**Spend:** ~$9.08 in total (credit left ~$4.38).
+- **P8-04 `passes: true`** (user approved): prompts A and B on 15 v1
+  documents × 1 run (30 calls). Both 15/15 with identical verdicts, so no
+  measurable difference; the production prompt stays.
+  `docs/eval_variants_report.md`. The variants command is not audit-logged,
+  so its spend is estimated (~$1).
+- **"Try a sample" page** (user choice, free):
+  - `src/pages/2_Try_a_sample.py` replays one v2 agreement's recorded run
+    in 7 plain steps: code reads the document, the AI's lookups, the
+    account, the verdicts with quotes, the checks, the escalation, and the
+    answer key.
+  - The code rules are re-run live from the new
+    `src/agent/document_rules.py`. The pure rules moved out of
+    `agent_validation.py` (re-exported, behaviour unchanged) so the hosted
+    demo can import them without the ML stack.
+  - **Tests:** `tests/test_try_a_sample.py` (20: every sample renders; the
+    rules replay).
+  - **Checked in the browser:** only Streamlit's two known 404s.
+- **Portfolio site:** the user has a separate chat for koredefolarin.com, so
+  they were given a brief to paste, not files. The site itself was not
+  changed.
+
+- **The always-on static site** (user request: Streamlit's free hosting
+  sleeps; follow the Sentinel Credit GitHub Pages model):
+  - **What it holds:** `site/` (index.html, style.css, app.js, self-hosted
+    fonts) plus `site/data/`.
+  - **How it's built:** `python -m src.site.build` writes `site/data/`
+    from the saved results (`overview.json` for both systems,
+    `samples.json` for 19 replays). The shared replay logic is
+    `src/review/replay.py`, also used for the Streamlit page's wording.
+  - **Publishing:** `.github/workflows/pages.yml` publishes `site/` to
+    GitHub Pages.
+  - **Checked in the browser:**
+    - 0 external requests and no console errors;
+    - the numbers match;
+    - no overflow at 1280 px or 375 px;
+    - the header is not sticky on phones.
+  - **Tests:** `tests/test_static_site.py` (2), including a guard that the
+    committed `site/data` is current.
+  - **The user must enable Pages once:** Settings → Pages → Source:
+    GitHub Actions.
+
+**Spend:** ~$10 in total, estimated (credit left ~$3.4).
 
 **Open:**
 - **P8-04:** the paid prompt-variant run (~$0.90, at most ~$2.70 with
