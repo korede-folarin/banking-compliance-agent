@@ -47,6 +47,9 @@ if flash:
     st.toast(flash)  # floats on screen, so it is seen even when the reviewer is scrolled down at the Resolve button
 st.caption("Synthetic documents and accounts only. Auto-approval is disabled: every case needs a human decision "
            "on each item before it can be resolved. Confidence is shown for information and never replaces a verdict.")
+if config.DEMO_MODE:
+    st.warning("Public demo: synthetic data only. Decisions you record are kept only until the app restarts, "
+               "and the reviewer name is whatever you type. A bank deployment would take it from single sign-on.")
 
 with st.sidebar:
     reviewer = st.text_input("Reviewer name", key="reviewer")

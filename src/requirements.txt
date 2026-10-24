@@ -1,0 +1,7 @@
+# Dependencies for the hosted demo only (Streamlit Community Cloud reads this file first, because it sits
+# next to the entrypoint src/app.py). The review screen and dashboard read saved results and make no
+# model calls, so none of the ML stack in the root requirements.txt is needed here.
+streamlit==1.62.0
+pandas==2.3.3
+pydantic==2.13.4
+python-dotenv==1.2.3

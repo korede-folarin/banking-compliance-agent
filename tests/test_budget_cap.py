@@ -59,6 +59,23 @@ def test_run_stops_before_passing_the_cap(tmp_path, monkeypatch):
     assert len(out.read_text(encoding="utf-8").splitlines()) == 3
 
 
+def test_run_creates_a_missing_output_folder_before_any_paid_call(tmp_path, monkeypatch):
+    """2026-10-24: a live run into a folder that did not exist lost its paid result at the write."""
+    class FakeAgent:
+        def __init__(self, *a, **k):
+            pass
+
+        def run_many(self, items, before, after):
+            for key, _text in items:
+                before(key)
+                after(key, {"tool_calls": [], "escalation": None, "stop": {"reason": None}}, None)
+
+    monkeypatch.setattr("src.agent.tool_agent.ToolAgent", FakeAgent)
+    out = tmp_path / "new" / "nested" / "rows.jsonl"
+    agent_eval.cmd_run(_ns(output=str(out), docs=["v2_d01"], max_usd=1.0))
+    assert len(out.read_text(encoding="utf-8").splitlines()) == 1
+
+
 def test_claimcheck_count_only_and_cap(tmp_path, monkeypatch):
     out = tmp_path / "rows.jsonl"
     evidence = [{"number": 1, "kind": "regulation", "text": "Firms must act."}]

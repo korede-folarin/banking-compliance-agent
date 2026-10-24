@@ -22,8 +22,8 @@
       "id": "P1-03",
       "phase": "Phase 1: RAG core (additional scope, not in original plan)",
       "description": "Ingestion is gated: content checks (PDF reader used, no raw-PDF markers, bad characters, chunks per page, pages with text) and a retrieval smoke test run before the live index is replaced; --check-only checks the existing index",
-      "passes": false,
-      "note": "2026-10-20: tested offline (tests/test_ingestion_checks.py). --check-only on the real regulatory_corpus index passes all 7 checks (2026-10-13 and 2026-10-20). The gated rebuild itself (staging collection, smoke test, swap) has not been run on the real corpus. That run is local and free (no API)."
+      "passes": true,
+      "note": "2026-10-24: the gated rebuild was run on the real corpus (python -m src.ingestion.ingest, local, no API). Audit log: 3 PDFs loaded with hashes; pdf_reader_used 1.0, no_raw_pdf_markers 0, bad_char_share 0.000223, chunks_per_page 1.622, pages_with_text 1.0, file_coverage ok, smoke_retrieval 3/3; then collection_swapped (558 chunks); 0 failed checks. A --check-only run afterwards on the live index passes all 7. Tests: tests/test_ingestion_checks.py."
     },
     {
       "id": "P2-01",
@@ -182,8 +182,8 @@
       "id": "P9-01",
       "phase": "Phase 9: Monitoring",
       "description": "Every agent run logged: query, tools called, output, confidence, flag status",
-      "passes": false,
-      "note": "Live agent runs on 2026-10-24 were logged end to end: run header, every model call with tokens, every tool call with its arguments, every check, and per run the statuses, escalation and review flag. Confidence per outcome was not in the per-run end event; added the same day (agent_validation), not yet seen in a live run. passes stays false until it is."
+      "passes": true,
+      "note": "2026-10-24: verified on a live run (v2_d01, ~$0.11, logged 17:35 UTC). The audit log holds: run header; the gate decision; both model calls with tokens; all 6 tool calls with their arguments (queries, customer number); 25 checks; and an end event with per-outcome statuses, per-outcome confidence (0.578/0.641/0.640/0.614), escalation, needs_human_review and the review reasons. The row file was not written: the output folder did not exist (bug, fixed: agent_eval now creates it before any paid call; regression test in tests/test_budget_cap.py)."
     },
     {
       "id": "P9-02",
@@ -196,14 +196,15 @@
       "id": "P10-01",
       "phase": "Phase 10: Deployment",
       "description": "App Dockerized",
-      "passes": false,
-      "note": "2026-10-24: Dockerfile (python:3.11-slim, CPU-only torch, non-root, healthcheck; serves the review app and dashboard, no API key needed) and .dockerignore (never .env). passes stays false until the image is built and the app is seen running from the container."
+      "passes": true,
+      "note": "2026-10-24: image compliance-review built by the user (313 s). Run from the image on 127.0.0.1 with logs/ mounted read-only. In the browser: the review queue shows 117 cases (45 baseline + 15 agent v1 + 57 agent v2), and the Dashboard page shows the same numbers as the local app (75 runs, 4.0% failed, 100% flagged, median 67 s, 3 charts). No API key in the image; .env is excluded by .dockerignore. The image predates the restyle: rebuild to include it."
     },
     {
       "id": "P10-02",
       "phase": "Phase 10: Deployment",
       "description": "Deployed to Render (or equivalent), live demo link working end to end",
-      "passes": false
+      "passes": false,
+      "note": "2026-10-24: prepared, not deployed. src/requirements.txt holds only the app's light dependencies (Streamlit Community Cloud reads it first, next to the entrypoint); DEMO_MODE=1 shows a public-demo banner. The app imports no ML packages. Deploying needs the owner's Streamlit account; passes stays false until the live link works end to end."
     },
     {
       "id": "P11-01",
@@ -223,7 +224,8 @@
       "id": "P11-03",
       "phase": "Phase 11: Business & judgement layer",
       "description": "README + architecture diagram finalized, pushed, presentable",
-      "passes": false
+      "passes": true,
+      "note": "2026-10-24: final README pass. 'What it does' covers both paths (fixed workflow for verdicts, agentic loop for escalation, code gate before both); results for both systems; decisions table; diagrams (docs/architecture/); business case; monitoring and Docker; a 'what a bank would add' production-gap table; open items. Stale lines removed (MCP 'side path', 'not built yet'). Test count 292 (252 offline)."
     }
   ]
 }

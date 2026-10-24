@@ -5,6 +5,86 @@ Newest entry at the top.
 
 ---
 
+## Finish-up — 2026-10-24 (evening)
+**Status:** 33 of 35.
+
+**Done:**
+- **P1-03:** the gated rebuild ran on the real corpus. 7/7 checks, then
+  the swap (558 chunks), and a re-check passes.
+- **P9-01:** one live run (v2_d01, ~$0.11). The log holds the queries,
+  tools, outputs, per-outcome confidence and the review flag.
+  - **Bug found and fixed:** `agent_eval run` did not create the output
+    folder, so that run's row was lost at the write. The log kept
+    everything. Regression test added.
+- **P11-03:** README final pass, including the production-gap table
+  ("If a bank ran this").
+- **P10-02 prepared:** `src/requirements.txt` (light dependencies),
+  `DEMO_MODE` banner, and the app imports no ML packages. It needs the
+  user's Streamlit account to deploy.
+- **Test note:** a test session run during the ingestion rebuild tripped
+  the real-log guard, because the rebuild wrote a genuine entry. On re-run
+  everything passes. Don't run the suite while a logged command runs.
+
+**Spend:** ~$9.08 in total (credit left ~$4.38).
+
+**Open:**
+- **P8-04:** the paid prompt-variant run (~$0.90, at most ~$2.70 with
+  retries). Waiting for approval.
+- **P10-02:** the user deploys. Decide whether the public demo's
+  dashboard gets a sample log.
+
+---
+
+## Week wrap: 18–24 October 2026
+**Status:** 30 of 35 features pass (from 18 at the start of the week).
+
+**Passed this week:**
+- P7-01 human review;
+- P8-07 full re-run;
+- P8-08 fixtures v2;
+- P8-09 agent evaluation harness;
+- P8-10 run-to-run agreement;
+- P8-11 calibration;
+- P5-05 agentic tool use (live);
+- P5-06 validation on live output;
+- P9-02 dashboard;
+- P10-01 Docker, verified 2026-10-24: the image runs on localhost; with
+  `logs/` mounted, the queue shows 117 cases and the dashboard matches the
+  local app;
+- P11-01 trade-offs;
+- P11-02 business model.
+
+**Spent:** ~$8.97 (live agent evaluation, under a $12 cap); everything
+else was offline.
+
+**Headline findings:**
+- **Agent tool calling:** required calls 100%.
+- **Consumer understanding:** the agent is worse than the fixed workflow
+  (6 missed breaches; the baseline missed 0).
+- **Repeated errors:** the agent's errors repeat across runs, so run
+  disagreement does not catch them, unlike the baseline.
+- **The fix:** escalation and wasted calls are now decided by code before
+  the model.
+
+**Open (next week):**
+- **P1-03:** run the gated ingestion rebuild once on the real corpus (free,
+  local).
+- **P9-01:** confidence is now in the agent's end event; it needs one live
+  run to see it (~$0.11 for 1 document).
+- **P8-04:** prompt variants. The user has not decided between defer and
+  run.
+- **P10-02:** deployment (choose a host; a demo mode with no API calls).
+- **P11-03:** final README pass.
+- **Also:**
+  - consumer-understanding diagnosis (free);
+  - an optional live re-run of the 6 gated documents (~$1);
+  - the 40 live tests (first run since August);
+  - rebuild the Docker image to pick up the restyle;
+  - the user's website should show the agent results and say that "run
+    disagreement" applies to the baseline only.
+
+---
+
 ## Session 28 — 2026-10-20
 **Status:** P7-01 `passes: true`. Docs synced. Zero API calls.
 

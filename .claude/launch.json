@@ -12,6 +12,12 @@
       "runtimeExecutable": ".venv/Scripts/python.exe",
       "runtimeArgs": ["-m", "streamlit", "run", "src/app.py", "--server.headless", "true", "--server.port", "8511"],
       "port": 8511
+    },
+    {
+      "name": "review-app-docker",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["run", "--rm", "-p", "127.0.0.1:8512:8501", "-v", "${workspaceFolder}/logs:/app/logs:ro", "compliance-review"],
+      "port": 8512
     }
   ]
 }

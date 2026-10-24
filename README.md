@@ -20,10 +20,21 @@ not it knows, and a *confident wrong answer about regulatory compliance* is a
 dangerous failure mode in a regulated industry. The core design problem here
 is making the "I don't know" case work as reliably as the "compliant" case.
 
-## What it does (as built, 2026-10-13)
+## What it does (as built, 2026-10-24)
 
-The evaluated system is a **fixed workflow**. The code calls each step in
-order; the model does not choose tools or steps. For one loan agreement:
+There are two paths, and both end in a human review queue.
+
+1. **A fixed workflow produces the compliance verdicts.** It is the
+   baseline, and it was evaluated first.
+2. **An agentic loop decides vulnerable-customer escalation.** The model
+   chooses its own tools over MCP.
+
+**Code runs before both.** A deterministic gate decides everything it can
+from the document itself (see "Agentic tool loop" below and
+`docs/architecture/`).
+
+**The fixed workflow.** The code calls each step in order; the model does
+not choose tools or steps. For one loan agreement:
 
 1. **Extraction.** One structured LLM call extracts the loan terms (lender,
    borrower, amount, APR, term, repayment schedule, fees) plus one field per
@@ -51,18 +62,18 @@ Entry points: `python -m src.agent.compliance <document>` for one
 document, and `python -m src.evaluation.run_eval main` for the evaluation
 pass.
 
-**MCP is built, but not on the evaluated path.** `src/mcp_server/` is a
-real MCP server with three tools, called over stdio:
-- regulation lookup;
-- mock account lookup;
-- internal policy query.
+**The agentic loop** (`src/agent/tool_agent.py`) gives Claude three MCP
+tools over stdio (`src/mcp_server/agent_server.py`):
+- regulation search, one per outcome;
+- the customer's account;
+- Northbridge's internal escalation policy.
 
-One added method (`ComplianceAgent.judge_price_and_value_with_mcp_context`)
-calls all three, and only tests call that method. In it, **the code chooses
-which tools to call and with what arguments**, and the model only reads the
-results. It is not agentic tool use. An agentic version, where the model
-chooses its tools inside a bounded loop, is designed in
-`docs/agent_tool_use_design.md` and is the next build.
+The model chooses which to call and with what arguments, within 8 calls
+and 6 turns. It then submits an assessment that cites numbered evidence. A
+deterministic layer checks every call, quote, citation and trigger against
+the account data. The agent also gives its own four outcome verdicts,
+which is how it was compared with the fixed workflow on the same
+documents.
 
 ## Results (full pass, 15 documents × 3 runs)
 
@@ -256,7 +267,7 @@ retry. The details are in ARCHITECTURE.md.
 
 ## What this does and doesn't prove
 
-**The test suite has 291 tests.** 251 run offline. 40 are live tests that
+**The test suite has 292 tests.** 252 run offline. 40 are live tests that
 call the Claude API and are skipped without a key.
 
 The evaluation covers 15 synthetic loan agreements with planted, known
@@ -270,8 +281,8 @@ arbitrary real-world agreements or a wider regulatory corpus.
 ## Human review (P7-01)
 
 `streamlit run src/app.py` opens the review queue. Auto-approval is off,
-so every case is in it: baseline results now, and the agent's once they
-have run. For each item (the four outcomes, plus escalation for agent
+so every case is in it: 117 cases (45 baseline, and 72 from the agent's
+live runs). For each item (the four outcomes, plus escalation for agent
 cases), the reviewer sees:
 - the system's verdict, confidence and the reasons it was flagged;
 - each claim with its quote and the full passage it came from.
@@ -282,12 +293,41 @@ every item has an explicit decision and a reviewer is named. Decisions
 are append-only (`./reviews/`, gitignored) and logged to the audit log.
 The rules are enforced in `src/review/store.py`, not just on screen.
 
-## Not built yet
+## If a bank ran this: what it would add
 
-- **Monitoring dashboard (P9-02).** Audit logging (P9-01) is built and
-  tested offline, but not yet verified on a live run.
-- **Deployment and business framing:** Docker and deployment (P10); the
-  business impact model (P11).
+The review screen shows the right core loop for a regulated setting:
+- every case reaches a person;
+- each verdict comes with its quotes and the full regulation text;
+- an override needs a reason;
+- nothing resolves until every item is decided;
+- every decision is in an append-only log.
+
+It is still a reviewer workbench prototype. A bank's version would add the
+following, roughly in order of importance.
+
+| Gap today | What a bank needs |
+|---|---|
+| The reviewer name is free text | Single sign-on identity (e.g. Entra ID or Okta): the name comes from the login and cannot be typed |
+| One person decides and resolves | **Four-eyes (maker-checker):** a second reviewer approves every override and every resolution of a flagged case |
+| No roles | Role-based access: reviewer, approver, read-only auditor; and segregation of duties |
+| Override reasons are free text | Standard reason codes plus free text, so overrides can be counted and fed back to model monitoring |
+| A flat queue | Assignment, priority (escalations first), case age and SLA timers, and a backlog view |
+| A local append-only file | A tamper-evident store (write-once storage or a hash-chained database), retention set to the firm's record-keeping policy, and export for audits and the regulator |
+| Synthetic data | Real customer data: masking of personal data on screen, a log of who viewed which case, and data-protection controls |
+| Technical dashboard only | Management information: override rate per outcome (a model-quality signal), reviewer agreement, SLA breaches, and volume |
+| Model details only in the logs | Model risk governance: model, prompt and corpus version shown on every case and frozen for each release, with change control |
+| Runs on a laptop | Hosted inside the bank's network, not publicly reachable, with high availability and alerting |
+
+None of these change how the model works. They are the controls a bank
+puts around any decision tool.
+
+## Open items
+
+- **P8-04, prompt variants:** a scored comparison of two prompt versions
+  for price and value. It needs a small paid run.
+- **P10-02, public demo:** ready to deploy to Streamlit Community Cloud
+  (`src/requirements.txt` holds the light dependencies; set
+  `DEMO_MODE=1`). It needs the owner's account.
 
 ## On the architecture doc
 
@@ -305,7 +345,8 @@ Its "As built" section describes the system as the code runs it.
 
 Claude API (Anthropic SDK) · `instructor` + Pydantic (validated structured
 output) · LlamaIndex · ChromaDB · `BAAI/bge-small-en-v1.5` (local
-embeddings) · MCP (`mcp` 1.29.0, side path).
+embeddings) · MCP (`mcp` 1.29.0, the agentic loop's tools) · Streamlit
+(review screen and dashboard) · Docker.
 
 ## Setup
 

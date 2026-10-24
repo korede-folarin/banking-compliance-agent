@@ -43,6 +43,8 @@ AGENT_AUTO_APPROVAL_ENABLED = False
 # --- Human review (P7-01) ---
 # Append-only review decisions. Gitignored: they hold reviewer names. Relative to the repo root.
 REVIEW_DIR = Path(os.getenv("REVIEW_DIR", "reviews"))
+# Public hosted demo (P10-02): shows a banner that the data is synthetic and decisions are not kept.
+DEMO_MODE = os.getenv("DEMO_MODE", "0") == "1"
 if not REVIEW_DIR.is_absolute():
     REVIEW_DIR = PROJECT_ROOT / REVIEW_DIR
 

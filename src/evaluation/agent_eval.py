@@ -238,6 +238,7 @@ def cmd_run(args) -> None:
     elif getattr(args, "max_usd", None) is None:
         raise SystemExit("run makes API calls: pass --max-usd (a hard cap on this command's spend).")
     out = _output(args.output, args.set)
+    out.parent.mkdir(parents=True, exist_ok=True)  # before any paid call: a missing folder must not lose a result
     errors = out.with_name(f"{out.stem}_errors.jsonl")
     docs = _select(args)
     done = {(r["doc_id"], r["run_idx"]) for r in _read_jsonl(out)}
