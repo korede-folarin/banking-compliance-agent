@@ -6,6 +6,12 @@
       "runtimeExecutable": ".venv/Scripts/python.exe",
       "runtimeArgs": ["-m", "streamlit", "run", "src/app.py", "--server.headless", "true", "--server.port", "8510"],
       "port": 8510
+    },
+    {
+      "name": "review-app-8511",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "streamlit", "run", "src/app.py", "--server.headless", "true", "--server.port", "8511"],
+      "port": 8511
     }
   ]
 }

@@ -191,7 +191,62 @@ Monday committed as 8d9cdec.
 - **Limit:** the rules were written after seeing the held-out failures,
   so held-out is no longer held out for escalation.
 
-**Next:** commit; then Friday (dashboard, Docker) and Saturday (story) items. After that, Monday: tracker
+**Friday and Saturday items (2026-10-24):**
+- **P9-02 `passes: true`: monitoring dashboard.**
+  - `src/pages/1_Dashboard.py` and `src/monitoring/dashboard.py`.
+  - **It shows,** per day from the audit log: failure rate (commands and
+    agent documents), flagged rate (plus "beyond policy", logged from
+    today), median/p90 latency per document, and cost.
+  - **Checked in the browser** on the real log: 75 document runs, 4.0%
+    failed (the 3 invalid-key pilot runs on 14 Oct), median 67 s.
+  - **Path:** the caption shows a redacted path.
+  - **Tests:** `tests/test_dashboard.py` (2).
+- **P10-01, files written:** `Dockerfile` (review app and dashboard, CPU
+  torch, non-root, healthcheck, no key) and `.dockerignore`. The build and
+  run are left to the user, because they download ~1–2 GB. `passes` stays
+  false until the user has seen the app running from the container.
+- **P11-01 `passes: true`:** the README "Decisions and trade-offs" table
+  (11 rows, each with its evidence). The ARCHITECTURE table points to it.
+- **Diagrams:** `docs/architecture/system_flow.md` and
+  `escalation_gate.md` (Mermaid). Not rendered locally; they render on
+  GitHub.
+- **Waiting on the user:**
+  - Docker build/run;
+  - 3 numbers for P11-02 (review minutes per agreement, reviewer cost per
+    hour, agreements per month);
+  - the P8-04 decision (defer or run).
+
+- **Docker:** the user built the image (313 s) and the container started.
+  - The run command now binds `127.0.0.1:8510`. The first run published
+    the port on all interfaces, and Streamlit printed an external URL.
+  - `.streamlit/` is copied into the image.
+  - P10-01 waits on the user seeing the queue in the container.
+- **Restyle "Regulator green"** (user request, visual only):
+  - **Files:** `.streamlit/config.toml`, `src/ui.py`, and fonts self-hosted
+    in `src/static/` (Bricolage Grotesque and JetBrains Mono, from
+    jsDelivr @fontsource-variable 5.3.0, OFL licences included).
+    `ui.style()` is called on both pages, plus a verdict pill in each item.
+  - **Checked in the browser:**
+    - both custom fonts load from the app;
+    - 0 external requests;
+    - no theme warnings;
+    - the green sidebar, uppercase titles and the first green metric card;
+    - the two 404s on the Dashboard are Streamlit's own `/Dashboard/_stcore`
+      checks, retried at the root with 200.
+  - **Not as the spec claimed:** "Record decision" is not green; it would
+    need `type="primary"`.
+  - **Tests:** review and dashboard tests, 15 passed.
+- **P11-02 `passes: true`:** `docs/business_model.md`.
+  - Salaries come from a web search (FD Capital, Payscale).
+  - Review minutes, share saved and volume are stated assumptions, because
+    no benchmark was found.
+  - Net 1.3 / 8.7 / 20.7 minutes per agreement. The conservative case
+    shows no business case.
+- **launch.json:** added `review-app-8511` for previews while the Docker
+  container holds 8510.
+
+**Next:** commit (single-quoted message); the user confirms Docker;
+P8-04 decision; then P10-02 deployment, P11-03 final README. After that, Monday: tracker
 entries and audit logging in the 3 evaluation tools.
 
 ---

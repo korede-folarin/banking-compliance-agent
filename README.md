@@ -161,6 +161,71 @@ These rules prevent all 10 unnecessary calls and all 7 escalation errors
 seen in the live run. They were written after seeing those held-out
 failures, so they have not yet been tested on unseen documents.
 
+## Diagrams
+
+- `docs/architecture/system_flow.md`: how a document flows through the
+  code gate, the fixed workflow and the agentic loop, into review and the
+  audit log.
+- `docs/architecture/escalation_gate.md`: which escalation cases code
+  decides, and which the model decides.
+
+## Business case
+
+`docs/business_model.md` covers three scenarios. With auto-approval off,
+the value is **reviewer time saved per agreement**, net of time lost to
+false alarms.
+
+**The numbers:**
+- **Net saving:** 1.3, 8.7 or 20.7 minutes per agreement.
+- **Model cost:** about $0.11 per run.
+
+**Where the inputs come from:**
+- **Measured:** false alarms (8 in 45 baseline runs) and model cost.
+- **Sourced:** salaries.
+- **Assumed:** review time and the share of it saved, because no public
+  benchmark exists. The conservative case shows no business case. The
+  document ends with the pilot that would measure the real number.
+
+## Monitoring and Docker
+
+**Dashboard.** `streamlit run src/app.py`, then open **Dashboard** in the
+sidebar. It shows, per day, from the audit log:
+- the failure rate;
+- the flagged rate;
+- latency per document;
+- cost.
+
+**Docker.** The image serves the review app and dashboard, and needs no API
+key:
+
+```bash
+docker build -t compliance-review .
+```
+
+```bash
+docker run --rm -p 127.0.0.1:8510:8501 -v "${PWD}/reviews:/app/reviews" -v "${PWD}/logs:/app/logs" compliance-review
+```
+
+## Decisions and trade-offs
+
+Each row is a choice made during the build, what was rejected, and the
+evidence behind it. The decisions are recorded as they were made in
+`ARCHITECTURE.md`.
+
+| Decision | Chosen | Rejected | Why, and what the evidence showed |
+|---|---|---|---|
+| Grounding | RAG over the FCA texts | Fine-tuning | Every finding must cite text a reviewer can check, and regulation changes. 540 of 542 cited quotes were found in the passage they named. |
+| Who decides the steps | Fixed workflow for the verdicts; agentic loop only for escalation; code before both | One agent choosing everything | Live, the agent called every required tool, but was worse than the fixed workflow on one outcome (0.533 vs 0.907). The agent's 7 escalation errors and 10 wasted calls were all decidable by code, so code now decides them. |
+| Number of agents | One, plus a deterministic validation layer | A multi-agent swarm | No boundary needed separate agents. The checks that matter (quotes, citations, account facts) are plain code, which is cheaper and auditable. |
+| Tools | MCP server: regulation, accounts, policy | Plain function calls | Three separate data domains with different owners. The agent discovers them through `list_tools` and calls them over stdio. |
+| Confidence | Retrieval similarity, reported only | The model's own confidence; a 0.65 cut-off that replaces verdicts | Mean confidence of right and wrong verdicts differed by at most 0.0123. The cut-off acted as an on/off switch by category, so it no longer replaces any verdict. |
+| Skipping review | Auto-approval off: every case goes to a person | Auto-approve "easy" categories | Zero misses on at most 13 approvals still bounds the miss rate at 20.6% (95%). A 5% claim would need 59 approved documents. |
+| Ambiguous cases | `cannot_determine` is set by rule and always reviewed | Let the model decide | Live, in 6 of 7 such cases the model said "no escalation", which is the risky direction. |
+| Quote checking | Exact, normalised, fuzzy, or "..."-spliced with every part 3+ words and in order | Exact only; or parts in any order | Exact matching wrongly rejected 27 real quotes. Requiring order keeps the reviewer's reading intact. |
+| Spending | A hard `--max-usd` cap on every paid command | Trust the estimate | The full live evaluation ran under a $12 cap and cost about $9. |
+| Vector store | Chroma, local | A managed vector database | No infrastructure for a 558-chunk corpus. It would need revisiting at production scale. |
+| API key | A static key in `.env`, never committed | Cloud identity federation | Local development has no cloud identity to federate. A production deployment would use short-lived tokens. |
+
 ## What went wrong during the build, and what changed
 
 **A "successful" ingestion run was silently broken.** The first ingestion
@@ -191,7 +256,7 @@ retry. The details are in ARCHITECTURE.md.
 
 ## What this does and doesn't prove
 
-**The test suite has 289 tests.** 249 run offline. 40 are live tests that
+**The test suite has 291 tests.** 251 run offline. 40 are live tests that
 call the Claude API and are skipped without a key.
 
 The evaluation covers 15 synthetic loan agreements with planted, known

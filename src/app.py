@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import streamlit as st  # noqa: E402
 
-from src import config  # noqa: E402
+from src import config, ui  # noqa: E402
 from src.monitoring import audit  # noqa: E402
 from src.review.cases import DEFAULT_SOURCES, load_cases  # noqa: E402
 from src.review.store import DecisionStore, ReviewError  # noqa: E402
@@ -35,6 +35,7 @@ def sources(include_rehearsal: bool) -> dict:
 
 
 st.set_page_config(page_title="Compliance review", layout="wide")
+ui.style()
 if not audit.active():  # one audit run per app process; decisions are logged under it
     audit.start_run("review app")
 store = DecisionStore()
@@ -96,6 +97,7 @@ for item in case.items:
     if current:
         label += f"  ·  decided: {current['action']} → {current['reviewer_verdict']}"
     with st.expander(label, expanded=current is None and not is_resolved):
+        ui.verdict_badge(item.system_verdict)
         if item.confidence is not None:
             note = " (below the uncalibrated 0.65 reference)" if item.below_reference else ""
             st.write(f"Confidence: {item.confidence:.4f}{note}")

@@ -1119,7 +1119,17 @@ them chunks shaped like it. That run itself was not reproduced.
 | Vector store | Chroma (local) | Managed vector DB | Zero infra cost/setup for a portfolio-scale corpus; document if this wouldn't scale to production volume |
 | API authentication | Static API key in `.env` (gitignored) | Identity federation (short-lived tokens via AWS/GCP IAM, Azure, or GitHub Actions OIDC) | Local dev on a personal machine has no cloud/CI platform to federate identity through, so a static key is the correct approach at this stage. A real production deployment on AWS/GCP/Azure would eliminate the static key entirely: the cloud provider issues short-lived tokens automatically, nothing to store or rotate manually, and tokens expire in minutes even if exposed. Documented here as the production-hardening step this project intentionally does not implement, given its local-dev scope. |
 
-*(Add rows as new decisions are made during the build.)*
+**Update 2026-10-24:**
+- **The MCP row:** the agentic loop now calls the MCP server on its own
+  evaluated path. The baseline still calls the query engine directly.
+- **The full table:** the README "Decisions and trade-offs" section has the
+  complete, evidence-backed version, including:
+  - the fixed workflow plus an agentic step plus a code gate;
+  - confidence reported only;
+  - auto-approval off;
+  - `cannot_determine` by rule;
+  - splice rule B;
+  - the budget cap.
 
 ## Business sizing (fill in during Phase 11)
 - Estimated manual review time per document today

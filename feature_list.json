@@ -189,13 +189,15 @@
       "id": "P9-02",
       "phase": "Phase 9: Monitoring",
       "description": "Dashboard tab shows failure rate, flagged-rate, latency over time",
-      "passes": false
+      "passes": true,
+      "note": "2026-10-24: src/pages/1_Dashboard.py (Streamlit page in the review app) with src/monitoring/dashboard.py. From the real audit log: failure rate (commands and agent documents), flagged rate (plus flagged for a reason beyond 'auto-approval disabled', logged from 2026-10-24), median and p90 latency per document, and cost, per day. Checked in the browser against the log: 75 agent document runs, 4.0% failed (the 3 pilot runs that hit the invalid key on 14 Oct), 100% flagged by design, median 67 s. Rehearsal runs are excluded by default. Tests: tests/test_dashboard.py (2)."
     },
     {
       "id": "P10-01",
       "phase": "Phase 10: Deployment",
       "description": "App Dockerized",
-      "passes": false
+      "passes": false,
+      "note": "2026-10-24: Dockerfile (python:3.11-slim, CPU-only torch, non-root, healthcheck; serves the review app and dashboard, no API key needed) and .dockerignore (never .env). passes stays false until the image is built and the app is seen running from the container."
     },
     {
       "id": "P10-02",
@@ -207,13 +209,15 @@
       "id": "P11-01",
       "phase": "Phase 11: Business & judgement layer",
       "description": "Decision trade-off section written in README (RAG vs fine-tune, MCP vs function calling, single vs multi-agent)",
-      "passes": false
+      "passes": true,
+      "note": "2026-10-24: README 'Decisions and trade-offs': 11 decisions (RAG vs fine-tuning, workflow vs agent vs code gate, single agent vs swarm, MCP vs function calls, confidence, auto-approval, cannot_determine by rule, quote matching, spend cap, vector store, API key), each with what was rejected and the measured evidence. Diagrams: docs/architecture/system_flow.md and escalation_gate.md (Mermaid)."
     },
     {
       "id": "P11-02",
       "phase": "Phase 11: Business & judgement layer",
       "description": "Business impact model: time saved, false escalation cost, adoption scenarios",
-      "passes": false
+      "passes": true,
+      "note": "2026-10-24: docs/business_model.md. Three scenarios: time saved, false-alarm cost, model cost. Measured inputs: false alarms per agreement (baseline 8/45) and AI cost per run ($0.107, live). Sourced: UK compliance analyst salaries. Assumed and stated: review minutes, share of time saved, monthly volume (no public benchmark found). Net: 1.3 / 8.7 / 20.7 minutes per agreement. The conservative case has no business case. Also includes a pilot plan to replace the assumptions."
     },
     {
       "id": "P11-03",

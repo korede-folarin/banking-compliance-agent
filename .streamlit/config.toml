@@ -1,0 +1,74 @@
+# Banking Compliance Agent: "Regulator green" theme.
+# Fonts are self-hosted from src/static/ (next to the main script), so no font request leaves the app.
+
+[server]
+enableStaticServing = true
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"
+backgroundColor = "#ecebe2"            # bone paper
+secondaryBackgroundColor = "#f7f6f0"   # cards, inputs, expanders
+textColor = "#0e0e0c"                  # ink
+primaryColor = "#1e4a3b"               # regulator green: buttons, focus, selection
+linkColor = "#1e4a3b"
+borderColor = "#0e0e0c"
+showWidgetBorder = true
+baseRadius = "14px"
+buttonRadius = "full"
+font = "Bricolage Grotesque"
+headingFont = "Bricolage Grotesque"
+codeFont = "JetBrains Mono"
+headingFontWeights = [800, 800, 700, 700, 700, 700]
+headingFontSizes = ["4.2rem", "1.7rem", "1.3rem", "1.1rem", "1rem", "0.9rem"]
+metricValueFontSize = "2.4rem"
+metricValueFontWeight = 800
+codeBackgroundColor = "#e6e4d8"
+dataframeHeaderBackgroundColor = "#e4e2d6"
+dataframeBorderColor = "#cfcbbd"
+chartCategoricalColors = ["#1e4a3b", "#ff4f12", "#8a8f7e", "#0e0e0c"]
+showSidebarBorder = false
+
+# Status colours, used by st.badge, st.success, st.info, st.warning and st.error.
+greenColor = "#1e4a3b"
+greenBackgroundColor = "#d3e2da"
+greenTextColor = "#1e4a3b"
+orangeColor = "#ff4f12"
+orangeBackgroundColor = "#ff4f12"
+orangeTextColor = "#0e0e0c"
+grayColor = "#5a5c52"
+grayBackgroundColor = "#e4e2d6"
+grayTextColor = "#0e0e0c"
+blueColor = "#1e4a3b"
+blueBackgroundColor = "#e4e2d6"
+blueTextColor = "#0e0e0c"
+yellowColor = "#ff4f12"
+yellowBackgroundColor = "#ffe1d5"
+yellowTextColor = "#0e0e0c"
+redColor = "#a3261e"
+redBackgroundColor = "#f6d9d5"
+redTextColor = "#7a1c16"
+
+[theme.sidebar]
+backgroundColor = "#1e4a3b"
+secondaryBackgroundColor = "#2a5a49"
+textColor = "#f1ece2"
+primaryColor = "#f1ece2"
+borderColor = "#6f9484"
+
+[[theme.fontFaces]]
+family = "Bricolage Grotesque"
+url = "app/static/bricolage-grotesque-latin-wght-normal.woff2"
+style = "normal"
+weight = "200 800"
+
+[[theme.fontFaces]]
+family = "JetBrains Mono"
+url = "app/static/jetbrains-mono-latin-wght-normal.woff2"
+style = "normal"
+weight = "100 800"
