@@ -25,6 +25,28 @@ Newest entry at the top.
   the real-log guard, because the rebuild wrote a genuine entry. On re-run
   everything passes. Don't run the suite while a logged command runs.
 
+- **The user deployed the demo:** https://banking-compliance-agent.streamlit.app.
+  Its dashboard was empty, because `logs/` is gitignored, and too
+  technical for compliance staff.
+- **Dashboard rebuilt as two tabs:**
+  - **Compliance overview** (`src/monitoring/overview.py`), in plain
+    language, from the committed results, the labels and the decisions:
+    - agreements reviewed, with a possible breach, and needing a person;
+    - findings per Consumer Duty outcome (Altair, full labels);
+    - reliability: caught, missed and false alarms;
+    - vulnerable customers to escalate;
+    - reviewer activity;
+    - a system switch (agent or fixed workflow).
+  - **System health:** the technical view. It falls back to
+    `docs/monitoring_snapshot.json`, a summary of the real log with no
+    paths, settings, prompts or names, when no log exists.
+  - The metric labels wrap instead of being cut off.
+  - **Checked in the browser:** the numbers match the reports:
+    - **agent:** 6 missed, 17 false alarms, escalation 65/72;
+    - **baseline:** 36/36 caught, 8 false alarms, and the user's 5
+      resolved cases.
+  - **Tests:** `tests/test_dashboard.py` (4).
+
 **Spend:** ~$9.08 in total (credit left ~$4.38).
 
 **Open:**

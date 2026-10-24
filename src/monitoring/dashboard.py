@@ -77,6 +77,31 @@ def load(log_dir: Path | None = None) -> tuple[list[dict], list[dict]]:
     return commands, docs
 
 
+SNAPSHOT = config.PROJECT_ROOT / "docs" / "monitoring_snapshot.json"
+
+
+def write_snapshot(path: Path = SNAPSHOT, log_dir: Path | None = None) -> Path:
+    """
+    A committed summary of the audit log for the hosted demo, where logs/ (gitignored) does not exist.
+    Holds only what the page shows: per-run status, duration and cost, and per-document latency and
+    flags. No settings, paths, prompts or reviewer names.
+    """
+    commands, docs = load(log_dir)
+    taken = max((c["started"] for c in commands), default=None)
+    path.write_text(json.dumps({"taken_at": taken, "commands": commands, "docs": docs}, indent=1) + "\n",
+                    encoding="utf-8")
+    return path
+
+
+def load_or_snapshot(log_dir: Path | None = None) -> tuple[list[dict], list[dict], str | None]:
+    """The live audit log if it has runs; otherwise the committed snapshot. Third value: snapshot time or None."""
+    commands, docs = load(log_dir)
+    if commands or not SNAPSHOT.exists():
+        return commands, docs, None
+    snap = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+    return snap["commands"], snap["docs"], snap["taken_at"]
+
+
 def _rate(n: int, d: int) -> float | None:
     return round(n / d, 4) if d else None
 

@@ -200,11 +200,25 @@ false alarms.
 ## Monitoring and Docker
 
 **Dashboard.** `streamlit run src/app.py`, then open **Dashboard** in the
-sidebar. It shows, per day, from the audit log:
-- the failure rate;
-- the flagged rate;
-- latency per document;
-- cost.
+sidebar. It has two tabs, for two audiences.
+
+**Compliance overview,** in plain language:
+- how many agreements were reviewed;
+- how many have a possible breach, and how many a person must look at
+  closely;
+- what was found under each Consumer Duty outcome;
+- how reliable the system was on the test agreements: real problems
+  caught, missed and false alarms;
+- vulnerable customers to escalate;
+- what reviewers decided.
+
+It can switch between the AI agent and the fixed workflow, and is built
+from the saved results, so it also works in the hosted demo.
+
+**System health,** for the technical team: failure rate, flagged rate,
+latency and cost per day, from the audit log. Where no log exists, it
+reads a committed summary of it (`docs/monitoring_snapshot.json`, refreshed
+with `dashboard.write_snapshot()`).
 
 **Docker.** The image serves the review app and dashboard, and needs no API
 key:
@@ -267,7 +281,7 @@ retry. The details are in ARCHITECTURE.md.
 
 ## What this does and doesn't prove
 
-**The test suite has 292 tests.** 252 run offline. 40 are live tests that
+**The test suite has 294 tests.** 254 run offline. 40 are live tests that
 call the Claude API and are skipped without a key.
 
 The evaluation covers 15 synthetic loan agreements with planted, known

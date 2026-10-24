@@ -22,6 +22,9 @@ h2, h3 { letter-spacing: -0.03em !important; }
 [data-testid="stWidgetLabel"] p { font-family: "JetBrains Mono", monospace; font-size: 0.74rem;
   letter-spacing: 0.05em; text-transform: uppercase; }
 [data-testid="stCaptionContainer"] p { text-transform: none; letter-spacing: 0.01em; font-size: 0.82rem; }
+/* Metric labels wrap instead of being cut off with an ellipsis */
+[data-testid="stMetricLabel"], [data-testid="stMetricLabel"] * { white-space: normal !important; overflow: visible !important;
+  text-overflow: clip !important; }
 
 /* Metrics as bordered cards; the first one is the solid green highlight */
 [data-testid="stMetric"] { background: #f7f6f0; border: 1.5px solid #0e0e0c; border-radius: 16px; padding: 14px 16px 12px; }

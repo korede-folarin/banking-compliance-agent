@@ -54,7 +54,31 @@ def test_page_renders_offline(tmp_path, monkeypatch):
 
     _log(tmp_path)
     monkeypatch.setattr(config, "LOG_DIR", tmp_path)
+    monkeypatch.setattr(config, "REVIEW_DIR", tmp_path / "reviews")
     at = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "src" / "pages" / "1_Dashboard.py"))
     at.run(timeout=60)
     assert not at.exception
-    assert [m.value for m in at.metric][:2] == ["3", "33.3%"]
+    assert [t.label for t in at.tabs] == ["Compliance overview", "System health"]
+    values = {m.label: m.value for m in at.metric}
+    assert values["Agent document runs"] == "3" and values["Document failure rate"] == "33.3%"
+    assert values["Loan agreements reviewed"] == "34"  # the AI agent's results in docs/: 19 + 15 agreements
+
+
+def test_snapshot_is_used_when_there_is_no_log(tmp_path, monkeypatch):
+    _log(tmp_path / "real")
+    snap = tmp_path / "snapshot.json"
+    monkeypatch.setattr(dashboard, "SNAPSHOT", snap)
+    dashboard.write_snapshot(snap, tmp_path / "real")
+    commands, docs, taken = dashboard.load_or_snapshot(tmp_path / "empty")
+    assert len(commands) == 3 and len(docs) == 4 and taken == "2026-10-24T12:00:00Z"
+    assert dashboard.load_or_snapshot(tmp_path / "real")[2] is None  # a live log wins
+
+
+def test_overview_matches_the_published_results():
+    from src.monitoring import overview
+
+    agent = overview.summary("AI agent (chooses its own tools)")
+    assert (agent["agreements"], agent["missed"], agent["false_alarms"]) == (34, 6, 17)
+    assert agent["escalation_right"] == (65, 72)
+    base = overview.summary("Fixed workflow (baseline)")
+    assert (base["caught"], base["real_problems"], base["missed"], base["false_alarms"]) == (36, 36, 0, 8)
